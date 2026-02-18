@@ -1,0 +1,16 @@
+pandas
+numpy
+matplotlib
+seaborn
+scikit-learn
+jupyterlab
+torch
+torchmetrics
+wandb
+segmentation_models_pytorch
+scipy
+albumentations 
+opencv-python
+torchvision
+cv2
+pydantic_settings
