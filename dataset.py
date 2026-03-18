@@ -10,8 +10,6 @@ from augmentations import get_train_transforms, get_val_transforms
 
 
 class GeologyTrapsDataset(Dataset):
-    """PyTorch Dataset для сегментации структурных ловушек."""
-    
     def __init__(
         self,
         file_list: List[str],
@@ -31,9 +29,9 @@ class GeologyTrapsDataset(Dataset):
         
         # Группируем файлы по семплам
         self.samples = self._parse_files(file_list)
-        print(f"✓ Dataset initialized with {len(self.samples)} samples")
-        print(f"✓ Augmentations: {'ON' if augment else 'OFF'}")
-        print(f"✓ Target size: {self.target_h}×{self.target_w}")
+        print(f"Dataset initialized with {len(self.samples)} samples")
+        print(f"Augmentations: {'ON' if augment else 'OFF'}")
+        print(f"Target size: {self.target_h}×{self.target_w}")
     
     def _parse_files(self, file_list: List[str]) -> List[Dict[str, str]]:
         """Группирует файлы по семплам."""
@@ -42,7 +40,9 @@ class GeologyTrapsDataset(Dataset):
             parts = f.split('_')
             if len(parts) < 4:
                 continue
-            key = f"{parts[0]}_{parts[-1].replace('.png', '')}"
+            number = parts[0]
+            name = "-".join(parts[3:]).replace('.png', '').replace('.irap', '').replace(' ', '-')
+            key = f"{number}_{name}"
             subtype = parts[2]
             if key not in samples:
                 samples[key] = {}
@@ -111,7 +111,7 @@ class GeologyTrapsDataset(Dataset):
         mask_depth = augmented['mask_depth'] # (H, W)
         mask_map = augmented['mask_map']     # (H, W)
         
-        # 🔧 ДОБАВЛЯЕМ КАНАЛ для масок если нужно
+        # ДОБАВЛЯЕМ КАНАЛ для масок если нужно
         if x_depth.dim() == 2:
             x_depth = x_depth.unsqueeze(0)   # (H, W) → (1, H, W)
         if x_faults.dim() == 2:

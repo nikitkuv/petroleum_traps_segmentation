@@ -8,3 +8,6 @@ venv/
 data/
 logs/
 load_process_visualize_no_dataset.py
+prompts/
+test.py
+move_to_images_folder.py

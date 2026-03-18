@@ -10,12 +10,9 @@ if __name__ == "__main__":
     settings.create_dirs()
     
     file_list = [
-        '001_x_faults_H150.png', '001_x_structuralBlackWhite_H150.png',
-        '001_x_structuralNOisoline_H150.png', '001_y_traps_H150.png',
-        '002_x_faults_H150.png', '002_x_structuralBlackWhite_H150.png',
-        '002_x_structuralNOisoline_H150.png', '002_y_traps_H150.png',
-        '003_x_faults_H150.png', '003_x_structuralBlackWhite_H150.png',
-        '003_x_structuralNOisoline_H150.png', '003_y_traps_H150.png'
+        '001_x_faults_H150.png', '001_x_structuralBlackWhite_H150.png', '001_x_structuralNOisoline_H150.png', '001_y_traps_H150.png',
+        '002_x_faults_H150.png', '002_x_structuralBlackWhite_H150.png', '002_x_structuralNOisoline_H150.png', '002_y_traps_H150.png',
+        '003_x_faults_H150.png', '003_x_structuralBlackWhite_H150.png', '003_x_structuralNOisoline_H150.png', '003_y_traps_H150.png'
     ]
     
     print("="*60)
