@@ -11,14 +11,6 @@ def visualize_dataset_sample(
     idx: int = 0,
     save_path: Optional[str] = None
 ):
-    """
-    Визуализирует один семпл из Dataset: оригинал vs обработанный.
-    
-    Args:
-        dataset: GeologyTrapsDataset объект
-        idx: индекс семпла для визуализации
-        save_path: путь для сохранения изображения (опционально)
-    """
     # Получаем данные из dataset
     sample_data = dataset[idx]
     
@@ -28,17 +20,27 @@ def visualize_dataset_sample(
     # Загружаем оригиналы (до обработки)
     orig_rgb = load_image(sample_paths['rgb'])
     orig_depth = load_grayscale_image(sample_paths['depth_norm'])
-    orig_faults = load_grayscale_image(sample_paths['faults'])
     orig_traps = load_grayscale_image(sample_paths['traps'])
+    orig_faults = load_grayscale_image(sample_paths['faults']) if 'faults' in sample_paths else np.zeros_like(orig_depth)
     
     # Извлекаем тензоры из dataset и конвертируем в numpy
     x_rgb = sample_data['x'][:3].permute(1, 2, 0).numpy()      # (H, W, 3)
     x_depth = sample_data['x'][3].numpy()                       # (H, W)
-    x_faults = sample_data['x'][4].numpy()                      # (H, W)
+    
+    # Faults канал только если use_faults=True
+    if sample_data['use_faults']:
+        x_faults = sample_data['x'][4].numpy()                  # (H, W)
+    else:
+        x_faults = np.zeros_like(x_depth)
+    
     y_traps = sample_data['y'][0].numpy()                       # (H, W)
-    mask_depth = sample_data['mask_depth'][0].numpy()           # (H, W)
     mask_map = sample_data['mask_map'][0].numpy()               # (H, W)
     
+    # mask_depth только если use_faults=True
+    if sample_data['mask_depth'] is not None:
+        mask_depth = sample_data['mask_depth'][0].numpy()
+    else:
+        mask_depth = np.zeros_like(x_depth)
 
     fig = plt.figure(figsize=(20, 16))
     
@@ -66,7 +68,6 @@ def visualize_dataset_sample(
     ax4.set_title('Processed Depth (from Dataset)\nBlack=High, White=Low', fontsize=10, pad=15)
     ax4.axis('off')
     
-    # ===== ROW 2: Faults и Traps =====
     # 5. Original Faults
     ax5 = fig.add_subplot(3, 4, 5)
     ax5.imshow(orig_faults, cmap='gray')
@@ -91,7 +92,6 @@ def visualize_dataset_sample(
     ax8.set_title('Target Y (from Dataset)\n1=Traps (White)', fontsize=10, pad=15)
     ax8.axis('off')
     
-    # ===== ROW 3: Masks и Инфо =====
     # 9. Map Mask
     ax9 = fig.add_subplot(3, 4, 9)
     ax9.imshow(mask_map, cmap='gray')
@@ -111,7 +111,10 @@ def visualize_dataset_sample(
     fault_overlay = (x_faults > 0.5).astype(np.float32)
     composite[:, :, 0] = np.maximum(composite[:, :, 0], fault_overlay * 0.7)  # Красный канал для разломов
     ax11.imshow(composite)
-    ax11.set_title(f'Input Overview (5 channels)\nRGB + Depth + Faults', fontsize=10, pad=15)
+    
+    # 🔧 Исправление: динамический заголовок без ...
+    n_channels = 5 if sample_data['use_faults'] else 4
+    ax11.set_title(f'Input Overview ({n_channels} channels)\nRGB + Depth' + (' + Faults' if sample_data['use_faults'] else ''), fontsize=10, pad=15)
     ax11.axis('off')
     
     # 12. Statistics Info Box
@@ -148,7 +151,10 @@ def visualize_dataset_sample(
     print(f"\nTensor Shapes:")
     print(f"  Input (x):      {sample_data['x'].shape}")
     print(f"  Target (y):     {sample_data['y'].shape}")
-    print(f"  Mask Depth:     {sample_data['mask_depth'].shape}")
+    if sample_data['mask_depth'] is not None:
+        print(f"  Mask Depth:     {sample_data['mask_depth'].shape}")
+    else:
+        print(f"  Mask Depth:     None (not used)")
     print(f"  Mask Map:       {sample_data['mask_map'].shape}")
     print(f"\nPixel Statistics:")
     print(f"  Map Valid:      {mask_map.sum():.0f} px ({mask_map.mean()*100:.1f}%)")
