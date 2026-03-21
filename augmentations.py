@@ -1,16 +1,18 @@
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
+
 from settings import settings
 
 
 def get_train_transforms():
-    """Аугментации для обучения."""
+    
     p = settings.AUGMENT_PROB
     
     return A.Compose([
         # Геометрические трансформации
         A.HorizontalFlip(p=p),
         A.VerticalFlip(p=p),
+        A.RandomRotate90(p=p),
         
         # Цветовые трансформации (только для RGB)
         A.OneOf([
@@ -27,6 +29,7 @@ def get_train_transforms():
         # Конвертация в тензор
         ToTensorV2(),
     ], additional_targets={
+        'image': 'image',
         'depth': 'image',
         'faults': 'mask',
         'traps': 'mask',
@@ -40,6 +43,7 @@ def get_val_transforms():
     return A.Compose([
         ToTensorV2(),
     ], additional_targets={
+        'image': 'image',
         'depth': 'image',
         'faults': 'mask',
         'traps': 'mask',
