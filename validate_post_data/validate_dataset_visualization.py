@@ -1,7 +1,14 @@
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).parent.parent))
+
+from torch.utils.data import DataLoader
 import numpy as np
 import matplotlib.pyplot as plt
 from typing import Optional
 
+from settings import settings
 from dataset import GeologyTrapsDataset
 from utils import load_grayscale_image, load_image
 
@@ -167,3 +174,73 @@ def visualize_dataset_sample(
     print(f"  Faults:         [{x_faults.min():.3f}, {x_faults.max():.3f}]")
     print(f"  Traps (Y):      [{y_traps.min():.3f}, {y_traps.max():.3f}]")
     print("="*60)
+
+
+if __name__ == "__main__":
+    settings.create_dirs()
+    
+    print("=" * 70)
+    print("🧪 GEOLOGY TRAPS DATASET TEST")
+    print("=" * 70)
+    print(f"DATA_SOURCE:  {settings.DATA_SOURCE}")
+    print(f"USE_FAULTS:   {settings.USE_FAULTS}")
+    print(f"IN_CHANNELS:  {settings.in_channels}")
+    print("=" * 70)
+    
+    # 🔑 Список файлов в зависимости от источника
+    if settings.DATA_SOURCE == 'cps':
+        # CPS: без расширения
+        file_list = ['001_x_structuralNOisoline_H76', '001_y_traps_H76']
+        if settings.USE_FAULTS:
+            file_list.extend(['001_x_faults_H76'])
+        data_dir = settings.CPS_DIR
+    else:
+        # PNG: с расширением
+        file_list = [
+            '001_x_structuralNOisoline_H150.png', '001_x_structuralBlackWhite_H150.png', 
+            '001_x_faults_H150.png', '001_y_traps_H150.png',
+            '002_x_structuralNOisoline_H150.png', '002_x_structuralBlackWhite_H150.png', 
+            '002_x_faults_H150.png', '002_y_traps_H150.png',
+            '003_x_structuralNOisoline_H150.png', '003_x_structuralBlackWhite_H150.png', 
+            '003_x_faults_H150.png', '003_y_traps_H150.png'
+        ]
+        data_dir = settings.DATA_DIR
+    
+    print(f"\n📁 Data directory: {data_dir}")
+    print(f"📄 Files to load: {len(file_list)}")
+    print()
+    
+    train_dataset = GeologyTrapsDataset(
+        file_list, 
+        data_dir=data_dir if settings.DATA_SOURCE == 'png' else None,
+        cps_dir=data_dir if settings.DATA_SOURCE == 'cps' else None,
+        augment=False
+    )
+    
+    if len(train_dataset) > 0:
+        # Визуализация
+        visualize_dataset_sample(train_dataset, idx=0, 
+                                save_path=str(settings.logs_path / f'viz_test_{settings.DATA_SOURCE}.png'))
+        
+        # Проверка DataLoader
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=settings.BATCH_SIZE,
+            shuffle=True,
+            num_workers=settings.NUM_WORKERS,
+            pin_memory=True
+        )
+        
+        batch = next(iter(train_loader))
+        print(f"\n✅ Batch Input Shape:  {batch['x'].shape}")
+        print(f"✅ Batch Target Shape: {batch['y'].shape}")
+        print(f"✅ Actual channels: {batch['x'].shape[1]}")
+        
+        expected_channels = 5 if settings.USE_FAULTS else 4
+        
+        if batch['x'].shape[1] == expected_channels:
+            print(f"\n✅ TEST PASSED! Ready for training! ({expected_channels} channels)")
+        else:
+            print(f"\n❌ TEST FAILED! Expected {expected_channels} channels, got {batch['x'].shape[1]}")
+    else:
+        print("\n❌ No samples loaded! Check file paths and naming.")
