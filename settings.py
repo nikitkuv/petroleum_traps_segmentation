@@ -1,11 +1,19 @@
 from pydantic_settings import BaseSettings
 from pathlib import Path
+from typing import Literal
 
 
 class Settings(BaseSettings):
+
+    # Источник данных
+    DATA_SOURCE: Literal['png', 'cps'] = 'png'
+
+    # Работаем с разломами или нет
+    USE_FAULTS: bool = False
     
     # Пути
     DATA_DIR: str = './data/images/'
+    CPS_DIR: str = './data/cps/'
     CHECKPOINT_DIR: str = './checkpoints/'
     LOGS_DIR: str = './logs/'
 
@@ -19,8 +27,9 @@ class Settings(BaseSettings):
     # Аугментации
     AUGMENT_PROB: float = 0.5
 
-    # Работаем с разломами или нет
-    USE_FAULTS: bool = False
+    # CPS настройки
+    CPS_NULL_VALUE: float = -99999.0  
+    CPS_VERTICAL_FLIP: bool = True    
     
     # Обучение
     BATCH_SIZE: int = 4
@@ -38,6 +47,10 @@ class Settings(BaseSettings):
     @property
     def data_path(self) -> Path:
         return Path(self.DATA_DIR)
+
+    @property
+    def cps_path(self) -> Path:
+        return Path(self.CPS_DIR)
     
     @property
     def checkpoint_path(self) -> Path:
@@ -46,6 +59,14 @@ class Settings(BaseSettings):
     @property
     def logs_path(self) -> Path:
         return Path(self.LOGS_DIR)
+
+    @property
+    def is_cps(self) -> bool:
+        return self.DATA_SOURCE.lower() == 'cps'
+    
+    @property
+    def in_channels(self) -> int:
+        return 5 if self.USE_FAULTS else 4
     
     def create_dirs(self):
         self.checkpoint_path.mkdir(parents=True, exist_ok=True)

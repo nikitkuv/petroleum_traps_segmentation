@@ -1,6 +1,10 @@
 import cv2
 import numpy as np
 from pathlib import Path
+import sys
+
+sys.path.append(str(Path(__file__).parent.parent))
+
 from settings import settings
 
 
@@ -45,5 +49,5 @@ def process_dataset(data_dir: str):
     print(f"Completed! Created {created_count} empty fault masks")
 
 
-# if __name__ == "__main__":
-#     process_dataset(str(settings.data_path))
+if __name__ == "__main__":
+    process_dataset(str(settings.data_path))
