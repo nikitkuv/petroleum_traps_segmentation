@@ -5,14 +5,14 @@ from torch.utils.data import Dataset
 from typing import List, Dict
 
 from settings import settings
-from utils.utils_images import (
+from utils.images_utils import (
     load_image, 
     load_grayscale_image, 
     create_binary_mask, 
     create_map_mask, 
     pad_image
 )
-from utils.utils_cps import (
+from utils.cps_utils import (
     read_cps_grid, 
     cps_to_rgb, 
     cps_to_grayscale, 
