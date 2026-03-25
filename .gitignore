@@ -9,4 +9,4 @@ data/
 logs/
 load_process_visualize_no_dataset.py
 prompts/
-test.py
+test_something.py
