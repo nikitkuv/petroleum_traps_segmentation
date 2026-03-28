@@ -168,9 +168,22 @@ def split_data_by_groups(
     # Сначала группируем файлы по семплам (number + name)
     samples = collect_samples(file_list)
     
+    if len(samples) == 0:
+        raise ValueError(
+            "No valid samples found! Files do not match the expected format:\n"
+            "  {number}_{x|y}_{type}_{name}.png\n"
+            "Examples:\n"
+            "  001_x_structuralNOisoline_H150.png\n"
+            "  001_y_traps_H150.png\n"
+            "  001_x_structuralBlackWhite_H150.png\n"
+            f"\nChecked {len(file_list)} files."
+        )
+
     # Затем группируем семплы по месторождениям (name)
     groups = {}  # name -> list of sample_keys
     for key, files in samples.items():
+        if not files:
+            continue
         first_file = list(files.values())[0]
         parsed = parse_filename(first_file)
         if not parsed:
