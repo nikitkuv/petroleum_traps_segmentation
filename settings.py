@@ -1,6 +1,7 @@
 from pydantic_settings import BaseSettings
 from pathlib import Path
 from typing import Literal
+import torch
 
 
 class Settings(BaseSettings):
@@ -38,7 +39,7 @@ class Settings(BaseSettings):
     NUM_EPOCHS: int = 100
     
     # Устройство
-    DEVICE: str = 'cuda'
+    DEVICE: str = 'cuda' if torch.cuda.is_available() else 'cpu'
     
     class Config:
         env_file = '.env'
