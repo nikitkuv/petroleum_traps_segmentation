@@ -86,8 +86,7 @@ def run_full_pipeline(
         file_list=all_files,
         train_ratio=0.7,
         val_ratio=0.15,
-        test_ratio=0.15,
-        data_source=data_source
+        test_ratio=0.15
     )
     
     # ========== 3. СОЗДАНИЕ DATALOADERS ==========
@@ -98,8 +97,7 @@ def run_full_pipeline(
         test_files=test_files,
         data_dir=data_dir,
         batch_size=batch_size,
-        use_faults=use_faults,
-        data_source=data_source
+        use_faults=use_faults
     )
     
     # Если режим overfit check - берем только 1-2 карты из train
