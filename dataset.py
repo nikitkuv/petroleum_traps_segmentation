@@ -65,37 +65,65 @@ class GeologyTrapsDataset(Dataset):
             print(f"Required files per sample: 4 (rgb, depth_norm, [faults], traps)")
     
     def _parse_files(self, file_list: List[str]) -> List[Dict[str, str]]:
-        """Группирует файлы по семплам."""
+        """
+        Группирует файлы по семплам.
+        
+        Формат названий: {number}_{x|y}_{type}_{name}.png
+        Примеры:
+            - 001_x_structuralNOisoline_H150.png → rgb
+            - 001_x_structuralBlackWhite_H150.png → depth_norm
+            - 001_x_faults_H150.png → faults
+            - 001_y_traps_H150.png → traps
+        
+        Группировка производится по комбинации {number}_{name}, где:
+        - number: номер карты (например, 001, 002)
+        - name: название месторождения (например, H150, BZ24)
+        
+        Все файлы с одинаковыми number и name объединяются в один семпл.
+        Разные number для одного месторождения (001_H150, 002_H150) 
+        будут РАЗНЫМИ семплами.
+        """
+        import re
+        from pathlib import Path
+        
         samples = {}
+        
+        # Паттерн для парсинга: {number}_{x|y}_{type}_{name}
+        pattern = r'^(\d+)_(x|y)_([^_]+)_(.+)$'
         
         for f in file_list:
             if self.data_source == 'cps':
-                # CPS: убираем расширение
                 f_clean = f.replace('.cps', '').replace('.grd', '')
             else:
-                # PNG: оставляем как есть
-                f_clean = f
+                f_clean = Path(f).stem  # убираем расширение .png
             
-            parts = f_clean.split('_')
-            if len(parts) < 4:
-                continue
+            match = re.match(pattern, f_clean)
             
-            number = parts[0]
-            name = "-".join(parts[3:]).replace('.png', '').replace('.irap', '').replace(' ', '-')
-            key = f"{number}_{name}"
-            subtype = parts[2]
-            
-            if key not in samples:
-                samples[key] = {}
-            
-            if 'faults' in subtype:
-                samples[key]['faults'] = f_clean
-            elif 'structuralBlackWhite' in subtype:
-                samples[key]['depth_norm'] = f_clean
-            elif 'structuralNOisoline' in subtype:
-                samples[key]['rgb'] = f_clean  # structuralNOisoline → rgb + depth_norm
-            elif 'traps' in subtype:
-                samples[key]['traps'] = f_clean
+            if match:
+                number = match.group(1)
+                role = match.group(2)  # 'x' или 'y'
+                file_type = match.group(3)
+                name = match.group(4)
+                
+                # Ключ для группировки: number + name
+                key = f"{number}_{name}"
+                
+                if key not in samples:
+                    samples[key] = {}
+                
+                # Определяем тип файла по role и type
+                if role == 'x':
+                    if file_type == 'structuralNOisoline':
+                        samples[key]['rgb'] = f
+                    elif file_type == 'structuralBlackWhite':
+                        samples[key]['depth_norm'] = f
+                    elif file_type == 'faults':
+                        samples[key]['faults'] = f
+                elif role == 'y':
+                    if file_type == 'traps':
+                        samples[key]['traps'] = f
+            else:
+                print(f"Warning: Skipping file with unexpected format: {f}")
         
         result = []
         for key, paths in samples.items():
@@ -108,7 +136,7 @@ class GeologyTrapsDataset(Dataset):
                 if all(k in paths for k in required_keys):
                     clean_paths = {
                         k: os.path.join(self.cps_dir, v) for k, v in paths.items() 
-                        if k in required_keys or k == 'depth_norm'  # depth_norm игнорируем
+                        if k in required_keys or k == 'depth_norm'
                     }
                     result.append(clean_paths)
             else:
