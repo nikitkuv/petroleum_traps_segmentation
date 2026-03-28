@@ -21,6 +21,46 @@ from dataset import GeologyTrapsDataset
 from settings import settings
 
 
+def get_file_list(data_dir: str, data_source: str = 'png') -> List[str]:
+    """
+    Получает список всех файлов данных из указанной директории.
+    
+    Args:
+        data_dir: Путь к директории с данными
+        data_source: Источник данных ('png' или 'cps')
+    
+    Returns:
+        Список путей к файлам
+    """
+    if data_source == 'png':
+        # Ищем все PNG файлы в директории и поддиректориях
+        png_files = []
+        for root, dirs, files in os.walk(data_dir):
+            for file in files:
+                if file.endswith('.png'):
+                    # Проверяем, что файл соответствует формату
+                    parsed = parse_filename(file)
+                    if parsed:
+                        png_files.append(os.path.join(root, file))
+        
+        print(f"Found {len(png_files)} PNG files matching format {{number}}_{{x|y}}_{{type}}_{{name}}.png")
+        return png_files
+    
+    elif data_source == 'cps':
+        # Для CPS данных (если понадобится в будущем)
+        cps_files = []
+        for root, dirs, files in os.walk(data_dir):
+            for file in files:
+                if file.endswith('.cps'):
+                    cps_files.append(os.path.join(root, file))
+        
+        print(f"Found {len(cps_files)} CPS files")
+        return cps_files
+    
+    else:
+        raise ValueError(f"Unknown data_source: {data_source}")
+
+
 def parse_filename(filename: str) -> Optional[Dict[str, str]]:
     """
     Парсит имя файла формата: {number}_{x|y}_{type}_{name}.png
