@@ -10,7 +10,7 @@ from typing import Optional
 
 from settings import settings
 from dataset import GeologyTrapsDataset
-from utils import load_grayscale_image, load_image
+from utils.images_utils import load_grayscale_image, load_image
 
 
 def visualize_dataset_sample(
