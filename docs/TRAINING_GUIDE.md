@@ -4,54 +4,45 @@
 
 Полный пайплайн для fine-tuning модели U-Net++ с предобученным энкодером ResNet34 для задачи сегментации замкнутых структурных ловушек по геологическим картам.
 
-**Вариант данных:** PNG с RGB без изолиний + depth_norm + map_mask (без разломов)
+**Задача**: Выделить замкнутые структурные ловушки - закрашенные части карт по последней замкнутой изолинии, выше которых существует замкнутая возвышенность.
 
-## Структура файла `train_pipeline.py`
+**Варианты данных**:
+- PNG: RGB без изолиний + depth_norm + map_mask (без разломов)
+- PNG: RGB без изолиний + fault_mask + depth_norm + depth_mask + map_mask (с разломами)
 
-Файл содержит все необходимые компоненты для обучения модели:
+## Структура проекта
 
-### 1. Загрузка данных и разделение на выборки
-- `get_file_list()` - получение списка файлов данных
-- `split_data_by_groups()` - разделение на train/val/test с группировкой по исходным картам
-- `create_dataloaders()` - создание DataLoader для каждой выборки
+### Основные модули
 
-### 2. Модель
-- `load_unetplusplus()` - загрузка предобученной U-Net++ с модификацией входных каналов
-- `load_model_checkpoint()` - загрузка весов из чекпоинта
+| Модуль | Файл | Описание |
+|--------|------|----------|
+| Pipeline | `pipeline.py` | Главный файл для запуска полного пайплайна |
+| Dataset | `dataset.py` | Dataset класс для загрузки данных |
+| Settings | `settings.py` | Конфигурация и гиперпараметры |
+| Dataloaders | `data/dataloaders.py` | Загрузка файлов, разделение на выборки |
+| Model | `models/unetplusplus.py` | U-Net++ с модификацией входных каналов |
+| Losses | `losses/losses.py` | MaskedBCE, MaskedDice, CombinedLoss |
+| Optimizers | `optimizers/optimizers.py` | AdamW с differential LR, планировщики |
+| Metrics | `metrics/metrics.py` | Dice, IoU, Recall, Precision, F1, FP/FN area |
+| Visualization | `visualization/visualize.py` | Визуализация результатов |
+| Training | `training/train.py` | Fine-tuning с W&B мониторингом |
+| Overfit Check | `training/overfit_check.py` | Проверка overfit на 1-2 картах |
+| Evaluation | `evaluation/evaluate.py` | Тестирование и оценка |
 
-### 3. Лоссы
-- `MaskedBCELoss` - BCE loss с поддержкой масок
-- `MaskedDiceLoss` - Dice loss с поддержкой масок
-- `CombinedLoss` - комбинированный лосс (BCE + Dice)
+### Вспомогательные утилиты
 
-### 4. Оптимизатор и гиперпараметры
-- `create_optimizer_and_scheduler()` - создание AdamW оптимизатора с differential learning rate и планировщика
-
-### 5. Метрики
-- `MetricsCalculator` - вычисление всех метрик (Dice, IoU, Recall, Precision, F1, FP/FN area)
-
-### 6. Визуализация
-- `visualize_training_results()` - визуализация результатов обучения (RGB, GT, prediction, overlay)
-- `visualize_test_results()` - визуализация результатов на тестовых данных
-
-### 7. Overfit проверка
-- `overfit_check()` - проверка обучения на 1-2 картах без валидации
-
-### 8. Обучение с W&B мониторингом
-- `train_with_wandb()` - fine-tuning с логированием в wandb (лоссы, метрики, градиенты, визуализации)
-
-### 9. Тестирование
-- `evaluate_on_test()` - оценка модели на тестовых данных
-
-### 10. Полный пайплайн
-- `run_full_pipeline()` - запуск всего процесса обучения и тестирования
+| Утилита | Файл | Описание |
+|---------|------|----------|
+| Images Utils | `utils/images_utils.py` | Загрузка PNG, создание масок, паддинг |
+| Augmentations | `utils/augmentations.py` | Аугментации (Albumentations) |
+| CPS Utils | `utils/cps_utils.py` | Работа с CPS гридами (опционально) |
 
 ## Быстрый старт
 
 ### Базовое использование
 
 ```python
-from train_pipeline import run_full_pipeline
+from pipeline import run_full_pipeline
 from settings import settings
 
 # Запуск полного пайплайна
@@ -84,17 +75,38 @@ test_metrics = run_full_pipeline(
 )
 ```
 
-### Отдельные шаги
+## Пошаговое руководство
 
-#### 1. Подготовка данных
+### Шаг 1: Подготовка данных
+
+#### Формат имен файлов
+```
+{number}_{x|y}_{type}_{name}.png
+```
+
+Примеры:
+- `001_x_structuralNOisoline_H150.png` - RGB карта
+- `001_x_structuralBlackWhite_H150.png` - Depth нормализованный
+- `001_x_faults_H150.png` - Разломы (опционально)
+- `001_y_traps_H150.png` - Ловушки (таргет)
+
+#### Структура директорий
+```
+data/images/
+├── 001_x_structuralNOisoline_H150.png
+├── 001_x_structuralBlackWhite_H150.png
+├── 001_y_traps_H150.png
+├── 002_x_structuralNOisoline_H150.png
+└── ...
+```
 
 ```python
-from train_pipeline import get_file_list, split_data_by_groups, create_dataloaders
+from data.dataloaders import get_file_list, split_data_by_groups, create_dataloaders
 
 # Получить список файлов
 file_list = get_file_list('./data/images/', data_source='png')
 
-# Разделить на выборки
+# Разделить на выборки (группировка по name)
 train_files, val_files, test_files = split_data_by_groups(
     file_list,
     train_ratio=0.7,
@@ -111,10 +123,10 @@ train_loader, val_loader, test_loader = create_dataloaders(
 )
 ```
 
-#### 2. Загрузка модели
+### Шаг 2: Загрузка модели
 
 ```python
-from train_pipeline import load_unetplusplus
+from models.unetplusplus import load_unetplusplus
 from settings import settings
 
 model = load_unetplusplus(
@@ -126,32 +138,84 @@ model = load_unetplusplus(
 )
 ```
 
-#### 3. Настройка обучения
+**Особенности архитектуры**:
+- U-Net++ с энкодером ResNet34 (ImageNet pretrained)
+- Первые 3 канала используют предобученные веса
+- Дополнительные каналы (depth, faults) инициализируются средним значением RGB весов
+- Decoder инициализируется случайно
+
+### Шаг 3: Настройка функции потерь
 
 ```python
-from train_pipeline import CombinedLoss, create_optimizer_and_scheduler
+from losses.losses import CombinedLoss
 
-# Лосс
+# Для режима без разломов
 criterion = CombinedLoss(
     bce_weight=0.5,
     dice_weight=0.5,
     use_map_mask=True,
-    use_depth_mask=False  # Только если есть разломы
+    use_depth_mask=False
 )
 
-# Оптимизатор и планировщик
+# Для режима с разломами
+criterion_with_faults = CombinedLoss(
+    bce_weight=0.5,
+    dice_weight=0.5,
+    use_map_mask=True,
+    use_depth_mask=True
+)
+```
+
+**Компоненты лосса**:
+- **MaskedBCELoss**: Binary Cross-Entropy с поддержкой масок
+- **MaskedDiceLoss**: Dice loss с поддержкой масок
+- **Маски**: 
+  - `map_mask`: игнорирует фон за пределами карты
+  - `depth_mask`: игнорирует области под разломами (только для режима с разломами)
+
+### Шаг 4: Настройка оптимизатора
+
+```python
+from optimizers.optimizers import create_optimizer_and_scheduler
+
 optimizer, scheduler = create_optimizer_and_scheduler(
     model,
     learning_rate=1e-4,
+    weight_decay=1e-4,
     scheduler_type='reduce_lr_plateau',
     encoder_lr_multiplier=0.1  # Differential LR
 )
 ```
 
-#### 4. Обучение
+**Differential Learning Rate**:
+- Encoder (предобученный): lr × 0.1 = 1e-5
+- Decoder (новый): lr = 1e-4
+- Это помогает сохранить предобученные признаки энкодера
+
+### Шаг 5: Обучение
+
+#### Вариант A: Overfit Check (рекомендуется сначала)
 
 ```python
-from train_pipeline import train_with_wandb
+from training.overfit_check import overfit_check
+
+overfit_check(
+    model=model,
+    train_loader=train_loader,
+    criterion=criterion,
+    optimizer=optimizer,
+    device='cuda',
+    n_epochs=100,
+    save_path='./logs/overfit_check/'
+)
+```
+
+**Цель**: Убедиться, что модель может переобучиться на 1-2 картах. Если нет - проблема в данных или пайплайне.
+
+#### Вариант B: Полное обучение с W&B
+
+```python
+from training.train import train_with_wandb
 
 history = train_with_wandb(
     model=model,
@@ -163,15 +227,27 @@ history = train_with_wandb(
     device='cuda',
     n_epochs=100,
     early_stopping_patience=15,
+    gradient_accumulation_steps=1,
     wandb_project='geology-traps-segmentation',
-    checkpoint_path='./checkpoints/'
+    wandb_run_name='unetplusplus_rgb_depth',
+    checkpoint_path='./checkpoints/',
+    log_gradients=True
 )
 ```
 
-#### 5. Тестирование
+**W&B логирование**:
+- Train/Val loss (BCE, Dice, total)
+- Train/Val метрики (Dice, IoU, Recall, Precision, F1)
+- Learning rate
+- Gradient norm
+- Визуализации предсказаний
+- Best model checkpoint
+
+### Шаг 6: Оценка на тесте
 
 ```python
-from train_pipeline import load_model_checkpoint, evaluate_on_test, visualize_test_results
+from models.unetplusplus import load_model_checkpoint
+from evaluation.evaluate import evaluate_on_test, visualize_test_predictions
 
 # Загрузить лучшую модель
 model = load_model_checkpoint(model, './checkpoints/best_model.pth')
@@ -181,21 +257,19 @@ test_metrics = evaluate_on_test(
     model=model,
     test_loader=test_loader,
     criterion=criterion,
-    device='cuda'
+    device='cuda',
+    threshold=0.5
 )
 
 # Визуализировать результаты
-with torch.no_grad():
-    batch = next(iter(test_loader))
-    x = batch['x'].to('cuda')
-    predictions = model(x)
-    
-    visualize_test_results(
-        batch=batch,
-        predictions=predictions,
-        sample_indices=[0, 1, 2, 3],
-        save_path='./logs/test_visualizations/'
-    )
+visualize_test_predictions(
+    model=model,
+    test_loader=test_loader,
+    device='cuda',
+    sample_indices=[0, 1, 2, 3],
+    save_path='./logs/test_visualizations/',
+    alpha=0.4
+)
 ```
 
 ## Гиперпараметры по умолчанию
@@ -212,6 +286,22 @@ with torch.no_grad():
 | early_stopping_patience | 15 | Патанс для ранней остановки |
 | bce_weight | 0.5 | Вес BCE лосса |
 | dice_weight | 0.5 | Вес Dice лосса |
+| target_height | 1248 | Целевая высота после паддинга |
+| target_width | 512 | Целевая ширина после паддинга |
+
+## Метрики
+
+### Основные метрики
+
+| Метрика | Ориентир | Описание |
+|---------|----------|----------|
+| Dice | > 0.7-0.8 | Коэффициент схожести |
+| IoU | > 0.55-0.65 | Intersection over Union |
+| Recall | > 0.75-0.85 | Полнота (TP / (TP + FN)) |
+| Precision | - | Точность (TP / (TP + FP)) |
+| F1 | - | Гармоническое среднее Precision и Recall |
+| FP Area | < 0.3-0.5 | Доля ложноположительных |
+| FN Area | < 0.3-0.5 | Доля ложноотрицательных |
 
 ## Визуализации
 
@@ -235,22 +325,6 @@ with torch.no_grad():
    - Графики loss, Dice, IoU
    - Визуализации прогресса обучения
 
-## W&B интеграция
-
-Для использования wandb:
-
-```bash
-wandb login
-```
-
-Пайплайн логирует:
-- Train/Val loss (BCE, Dice, total)
-- Train/Val метрики (Dice, IoU, Recall, Precision, F1)
-- Learning rate
-- Gradient norm
-- Визуализации предсказаний
-- Best model checkpoint
-
 ## Требования
 
 ```
@@ -266,39 +340,42 @@ tqdm
 pydantic-settings
 ```
 
-## Структура данных
-
-Ожидаемая структура файлов:
-
-```
-data/images/
-├── 001_fieldA_x_structuralNOisoline.png  # RGB без изолиний
-├── 001_fieldA_x_structuralBlackWhite.png # depth_norm
-├── 001_fieldA_y_traps.png                # Ground truth traps
-├── 002_fieldB_x_structuralNOisoline.png
-├── 002_fieldB_x_structuralBlackWhite.png
-├── 002_fieldB_y_traps.png
-...
-```
-
-Формат именования: `{number}_{name}_x_{type}.png` или `{number}_{name}_y_{type}.png`
-
 ## Рекомендации
 
-1. **Начните с overfit check**: Убедитесь, что модель может переобучиться на 1-2 картах перед полным обучением.
+### 1. Начните с overfit check
+Убедитесь, что модель может переобучиться на 1-2 картах перед полным обучением. Это поможет выявить проблемы в данных или пайплайне.
 
-2. **Мониторьте градиенты**: Если градиенты слишком большие или маленькие,调整 learning rate или добавьте gradient clipping.
+### 2. Мониторьте градиенты
+Если градиенты слишком большие или маленькие,调整 learning rate или добавьте gradient clipping.
 
-3. **Используйте early stopping**: Предотвратит переобучение и сэкономит время.
+### 3. Используйте early stopping
+Предотвратит переобучение и сэкономит время.
 
-4. **Проверяйте визуализации**: Визуальная оценка часто важнее числовых метрик.
+### 4. Проверяйте визуализации
+Визуальная оценка часто важнее числовых метрик. Обращайте внимание на:
+- Соответствие предсказаний реальным ловушкам
+- Отсутствие предсказаний на фоне
+- Качество границ
 
-5. **Differential LR**: Энкодер обучается медленнее декодера (lr * 0.1), что помогает сохранить предобученные признаки.
+### 5. Differential LR
+Энкодер обучается медленнее декодера (lr × 0.1), что помогает сохранить предобученные признаки.
 
-## Авторские заметки
+### 6. Режимы данных
 
-- Код поддерживает как режим с разломами, так и без них
-- Маска map_mask используется всегда для игнорирования фона
-- Маска depth_mask используется только при наличии разломов
-- Реализована поддержка gradient accumulation для больших моделей
-- Все функции имеют подробные docstrings
+#### Без разломов (рекомендуется начать с этого)
+- Входные каналы: 4 (RGB + depth_norm)
+- Маски: только map_mask
+- Проще для отладки
+
+#### С разломами
+- Входные каналы: 5 (RGB + depth_norm + fault_mask)
+- Маски: map_mask + depth_mask
+- Может улучшить качество, если разломы важны для задачи
+
+## Возможные улучшения (TODO)
+
+- [ ] Tversky loss (α=0.7, β=0.3) или Focal loss при дисбалансе классов
+- [ ] DeepLabV3+ или HRNet энкодеры
+- [ ] Multi-task learning: auxiliary head на contour/boundary
+- [ ] Test-time augmentation (TTA)
+- [ ] Post-processing: морфологические операции для очистки предсказаний
