@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     CPS_VERTICAL_FLIP: bool = True    
     
     # Обучение
+    OVERFIT_SIZE: int = 2
     BATCH_SIZE: int = 4
     NUM_WORKERS: int = 4
     LEARNING_RATE: float = 1e-4

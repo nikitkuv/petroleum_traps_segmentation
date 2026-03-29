@@ -5,7 +5,7 @@ from settings import settings
 test_metrics = run_full_pipeline(
     data_dir=settings.DATA_DIR,
     use_faults=False,  # Без разломов
-    data_source='png',
+    data_source=settings.DATA_SOURCE,
     overfit_check_mode=True,  # Режим проверки overfit
     n_epochs=100,
     batch_size=4,
