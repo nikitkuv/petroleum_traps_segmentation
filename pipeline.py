@@ -1,6 +1,7 @@
 import os
 from typing import Dict
 import torch
+from torch.utils.data import Subset
 
 from settings import settings
 from data.dataloaders import get_file_list, split_data_by_groups, create_dataloaders
@@ -15,7 +16,7 @@ from evaluation.evaluate import evaluate_on_test, visualize_test_predictions
 def run_full_pipeline(
     data_dir: str = None,
     use_faults: bool = False,
-    data_source: str = 'png',
+    data_source: str = None,
     overfit_check_mode: bool = False,
     wandb_project: str = 'geology-traps-segmentation',
     wandb_run_name: str = None,
@@ -48,6 +49,7 @@ def run_full_pipeline(
     data_dir = data_dir or settings.DATA_DIR
     batch_size = batch_size or settings.BATCH_SIZE
     learning_rate = learning_rate or settings.LEARNING_RATE
+    data_source = data_source or settings.DATA_SOURCE
     
     print("=" * 80)
     print("GEOLOGY TRAPS SEGMENTATION PIPELINE")
@@ -67,9 +69,8 @@ def run_full_pipeline(
     print("\n[STEP 2] Splitting data into train/val/test...")
     train_files, val_files, test_files = split_data_by_groups(
         file_list=all_files,
-        train_ratio=0.7,
-        val_ratio=0.15,
-        test_ratio=0.15
+        train_ratio=0.8,
+        val_ratio=0.1,
     )
     
     # ========== 3. СОЗДАНИЕ DATALOADERS ==========
@@ -88,18 +89,17 @@ def run_full_pipeline(
     if overfit_check_mode:
         print("\n[OVERFIT CHECK MODE] Using only first batch from train...")
         # Создаем новый dataloader с одним батчем
-        from torch.utils.data import Subset
         overfit_dataset = train_loader.dataset
-        overfit_indices = list(range(min(2, len(overfit_dataset))))  # 2 семпла
+        overfit_indices = list(range(min(settings.OVERFIT_SIZE, len(overfit_dataset))))  # 2 семпла
         overfit_subset = Subset(overfit_dataset, overfit_indices)
         train_loader = torch.utils.data.DataLoader(
             overfit_subset,
-            batch_size=batch_size,
+            batch_size=settings.OVERFIT_SIZE,
             shuffle=True,
             num_workers=0,
             pin_memory=True
         )
-        print(f"Size of train_loader: {len(train_loader.dataset)}")
+        print(f"Size of train_loader: {len(overfit_dataset)}")
     
     # ========== 4. ЗАГРУЗКА МОДЕЛИ ==========
     print("\n[STEP 4] Loading U-Net++ model...")
