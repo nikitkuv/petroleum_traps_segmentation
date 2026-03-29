@@ -1,11 +1,17 @@
 # Модульная структура пайплайна обучения U-Net++
 
+## Описание проекта
+
+Проект для сегментации замкнутых структурных ловушек по структурным картам глубин кровли геологического горизонта с использованием U-Net++ с предобученным энкодером ResNet34.
+
+**Задача**: Выделить замкнутые структурные ловушки - закрашенные части карт по последней замкнутой изолинии, выше которых существует замкнутая возвышенность.
+
 ## Структура проекта
 
 ```
 /workspace/
 ├── pipeline.py              # Главный файл для запуска полного пайплайна
-├── dataset.py               # Dataset для загрузки данных
+├── dataset.py               # Dataset класс для загрузки данных
 ├── settings.py              # Конфигурация и гиперпараметры
 │
 ├── data/                    # Модуль работы с данными
@@ -14,7 +20,7 @@
 │
 ├── models/                  # Модуль моделей
 │   ├── __init__.py
-│   └── unetplusplus.py      # Загрузка U-Net++, чекпоинты
+│   └── unetplusplus.py      # Загрузка U-Net++, модификация входных каналов, чекпоинты
 │
 ├── losses/                  # Модуль функций потерь
 │   ├── __init__.py
@@ -37,32 +43,39 @@
 │   ├── overfit_check.py     # Проверка overfit на 1-2 картах
 │   └── train.py             # Fine-tuning с W&B мониторингом
 │
-└── evaluation/              # Модуль оценки
-    ├── __init__.py
-    └── evaluate.py          # Тестирование и визуализация результатов
+├── evaluation/              # Модуль оценки
+│   ├── __init__.py
+│   └── evaluate.py          # Тестирование и визуализация результатов
+│
+├── utils/                   # Утилиты
+│   ├── images_utils.py      # Утилиты для PNG (загрузка, маски, паддинг)
+│   ├── augmentations.py     # Аугментации (Albumentations)
+│   └── cps_utils.py         # Утилиты для CPS (если используются)
+│
+└── docs/                    # Документация
+    ├── PLAN.md              # План проекта и требования
+    ├── README_FORMAT.md     # Формат имен файлов
+    ├── README_MODULES.md    # Этот файл
+    └── TRAINING_GUIDE.md    # Руководство по обучению
 ```
 
 ## Формат названий изображений
 
-Формат: `{number}_{type}_{name}.png`
+Формат: `{number}_{x|y}_{type}_{name}.png`
 
-Примеры типов файлов:
-- `{number}_structuralNOisoline_{name}.png` → rgb (RGB карта без изолиний)
-- `{number}_structuralBlackWhite_{name}.png` → depth_norm (нормализованная глубина)
-- `{number}_faults_{name}.png` → faults (карта разломов, опционально)
-- `{number}_traps_{name}.png` → traps (целевая маска ловушек)
+### Типы файлов:
+- `{number}_x_structuralNOisoline_{name}.png` → rgb (RGB карта без изолиний и разломов)
+- `{number}_x_structuralBlackWhite_{name}.png` → depth_norm (нормализованная глубина)
+- `{number}_x_faults_{name}.png` → faults (карта разломов, опционально)
+- `{number}_y_traps_{name}.png` → traps (целевая маска ловушек)
 
-Конкретные примеры:
-- `001_structuralNOisoline_H150.png` - RGB карта для горизонта H150
-- `002_structuralNOisoline_H150.png` - Еще одна RGB карта для H150
-- `001_structuralBlackWhite_H150.png` - Глубина для H150
-- `001_traps_H150.png` - Ловушки для H150
+### Примеры:
+- `001_x_structuralNOisoline_H150.png` - RGB карта для горизонта H150
+- `002_x_structuralNOisoline_H150.png` - Еще одна RGB карта для H150
+- `001_x_structuralBlackWhite_H150.png` - Глубина для H150
+- `001_y_traps_H150.png` - Ловушки для H150
 
-Группировка производится по комбинации `{number}_{name}` - все файлы с одинаковым 
-номером и названием горизонта попадают в один семпл. Разные номера для одного 
-горизонта (например, 001_H150, 002_H150) будут разными семплами, но при разделении 
-на выборки группировка происходит по `{name}` (горизонту), чтобы данные из одного 
-горизонта не попадали одновременно в train и test.
+Группировка производится по комбинации `{number}_{name}` - все файлы с одинаковым номером и названием горизонта попадают в один семпл. Разные номера для одного горизонта (например, 001_H150, 002_H150) будут разными семплами, но при разделении на выборки группировка происходит по `{name}` (горизонту), чтобы данные из одного горизонта не попадали одновременно в train и test.
 
 ## Быстрый старт
 
@@ -112,7 +125,7 @@ test_metrics = run_full_pipeline(
 from data.dataloaders import get_file_list, split_data_by_groups, create_dataloaders
 
 # Получить список файлов
-files = get_file_list('./data/png/', data_source='png')
+files = get_file_list('./data/images/', data_source='png')
 
 # Разделить на выборки
 train_files, val_files, test_files = split_data_by_groups(
@@ -156,7 +169,7 @@ criterion = CombinedLoss(
     bce_weight=0.5,
     dice_weight=0.5,
     use_map_mask=True,
-    use_depth_mask=False
+    use_depth_mask=False  # True только если use_faults=True
 )
 
 # Использование
@@ -233,18 +246,36 @@ visualize_test_predictions(model, test_loader, sample_indices=[0,1,2,3])
 ## Конфигурация (settings.py)
 
 Основные параметры:
+- `DATA_SOURCE`: Источник данных ('png' или 'cps')
+- `USE_FAULTS`: Использовать ли разломы (True/False)
 - `DATA_DIR`: Путь к данным
-- `BATCH_SIZE`: Размер батча
-- `NUM_EPOCHS`: Количество эпох
-- `LEARNING_RATE`: Базовая скорость обучения
-- `in_channels`: Количество входных каналов (4 для RGB+depth)
+- `BATCH_SIZE`: Размер батча (по умолчанию 4)
+- `NUM_EPOCHS`: Количество эпох (по умолчанию 100)
+- `LEARNING_RATE`: Базовая скорость обучения (1e-4)
+- `TARGET_HEIGHT`: Целевая высота (1248)
+- `TARGET_WIDTH`: Целевая ширина (512)
 - `DEVICE`: Устройство (cuda/cpu)
 - `CHECKPOINT_DIR`: Путь для сохранения чекпоинтов
 
-## Особенности варианта без разломов
+Вычисляемые свойства:
+- `in_channels`: 5 если use_faults=True, иначе 4
 
+## Режимы данных
+
+### Без разломов (use_faults=False)
 - Входные каналы: 4 (RGB + depth_norm)
 - Маски: только map_mask (игнорирование фона)
 - Encoder: ResNet34 ImageNet pretrained
-- Decoder: случайно инициализированный
-- Differential LR: encoder × 0.1, decoder × 1.0
+
+### С разломами (use_faults=True)
+- Входные каналы: 5 (RGB + depth_norm + fault_mask)
+- Маски: map_mask + depth_mask (игнорирование фона и областей под разломами)
+- Encoder: ResNet34 ImageNet pretrained
+
+## Особенности архитектуры
+
+- **Модель**: U-Net++ с энкодером ResNet34
+- **Входные каналы**: 4 или 5 (модифицируется первый слой conv1)
+- **Инициализация**: Предобученные веса ImageNet для первых 3 каналов (RGB), остальные инициализируются средним значением RGB весов
+- **Differential LR**: Encoder обучается с LR × 0.1, Decoder с базовым LR
+- **Gradient Accumulation**: Поддерживается для больших моделей
