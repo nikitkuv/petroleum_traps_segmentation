@@ -226,6 +226,7 @@ def create_dataloaders(
     batch_size: int = None,
     num_workers: int = None,
     use_faults: bool = False,
+    data_source: str = None
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
     Создает DataLoader для train/val/test выборок.
@@ -246,6 +247,7 @@ def create_dataloaders(
     num_workers = num_workers or settings.NUM_WORKERS
     data_dir = data_dir or settings.DATA_DIR
     cps_dir = cps_dir or settings.CPS_DIR
+    data_source = data_source or settings.DATA_SOURCE
     
     # Создаем датасеты
     train_dataset = GeologyTrapsDataset(
@@ -254,6 +256,7 @@ def create_dataloaders(
         cps_dir=cps_dir,
         augment=False,
         use_faults=use_faults,
+        data_source=data_source
     )
     
     val_dataset = GeologyTrapsDataset(
@@ -262,6 +265,7 @@ def create_dataloaders(
         cps_dir=cps_dir,
         augment=False,
         use_faults=use_faults,
+        data_source=data_source
     )
     
     test_dataset = GeologyTrapsDataset(
@@ -270,6 +274,7 @@ def create_dataloaders(
         cps_dir=cps_dir,
         augment=False,
         use_faults=use_faults,
+        data_source=data_source
     )
     
     # Создаем dataloaders

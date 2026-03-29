@@ -80,7 +80,8 @@ def run_full_pipeline(
         test_files=test_files,
         data_dir=data_dir,
         batch_size=batch_size,
-        use_faults=use_faults
+        use_faults=use_faults,
+        data_source=data_source
     )
     
     # Если режим overfit check - берем только 1-2 карты из train
