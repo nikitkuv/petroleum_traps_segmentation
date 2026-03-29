@@ -1,8 +1,3 @@
-"""
-Модуль с функциями потерь для сегментации геологических ловушек.
-Поддержка масок для игнорирования фона и областей под разломами.
-"""
-
 from typing import Dict, Tuple, Optional
 import torch
 import torch.nn as nn
