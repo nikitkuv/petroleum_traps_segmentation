@@ -16,7 +16,7 @@
 """
 
 import os
-from typing import Dict, Optional
+from typing import Dict
 import torch
 
 from settings import settings
@@ -50,7 +50,7 @@ def run_full_pipeline(
         use_faults: Использовать ли разломы
         data_source: Источник данных ('png' или 'cps')
         overfit_check_mode: Режим проверки overfit
-        wandb_project:项目名称 wandb
+        wandb_project: wandb
         wandb_run_name: Имя запуска
         n_epochs: Количество эпох
         batch_size: Размер батча
@@ -106,7 +106,7 @@ def run_full_pipeline(
         # Создаем новый dataloader с одним батчем
         from torch.utils.data import Subset
         overfit_dataset = train_loader.dataset
-        overfit_indices = list(range(min(4, len(overfit_dataset))))  # 4 семпла
+        overfit_indices = list(range(min(2, len(overfit_dataset))))  # 2 семпла
         overfit_subset = Subset(overfit_dataset, overfit_indices)
         train_loader = torch.utils.data.DataLoader(
             overfit_subset,
@@ -115,10 +115,11 @@ def run_full_pipeline(
             num_workers=0,
             pin_memory=True
         )
+        print(f"Size of train_loader: {len(train_loader.dataset)}")
     
     # ========== 4. ЗАГРУЗКА МОДЕЛИ ==========
     print("\n[STEP 4] Loading U-Net++ model...")
-    in_channels = 4 if not use_faults else 5  # RGB + depth (+ faults)
+    in_channels = settings.in_channels
     model = load_unetplusplus(
         in_channels=in_channels,
         classes=1,
