@@ -1,9 +1,3 @@
-"""
-Модуль для оценки модели на тестовых данных.
-Проверка дообученной модели и визуализация результатов.
-"""
-
-import os
 from typing import Dict, List
 import torch
 import torch.nn as nn

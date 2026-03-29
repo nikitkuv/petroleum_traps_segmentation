@@ -1,8 +1,3 @@
-"""
-Модуль для визуализации результатов обучения и тестирования.
-Визуализация: RGB карта, y_traps, prediction, overlay.
-"""
-
 import os
 from typing import Dict, List
 import numpy as np

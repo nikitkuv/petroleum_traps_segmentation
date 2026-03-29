@@ -3,6 +3,8 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from typing import List, Dict
+import re
+from pathlib import Path
 
 from settings import settings
 from utils.images_utils import (
@@ -77,15 +79,12 @@ class GeologyTrapsDataset(Dataset):
         
         Группировка производится по комбинации {number}_{name}, где:
         - number: номер карты (например, 001, 002)
-        - name: название месторождения (например, H150, BZ24)
+        - name: название горизонта (например, H150, BZ24)
         
         Все файлы с одинаковыми number и name объединяются в один семпл.
-        Разные number для одного месторождения (001_H150, 002_H150) 
+        Разные number для одного горизонта (001_H150, 002_H150) 
         будут РАЗНЫМИ семплами.
         """
-        import re
-        from pathlib import Path
-        
         samples = {}
         
         # Паттерн для парсинга: {number}_{x|y}_{type}_{name}

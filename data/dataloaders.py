@@ -1,15 +1,3 @@
-"""
-Модуль для загрузки данных и создания DataLoader.
-Формат файлов: {number}_{x|y}_{type}_{name}.png
-Примеры:
-    001_x_structuralNOisoline_H150.png → rgb
-    001_x_structuralBlackWhite_H150.png → depth_norm
-    001_x_faults_H150.png → faults
-    001_y_traps_H150.png → traps
-Группировка производится по {name} (например, H150)
-Семпл определяется как {number}_{name} - все файлы с одинаковым номером и именем месторождения
-"""
-
 import os
 import re
 from pathlib import Path
@@ -35,7 +23,7 @@ def get_file_list(data_dir: str, data_source: str = 'png') -> List[str]:
     if data_source == 'png':
         # Ищем все PNG файлы в директории и поддиректориях
         png_files = []
-        for root, dirs, files in os.walk(data_dir):
+        for root, _, files in os.walk(data_dir):
             for file in files:
                 if file.endswith('.png'):
                     # Проверяем, что файл соответствует формату
@@ -49,7 +37,7 @@ def get_file_list(data_dir: str, data_source: str = 'png') -> List[str]:
     elif data_source == 'cps':
         # Для CPS данных (если понадобится в будущем)
         cps_files = []
-        for root, dirs, files in os.walk(data_dir):
+        for root, _, files in os.walk(data_dir):
             for file in files:
                 if file.endswith('.cps'):
                     cps_files.append(os.path.join(root, file))
@@ -141,14 +129,13 @@ def collect_samples(file_list: List[str]) -> Dict[str, Dict[str, str]]:
 
 def split_data_by_groups(
     file_list: List[str], 
-    train_ratio: float = 0.7, 
-    val_ratio: float = 0.15,
-    test_ratio: float = 0.15,
+    train_ratio: float = 0.8, 
+    val_ratio: float = 0.1,
     seed: int = 42
 ) -> Tuple[List[str], List[str], List[str]]:
     """
-    Разделяет данные на train/val/test с учетом группировки по месторождениям.
-    Все семплы из одного месторождения (name) попадают в одну выборку.
+    Разделяет данные на train/val/test с учетом группировки по горизонтам.
+    Все семплы из одного горизонта (name) попадают в одну выборку.
     
     Формат названий: {number}_{x|y}_{type}_{name}.png
     Группировка производится по {name}.
@@ -179,7 +166,7 @@ def split_data_by_groups(
             f"\nChecked {len(file_list)} files."
         )
 
-    # Затем группируем семплы по месторождениям (name)
+    # Затем группируем семплы по горизонтам (name)
     groups = {}  # name -> list of sample_keys
     for key, files in samples.items():
         if not files:
@@ -197,7 +184,7 @@ def split_data_by_groups(
     print(f"Found {len(groups)} unique map groups (by name)")
     print(f"Total samples: {len(samples)}")
     
-    # Разделяем группы месторождений
+    # Разделяем группы горизонтов
     unique_names = list(groups.keys())
     random.shuffle(unique_names)
     

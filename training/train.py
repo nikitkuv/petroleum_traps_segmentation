@@ -1,8 +1,3 @@
-"""
-Модуль для обучения с W&B мониторингом.
-Fine-tuning U-Net++ с мониторингом лоссов, метрик, градиентов.
-"""
-
 import os
 import json
 import time

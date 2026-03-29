@@ -1,8 +1,3 @@
-"""
-Модуль для создания оптимизаторов и планировщиков скорости обучения.
-Поддержка differential learning rate для энкодера и декодера.
-"""
-
 from typing import Tuple, Optional
 import torch
 import torch.nn as nn

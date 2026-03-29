@@ -1,11 +1,5 @@
-"""
-Модуль для проверки overfit на 1-2 картах.
-Используется для быстрой проверки корректности обучения.
-"""
-
 import os
 import json
-from typing import Dict
 import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn

@@ -1,8 +1,3 @@
-"""
-Модуль для вычисления метрик сегментации.
-Dice, IoU, Recall, Precision, F1, FP/FN area.
-"""
-
 from typing import Dict, Optional
 import torch
 

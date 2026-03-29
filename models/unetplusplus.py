@@ -1,8 +1,3 @@
-"""
-Модуль для загрузки и создания моделей U-Net++.
-Вариант: PNG с RGB без изолиний + depth_norm (без разломов)
-"""
-
 import os
 from typing import Optional
 import torch
