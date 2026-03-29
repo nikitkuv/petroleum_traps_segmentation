@@ -265,7 +265,7 @@ def create_dataloaders(
         file_list=train_files,
         data_dir=data_dir,
         cps_dir=cps_dir,
-        augment=True,
+        augment=False,
         use_faults=use_faults,
     )
     

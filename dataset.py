@@ -143,15 +143,26 @@ class GeologyTrapsDataset(Dataset):
                 # PNG режим: все 4 файла (или 3 без faults)
                 if self.use_faults:
                     if len(paths) == 4 and 'faults' in paths:
-                        result.append({k: os.path.join(self.data_dir, v) for k, v in paths.items()})
+                        # Проверяем, является ли путь уже полным
+                        clean_paths = {}
+                        for k, v in paths.items():
+                            if os.path.isabs(v) or v.startswith('./') or v.startswith('../'):
+                                clean_paths[k] = v
+                            else:
+                                clean_paths[k] = os.path.join(self.data_dir, v)
+                        result.append(clean_paths)
                 else:
                     required_keys = ['rgb', 'depth_norm', 'traps']
                     if all(k in paths for k in required_keys):
-                        clean_paths = {k: os.path.join(self.data_dir, v) for k, v in paths.items() if k in required_keys}
-                        if 'faults' in paths:
-                            clean_paths['faults'] = os.path.join(self.data_dir, paths['faults'])
+                        clean_paths = {}
+                        for k, v in paths.items():
+                            if k in required_keys or k == 'faults':
+                                if os.path.isabs(v) or v.startswith('./') or v.startswith('../'):
+                                    clean_paths[k] = v
+                                else:
+                                    clean_paths[k] = os.path.join(self.data_dir, v)
                         result.append(clean_paths)
-        
+
         return result
     
     def __len__(self) -> int:

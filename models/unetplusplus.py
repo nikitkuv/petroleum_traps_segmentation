@@ -40,7 +40,7 @@ def load_unetplusplus(
     model = smp.UnetPlusPlus(
         encoder_name=encoder_name,
         encoder_weights=encoder_weights,
-        in_channels=in_channels,
+        in_channels=3,  # Всегда 3 для загрузки imagenet весов
         classes=classes,
         activation=activation,
         decoder_channels=(256, 128, 64, 32, 16),
@@ -49,7 +49,7 @@ def load_unetplusplus(
     
     # Модифицируем первый слой энкодера если количество каналов не стандартное
     if in_channels != 3 and encoder_weights is not None:
-        # Создаем новый первый слой
+        # Создаем новый первый слой с нужным количеством каналов
         old_conv1 = model.encoder.conv1
         new_conv1 = nn.Conv2d(
             in_channels,
@@ -60,19 +60,28 @@ def load_unetplusplus(
             bias=old_conv1.bias is not None
         )
         
-        # Копируем веса для первых 3 каналов, остальные инициализируем случайно
+        # Копируем веса для первых 3 каналов (RGB), остальные инициализируем случайно
         with torch.no_grad():
-            if in_channels > 3:
-                # Копируем первые 3 канала
-                new_conv1.weight[:, :3, :, :] = old_conv1.weight
-                # Остальные каналы инициализируем как среднее от RGB
-                for i in range(3, in_channels):
-                    new_conv1.weight[:, i:i+1, :, :] = old_conv1.weight.mean(dim=1, keepdim=True)
-            else:
-                new_conv1.weight[:, :in_channels, :, :] = old_conv1.weight[:, :in_channels, :, :]
-        
+            # Копируем первые 3 канала из предобученной модели
+            new_conv1.weight[:, :3, :, :] = old_conv1.weight
+            # Остальные каналы инициализируем как среднее от RGB
+            for i in range(3, in_channels):
+                new_conv1.weight[:, i:i+1, :, :] = old_conv1.weight.mean(dim=1, keepdim=True)
+
         model.encoder.conv1 = new_conv1
-    
+    elif in_channels != 3 and encoder_weights is None:
+        # Если нет предобученных весов, просто заменяем слой
+        old_conv1 = model.encoder.conv1
+        new_conv1 = nn.Conv2d(
+            in_channels,
+            old_conv1.out_channels,
+            kernel_size=old_conv1.kernel_size,
+            stride=old_conv1.stride,
+            padding=old_conv1.padding,
+            bias=old_conv1.bias is not None
+        )
+        model.encoder.conv1 = new_conv1
+
     model = model.to(device)
     return model
 
