@@ -236,9 +236,11 @@ def create_dataloaders(
         val_files: Файлы валидационной выборки
         test_files: Файлы тестовой выборки
         data_dir: Путь к данным
+        cps_dir: Путь к CPS данным
         batch_size: Размер батча
         num_workers: Количество рабочих процессов
         use_faults: Использовать ли разломы
+        data_source: Источник данных ('png' или 'cps')
     
     Returns:
         Кортеж (train_loader, val_loader, test_loader)
