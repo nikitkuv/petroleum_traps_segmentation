@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from typing import Optional
 
 from settings import settings
-from dataset import GeologyTrapsDataset
+from data.dataset import GeologyTrapsDataset
 from utils.images_utils import load_grayscale_image, load_image
 
 

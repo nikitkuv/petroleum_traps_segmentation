@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple, Optional
 from torch.utils.data import DataLoader
 import random
 
-from dataset import GeologyTrapsDataset
+from data.dataset import GeologyTrapsDataset
 from settings import settings
 
 

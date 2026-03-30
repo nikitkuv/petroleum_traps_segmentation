@@ -8,7 +8,7 @@ from collections import defaultdict
 sys.path.append(str(Path(__file__).parent.parent))
 
 from settings import settings
-from dataset import GeologyTrapsDataset
+from data.dataset import GeologyTrapsDataset
 
 
 class DatasetValidator:
