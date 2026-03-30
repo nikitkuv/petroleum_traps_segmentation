@@ -25,7 +25,7 @@ htmlcov/
 .mypy_cache/
 .pytest_cache/
 
-data/
+data/images/
 data/cps/
 data/raw/
 prompts/
