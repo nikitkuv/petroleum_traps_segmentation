@@ -17,6 +17,7 @@ def run_full_pipeline(
     data_dir: str = None,
     use_faults: bool = False,
     data_source: str = None,
+    augment_train: bool = None,
     overfit_check_mode: bool = False,
     wandb_project: str = 'geology-traps-segmentation',
     wandb_run_name: str = None,
@@ -50,6 +51,7 @@ def run_full_pipeline(
     batch_size = batch_size or settings.BATCH_SIZE
     learning_rate = learning_rate or settings.LEARNING_RATE
     data_source = data_source or settings.DATA_SOURCE
+    augment_train = augment_train or settings.AUGMENT_TRAIN
     
     print("=" * 80)
     print("GEOLOGY TRAPS SEGMENTATION PIPELINE")
@@ -82,7 +84,8 @@ def run_full_pipeline(
         data_dir=data_dir,
         batch_size=batch_size,
         use_faults=use_faults,
-        data_source=data_source
+        data_source=data_source,
+        augment_train=augment_train
     )
     
     # Если режим overfit check - берем только 1-2 карты из train
@@ -91,15 +94,16 @@ def run_full_pipeline(
         # Создаем новый dataloader с одним батчем
         overfit_dataset = train_loader.dataset
         overfit_indices = list(range(min(settings.OVERFIT_SIZE, len(overfit_dataset))))  # 2 семпла
+        print(f"Selected indices for overfit: {overfit_indices}")
         overfit_subset = Subset(overfit_dataset, overfit_indices)
         train_loader = torch.utils.data.DataLoader(
             overfit_subset,
-            batch_size=settings.OVERFIT_SIZE,
+            batch_size=batch_size,
             shuffle=True,
             num_workers=0,
             pin_memory=True
         )
-        print(f"Size of train_loader: {len(overfit_dataset)}")
+        print(f"Size of train_loader: {len(train_loader.dataset)}")
     
     # ========== 4. ЗАГРУЗКА МОДЕЛИ ==========
     print("\n[STEP 4] Loading U-Net++ model...")
