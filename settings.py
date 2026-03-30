@@ -38,7 +38,8 @@ class Settings(BaseSettings):
     BATCH_SIZE: int = 4
     NUM_WORKERS: int = 4
     LEARNING_RATE: float = 1e-4
-    NUM_EPOCHS: int = 100
+    NUM_EPOCHS: int = 50
+    ES_PATIANCE: int = 15
     
     # Устройство
     DEVICE: str = 'cuda' if torch.cuda.is_available() else 'cpu'
