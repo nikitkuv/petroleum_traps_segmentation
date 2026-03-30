@@ -26,6 +26,8 @@ htmlcov/
 .pytest_cache/
 
 data/
+data/cps/
+data/raw/
 prompts/
 logs/
 .ipynb_checkpoints/
