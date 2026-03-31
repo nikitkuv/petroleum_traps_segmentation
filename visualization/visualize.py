@@ -7,54 +7,25 @@ import torch
 import wandb
 
 
-def create_prediction_overlay(rgb_img: np.ndarray, pred_traps: np.ndarray, alpha: float = 0.4) -> np.ndarray:
-    """
-    Создает overlay предсказания на RGB изображение с прозрачностью.
-    Черные области (где нет предсказания) не отображаются.
-
-    Args:
-        rgb_img: RGB изображение (H, W, 3), значения [0, 1]
-        pred_traps: Карта предсказаний (H, W), значения [0, 1]
-        alpha: Прозрачность наложения предсказания
-
-    Returns:
-        overlay: Изображение с наложенным предсказанием
-    """
-    overlay = rgb_img.copy()
-
-    # Создаем heatmap только для областей с предсказаниями
-    # Используем colormap для визуализации вероятности
-    heatmap = cv2.applyColorMap((pred_traps * 255).astype(np.uint8), cv2.COLORMAP_JET)
-    heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
-
-    # Создаем маску для областей с ненулевыми предсказаниями
-    mask = pred_traps > 0.01  # Порог для отсечения фона
-
-    # Применяем наложение только там, где есть предсказания
-    if mask.any():
-        overlay[mask] = cv2.addWeighted(
-            rgb_img[mask],
-            1.0 - alpha,
-            heatmap[mask],
-            alpha,
-            0
-        )
-
-    return overlay
-
-
-def create_error_map(gt_traps: np.ndarray, pred_traps: np.ndarray) -> np.ndarray:
+def create_error_map(gt_traps: np.ndarray, pred_traps: np.ndarray, map_mask: np.ndarray = None) -> np.ndarray:
     """
     Создает карту ошибок как абсолютную разницу между ground truth и предсказанием.
 
     Args:
         gt_traps: Ground truth карта (H, W), значения [0, 1]
         pred_traps: Предсказание модели (H, W), значения [0, 1]
+        map_mask: Маска карты (H, W), булева или 0/1. Если None, считается по всей области.
 
     Returns:
-        error_map: Карта абсолютных ошибок (H, W)
+        error_map: Карта абсолютных ошибок (H, W). За пределами mask значения = 0.
     """
     error_map = np.abs(gt_traps - pred_traps)
+
+    if map_mask is not None:
+        # Убираем ошибку за пределами карты
+        mask_bool = map_mask.astype(bool)
+        error_map[~mask_bool] = 0
+
     return error_map
 
 
@@ -66,9 +37,9 @@ def visualize_training_results(
     n_samples: int = 4
 ) -> None:
     """
-    Визуализирует результаты обучения: оригинальную RGB карту, y_traps, 
-    результат модели, наложение результата на RGB и карту ошибок.
-    
+    Визуализирует результаты обучения: оригинальную RGB карту, y_traps,
+    результат модели и карту ошибок.
+
     Args:
         batch: Батч данных
         predictions: Предсказания модели
@@ -77,71 +48,67 @@ def visualize_training_results(
         n_samples: Количество семплов для визуализации
     """
     os.makedirs(save_path, exist_ok=True)
-    
+
     # Извлекаем данные из батча
     x_rgb = batch['x'][:, :3, :, :]  # Первые 3 канала - RGB
     y_traps = batch['y']
     mask_map = batch.get('mask_map', None)
-    
+
     # Применяем сигмоиду к предсказаниям
     preds_prob = torch.sigmoid(predictions)
-    
+
     n_samples = min(n_samples, x_rgb.shape[0])
-    
-    # Теперь 5 колонок: RGB, GT, Pred, Overlay, Error Map
-    fig, axes = plt.subplots(n_samples, 5, figsize=(25, 5 * n_samples))
+
+    # Теперь 4 колонки: RGB, GT, Pred, Error Map 
+    fig, axes = plt.subplots(n_samples, 4, figsize=(20, 5 * n_samples))
     if n_samples == 1:
         axes = axes.reshape(1, -1)
-    
+
     for i in range(n_samples):
         # Оригинальная RGB карта (без изолиний)
         rgb_img = x_rgb[i].cpu().permute(1, 2, 0).numpy()
         rgb_img = np.clip(rgb_img, 0, 1)
-        
+
         # Ground truth traps
         gt_traps = y_traps[i, 0, :, :].cpu().numpy() if y_traps.dim() == 4 else y_traps[i].cpu().numpy()
-        
+
         # Предсказание модели
         pred_traps = preds_prob[i, 0, :, :].cpu().detach().numpy()
-        
-        # Наложение предсказания на RGB с прозрачностью
-        overlay = create_prediction_overlay(rgb_img, pred_traps, alpha=0.4)
 
-        # Карта ошибок
-        error_map = create_error_map(gt_traps, pred_traps)
-        
+        # Карта ошибок (с учетом mask_map если есть)
+        map_mask_np = None
+        if mask_map is not None:
+            map_mask_np = mask_map[i, 0, :, :].cpu().numpy() if mask_map.dim() == 4 else mask_map[i].cpu().numpy()
+        error_map = create_error_map(gt_traps, pred_traps, map_mask=map_mask_np)
+
         # Отображаем
         axes[i, 0].imshow(rgb_img)
         axes[i, 0].set_title(f'RGB Map (No Isolines)\nSample {i}')
         axes[i, 0].axis('off')
-        
+
         axes[i, 1].imshow(gt_traps, cmap='gray')
         axes[i, 1].set_title(f'Ground Truth Traps\n(Sample {i})')
         axes[i, 1].axis('off')
-        
+
         axes[i, 2].imshow(pred_traps, cmap='gray')
         axes[i, 2].set_title(f'Predicted Traps\n(Sample {i})')
         axes[i, 2].axis('off')
-        
-        axes[i, 3].imshow(overlay)
-        axes[i, 3].set_title(f'Prediction Overlay on RGB\n(Sample {i})')
-        axes[i, 3].axis('off')
 
         # Визуализация карты ошибок с colormap
-        im_error = axes[i, 4].imshow(error_map, cmap='RdYlBu_r', vmin=0, vmax=1)
-        axes[i, 4].set_title(f'Error Map (|GT - Pred)|\n(Sample {i})')
-        axes[i, 4].axis('off')
-        plt.colorbar(im_error, ax=axes[i, 4], fraction=0.046, pad=0.04)
-    
+        im_error = axes[i, 3].imshow(error_map, cmap='RdYlBu_r', vmin=0, vmax=1)
+        axes[i, 3].set_title(f'Error Map (|GT - Pred)|\n(Sample {i})')
+        axes[i, 3].axis('off')
+        plt.colorbar(im_error, ax=axes[i, 3], fraction=0.046, pad=0.04)
+
     plt.tight_layout()
-    
+
     filename = f'epoch_{epoch:03d}_training_visualization.png'
     filepath = os.path.join(save_path, filename)
     plt.savefig(filepath, dpi=150, bbox_inches='tight')
     plt.close()
-    
+
     print(f"Saved visualization to {filepath}")
-    
+
     # Логируем в wandb если активен
     if wandb.run is not None:
         wandb.log({
@@ -158,66 +125,67 @@ def visualize_test_results(
     alpha: float = 0.4
 ) -> None:
     """
-    Визуализирует результаты на тестовых данных: наложение результата модели
-    (карта ловушек) в прозрачности на RGB карту без изолиний, а также карту ошибок.
-    
+    Визуализирует результаты на тестовых данных: RGB карту, ground truth,
+    предсказание модели и карту ошибок (с учетом mask_map).
+
     Args:
         batch: Батч данных
         predictions: Предсказания модели
         sample_indices: Индексы семплов для визуализации
         save_path: Путь для сохранения
-        alpha: Прозрачность наложения
+        alpha: Прозрачность наложения (не используется, оставлен для совместимости)
     """
     os.makedirs(save_path, exist_ok=True)
-    
+
     x_rgb = batch['x'][:, :3, :, :]
     y_traps = batch['y']
+    mask_map = batch.get('mask_map', None)
     preds_prob = torch.sigmoid(predictions)
-    
+
     for idx in sample_indices:
         if idx >= x_rgb.shape[0]:
             continue
-        
+
         rgb_img = x_rgb[idx].cpu().permute(1, 2, 0).numpy()
         rgb_img = np.clip(rgb_img, 0, 1)
-        
+
         gt_traps = y_traps[idx, 0, :, :].cpu().numpy() if y_traps.dim() == 4 else y_traps[idx].cpu().numpy()
         pred_traps = preds_prob[idx, 0, :, :].cpu().detach().numpy()
-        
-        # Создаем overlay с предсказанием используя новую функцию
-        overlay = create_prediction_overlay(rgb_img, pred_traps, alpha=alpha)
 
-        # Карта ошибок
-        error_map = create_error_map(gt_traps, pred_traps)
+        # Карта ошибок (с учетом mask_map если есть)
+        map_mask_np = None
+        if mask_map is not None:
+            map_mask_np = mask_map[idx, 0, :, :].cpu().numpy() if mask_map.dim() == 4 else mask_map[idx].cpu().numpy()
+        error_map = create_error_map(gt_traps, pred_traps, map_mask=map_mask_np)
 
         fig, axes = plt.subplots(1, 4, figsize=(20, 5))
-        
+
         axes[0].imshow(rgb_img)
         axes[0].set_title(f'RGB Map (No Isolines)\nTest Sample {idx}')
         axes[0].axis('off')
-        
+
         axes[1].imshow(gt_traps, cmap='gray')
         axes[1].set_title(f'Ground Truth Traps')
         axes[1].axis('off')
-        
-        axes[2].imshow(overlay)
-        axes[2].set_title(f'Predicted Traps Overlay (alpha={alpha})')
+
+        axes[2].imshow(pred_traps, cmap='gray')
+        axes[2].set_title(f'Predicted Traps')
         axes[2].axis('off')
 
         im_error = axes[3].imshow(error_map, cmap='RdYlBu_r', vmin=0, vmax=1)
         axes[3].set_title(f'Error Map (|GT - Pred)|')
         axes[3].axis('off')
         plt.colorbar(im_error, ax=axes[3], fraction=0.046, pad=0.04)
-        
+
         plt.tight_layout()
-        
+
         filename = f'test_sample_{idx:03d}_results.png'
         filepath = os.path.join(save_path, filename)
         plt.savefig(filepath, dpi=150, bbox_inches='tight')
         plt.close()
-        
+
         print(f"Saved test visualization to {filepath}")
-        
+
         if wandb.run is not None:
             wandb.log({
                 f'test_visualization_sample_{idx}': wandb.Image(filepath)
@@ -313,8 +281,11 @@ def visualize_advanced_metrics(
         axes[i, 3].set_title(f'GT(Red) vs Pred(Blue)\nOverlap=Purple')
         axes[i, 3].axis('off')
 
-        # 5. Error map с градиентом
-        error_map = create_error_map(gt_traps, pred_traps)
+        # 5. Error map с градиентом (с учетом mask_map если есть)
+        map_mask_np = None
+        if 'mask_map' in batch and batch['mask_map'] is not None:
+            map_mask_np = batch['mask_map'][i, 0, :, :].cpu().numpy() if batch['mask_map'].dim() == 4 else batch['mask_map'][i].cpu().numpy()
+        error_map = create_error_map(gt_traps, pred_traps, map_mask=map_mask_np)
         im_error = axes[i, 4].imshow(error_map, cmap='RdYlBu_r', vmin=0, vmax=1)
         axes[i, 4].set_title(f'Error Map\n(MAE={np.mean(error_map):.3f})')
         axes[i, 4].axis('off')
