@@ -7,6 +7,42 @@ import torch
 import wandb
 
 
+def create_prediction_overlay(rgb_img: np.ndarray, pred_traps: np.ndarray, alpha: float = 0.4) -> np.ndarray:
+    """
+    Создает overlay предсказания на RGB изображение с прозрачностью.
+    Черные области (где нет предсказания) не отображаются.
+    Используется серый цвет для наложения.
+
+    Args:
+        rgb_img: RGB изображение (H, W, 3), значения [0, 1]
+        pred_traps: Карта предсказаний (H, W), значения [0, 1]
+        alpha: Прозрачность наложения предсказания
+
+    Returns:
+        overlay: Изображение с наложенным предсказанием
+    """
+    overlay = rgb_img.copy()
+
+    # Создаем серую маску для областей с предсказаниями
+    # Серый цвет: одинаковые значения по всем каналам
+    gray_overlay = np.stack([pred_traps] * 3, axis=-1)
+
+    # Создаем маску для областей с ненулевыми предсказаниями
+    mask = pred_traps > 0.01  # Порог для отсечения фона
+
+    # Применяем наложение только там, где есть предсказания
+    if mask.any():
+        overlay[mask] = cv2.addWeighted(
+            rgb_img[mask],
+            1.0 - alpha,
+            gray_overlay[mask],
+            alpha,
+            0
+        )
+
+    return overlay
+
+
 def create_error_map(gt_traps: np.ndarray, pred_traps: np.ndarray, map_mask: np.ndarray = None) -> np.ndarray:
     """
     Создает карту ошибок как абсолютную разницу между ground truth и предсказанием.
@@ -59,8 +95,8 @@ def visualize_training_results(
 
     n_samples = min(n_samples, x_rgb.shape[0])
 
-    # Теперь 4 колонки: RGB, GT, Pred, Error Map 
-    fig, axes = plt.subplots(n_samples, 4, figsize=(20, 5 * n_samples))
+    # 5 колонок: RGB, GT, Pred, Overlay, Error Map
+    fig, axes = plt.subplots(n_samples, 5, figsize=(20, 5 * n_samples))
     if n_samples == 1:
         axes = axes.reshape(1, -1)
 
@@ -74,6 +110,9 @@ def visualize_training_results(
 
         # Предсказание модели
         pred_traps = preds_prob[i, 0, :, :].cpu().detach().numpy()
+
+        # Prediction overlay с серым цветом
+        overlay = create_prediction_overlay(rgb_img, pred_traps, alpha=0.4)
 
         # Карта ошибок (с учетом mask_map если есть)
         map_mask_np = None
@@ -94,11 +133,15 @@ def visualize_training_results(
         axes[i, 2].set_title(f'Predicted Traps\n(Sample {i})')
         axes[i, 2].axis('off')
 
-        # Визуализация карты ошибок с colormap
-        im_error = axes[i, 3].imshow(error_map, cmap='RdYlBu_r', vmin=0, vmax=1)
-        axes[i, 3].set_title(f'Error Map (|GT - Pred)|\n(Sample {i})')
+        axes[i, 3].imshow(overlay)
+        axes[i, 3].set_title(f'Prediction Overlay (Gray)\n(Sample {i})')
         axes[i, 3].axis('off')
-        plt.colorbar(im_error, ax=axes[i, 3], fraction=0.046, pad=0.04)
+
+        # Визуализация карты ошибок с colormap
+        im_error = axes[i, 4].imshow(error_map, cmap='RdYlBu_r', vmin=0, vmax=1)
+        axes[i, 4].set_title(f'Error Map (|GT - Pred)|\n(Sample {i})')
+        axes[i, 4].axis('off')
+        plt.colorbar(im_error, ax=axes[i, 4], fraction=0.046, pad=0.04)
 
     plt.tight_layout()
 
@@ -158,7 +201,10 @@ def visualize_test_results(
             map_mask_np = mask_map[idx, 0, :, :].cpu().numpy() if mask_map.dim() == 4 else mask_map[idx].cpu().numpy()
         error_map = create_error_map(gt_traps, pred_traps, map_mask=map_mask_np)
 
-        fig, axes = plt.subplots(1, 4, figsize=(20, 5))
+        # Prediction overlay с серым цветом
+        overlay = create_prediction_overlay(rgb_img, pred_traps, alpha=0.4)
+
+        fig, axes = plt.subplots(1, 5, figsize=(20, 5))
 
         axes[0].imshow(rgb_img)
         axes[0].set_title(f'RGB Map (No Isolines)\nTest Sample {idx}')
@@ -172,10 +218,14 @@ def visualize_test_results(
         axes[2].set_title(f'Predicted Traps')
         axes[2].axis('off')
 
-        im_error = axes[3].imshow(error_map, cmap='RdYlBu_r', vmin=0, vmax=1)
-        axes[3].set_title(f'Error Map (|GT - Pred)|')
+        axes[3].imshow(overlay)
+        axes[3].set_title(f'Prediction Overlay (Gray)')
         axes[3].axis('off')
-        plt.colorbar(im_error, ax=axes[3], fraction=0.046, pad=0.04)
+
+        im_error = axes[4].imshow(error_map, cmap='RdYlBu_r', vmin=0, vmax=1)
+        axes[4].set_title(f'Error Map (|GT - Pred)|')
+        axes[4].axis('off')
+        plt.colorbar(im_error, ax=axes[4], fraction=0.046, pad=0.04)
 
         plt.tight_layout()
 
@@ -223,6 +273,7 @@ def visualize_advanced_metrics(
 
     n_samples = min(n_samples, x_rgb.shape[0])
 
+    # 6 колонок: RGB, GT, Pred, Comparison, Error Map, Distribution
     fig, axes = plt.subplots(n_samples, 6, figsize=(30, 5 * n_samples))
     if n_samples == 1:
         axes = axes.reshape(1, -1)
