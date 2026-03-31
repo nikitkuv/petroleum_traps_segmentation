@@ -7,7 +7,7 @@ test_metrics = run_full_pipeline(
     use_faults=settings.USE_FAULTS,
     data_source=settings.DATA_SOURCE,
     overfit_check_mode=True,
-    n_epochs=settings.NUM_EPOCHS,
+    n_epochs=100,
     batch_size=settings.BATCH_SIZE,
     learning_rate=settings.LEARNING_RATE
 )
