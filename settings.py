@@ -30,7 +30,12 @@ class Settings(BaseSettings):
 
     # CPS настройки
     CPS_NULL_VALUE: float = -99999.0  
-    CPS_VERTICAL_FLIP: bool = True    
+    CPS_VERTICAL_FLIP: bool = True
+
+    # Разделение данных
+    SEED: int = 24
+    TRAIN_RATIO: float = 0.8
+    VAL_RATIO: float = 0.1    
     
     # Обучение
     OVERFIT_SIZE: int = 2
@@ -38,8 +43,18 @@ class Settings(BaseSettings):
     BATCH_SIZE: int = 4
     NUM_WORKERS: int = 4
     LEARNING_RATE: float = 1e-4
+    ENCODER_LR_MULTIPLIER: float = 0.1
+    WEIGHT_DECAY: float = 1e-4
     NUM_EPOCHS: int = 50
     ES_PATIANCE: int = 15
+    GRADIENT_ACC_STEPS: int = 1
+
+    # Loss
+    BCE_WEIGHT_RATIO: float = 0.5
+    DICE_WEIGHT_RATIO: float = 0.5
+
+    # Метрики
+    TEST_THRESHOLD: float = 0.5
     
     # Устройство
     DEVICE: str = 'cuda' if torch.cuda.is_available() else 'cpu'

@@ -82,7 +82,7 @@
 ### 1. Проверка overfit (быстрая проверка корректности)
 
 ```python
-from pipeline import run_full_pipeline
+from training.pipeline import run_full_pipeline
 from settings import settings
 
 test_metrics = run_full_pipeline(
@@ -99,7 +99,7 @@ test_metrics = run_full_pipeline(
 ### 2. Полное обучение с W&B мониторингом
 
 ```python
-from pipeline import run_full_pipeline
+from training.pipeline import run_full_pipeline
 from settings import settings
 
 test_metrics = run_full_pipeline(

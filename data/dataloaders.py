@@ -129,9 +129,9 @@ def collect_samples(file_list: List[str]) -> Dict[str, Dict[str, str]]:
 
 def split_data_by_groups(
     file_list: List[str], 
-    train_ratio: float = 0.8, 
-    val_ratio: float = 0.1,
-    seed: int = 42
+    train_ratio: float = None, 
+    val_ratio: float = None,
+    seed: int = None
 ) -> Tuple[List[str], List[str], List[str]]:
     """
     Разделяет данные на train/val/test с учетом группировки по горизонтам.
@@ -150,6 +150,10 @@ def split_data_by_groups(
     Returns:
         Кортеж (train_files, val_files, test_files)
     """
+    train_ratio = train_ratio or settings.TRAIN_RATIO
+    val_ratio = val_ratio or settings.VAL_RATIO
+    seed = seed or settings.SEED
+
     random.seed(seed)
     
     # Сначала группируем файлы по семплам (number + name)

@@ -21,11 +21,11 @@ def run_full_pipeline(
     overfit_check_mode: bool = False,
     wandb_project: str = 'geology-traps-segmentation',
     wandb_run_name: str = None,
-    n_epochs: int = 100,
+    n_epochs: int = None,
     batch_size: int = None,
     learning_rate: float = None,
-    early_stopping_patience: int = 15,
-    encoder_lr_multiplier: float = 0.1
+    early_stopping_patience: int = None,
+    encoder_lr_multiplier: float = None
 ) -> Dict[str, float]:
     """
     Запускает полный пайплайн обучения и тестирования модели.
@@ -52,6 +52,9 @@ def run_full_pipeline(
     learning_rate = learning_rate or settings.LEARNING_RATE
     data_source = data_source or settings.DATA_SOURCE
     augment_train = augment_train or settings.AUGMENT_TRAIN
+    n_epochs = n_epochs or settings.NUM_EPOCHS
+    early_stopping_patience = early_stopping_patience or settings.ES_PATIANCE
+    encoder_lr_multiplier = encoder_lr_multiplier or settings.ENCODER_LR_MULTIPLIER
     
     print("=" * 80)
     print("GEOLOGY TRAPS SEGMENTATION PIPELINE")
@@ -120,8 +123,8 @@ def run_full_pipeline(
     # ========== 5. ЛОСС ==========
     print("\n[STEP 5] Setting up loss function...")
     criterion = CombinedLoss(
-        bce_weight=0.5,
-        dice_weight=0.5,
+        bce_weight=settings.BCE_WEIGHT_RATIO,
+        dice_weight=settings.DICE_WEIGHT_RATIO,
         use_map_mask=True,
         use_depth_mask=use_faults
     )
@@ -131,7 +134,7 @@ def run_full_pipeline(
     optimizer, scheduler = create_optimizer_and_scheduler(
         model=model,
         learning_rate=learning_rate,
-        weight_decay=1e-4,
+        weight_decay=settings.WEIGHT_DECAY,
         scheduler_type='reduce_lr_plateau',
         encoder_lr_multiplier=encoder_lr_multiplier
     )
@@ -162,7 +165,7 @@ def run_full_pipeline(
             device=device,
             n_epochs=n_epochs,
             early_stopping_patience=early_stopping_patience,
-            gradient_accumulation_steps=1,
+            gradient_accumulation_steps=settings.GRADIENT_ACC_STEPS,
             wandb_project=wandb_project,
             wandb_run_name=wandb_run_name,
             checkpoint_path=settings.CHECKPOINT_DIR,
@@ -179,7 +182,7 @@ def run_full_pipeline(
             test_loader=test_loader,
             criterion=criterion,
             device=device,
-            threshold=0.5
+            threshold=settings.TEST_THRESHOLD
         )
         
         # ========== 10. ВИЗУАЛИЗАЦИЯ ТЕСТОВЫХ РЕЗУЛЬТАТОВ ==========
@@ -204,19 +207,3 @@ def run_full_pipeline(
         return test_metrics
     
     return {}
-
-
-if __name__ == '__main__':
-    # Пример запуска полного пайплайна
-    test_metrics = run_full_pipeline(
-        data_dir=settings.DATA_DIR,
-        use_faults=False,  # Без разломов
-        data_source='png',
-        overfit_check_mode=False,  # Установить True для проверки overfit
-        wandb_project='geology-traps-segmentation',
-        wandb_run_name='unetplusplus_rgb_depth_no_faults',
-        n_epochs=100,
-        batch_size=4,
-        learning_rate=1e-4,
-        early_stopping_patience=15
-    )
