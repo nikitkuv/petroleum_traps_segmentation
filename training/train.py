@@ -44,7 +44,7 @@ def train_with_wandb(
         n_epochs: Количество эпох
         early_stopping_patience: Патанс для ранней остановки
         gradient_accumulation_steps: Шаги накопления градиентов
-        wandb_project:项目名称 wandb
+        wandb_project: Имя проекта wandb
         wandb_run_name: Имя запуска
         checkpoint_path: Путь для сохранения чекпоинтов
         log_gradients: Логировать ли градиенты

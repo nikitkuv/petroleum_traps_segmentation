@@ -42,7 +42,7 @@
 ### Базовое использование
 
 ```python
-from pipeline import run_full_pipeline
+from training.pipeline import run_full_pipeline
 from settings import settings
 
 # Запуск полного пайплайна

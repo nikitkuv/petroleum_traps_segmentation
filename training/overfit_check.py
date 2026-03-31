@@ -16,7 +16,7 @@ def overfit_check(
     criterion,  # CombinedLoss
     optimizer: torch.optim.Optimizer,
     device: str = None,
-    n_epochs: int = 100,
+    n_epochs: int = None,
     save_path: str = './logs/overfit_check/'
 ) -> None:
     """
@@ -32,6 +32,8 @@ def overfit_check(
         save_path: Путь для сохранения логов
     """
     device = device or settings.DEVICE
+    n_epochs = n_epochs or settings.NUM_EPOCHS
+    
     os.makedirs(save_path, exist_ok=True)
     
     print("=" * 60)

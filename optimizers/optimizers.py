@@ -12,7 +12,7 @@ def create_optimizer_and_scheduler(
     learning_rate: float = None,
     weight_decay: float = None,
     scheduler_type: str = 'reduce_lr_plateau',
-    encoder_lr_multiplier: float = 0.1
+    encoder_lr_multiplier: float = None
 ) -> Tuple[torch.optim.Optimizer, Optional[torch.optim.lr_scheduler._LRScheduler]]:
     """
     Создает оптимизатор и планировщик скорости обучения.
@@ -28,7 +28,8 @@ def create_optimizer_and_scheduler(
         Кортеж (optimizer, scheduler)
     """
     lr = learning_rate or settings.LEARNING_RATE
-    wd = weight_decay or 1e-4
+    wd = weight_decay or settings.WEIGHT_DECAY
+    encoder_lr_multiplier = encoder_lr_multiplier or settings.ENCODER_LR_MULTIPLIER
     
     # Differential Learning Rate: разные LR для энкодера и декодера
     encoder_params = []
