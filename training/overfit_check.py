@@ -103,7 +103,8 @@ def overfit_check(
                 visualize_training_results(
                     batch_example, 
                     preds_example, 
-                    epoch+1, 
+                    epoch+1,
+                    dataset=train_loader.dataset, 
                     save_path=save_path,
                     n_samples=2
                 )

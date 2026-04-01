@@ -70,6 +70,7 @@ def visualize_training_results(
     predictions: torch.Tensor,
     epoch: int,
     save_path: str = './logs/visualizations/',
+    dataset=None,
     n_samples: int = 4
 ) -> None:
     """
@@ -80,6 +81,7 @@ def visualize_training_results(
         batch: Батч данных
         predictions: Предсказания модели
         epoch: Номер эпохи
+        dataset: Объект GeologyTrapsDataset для получения имен семплов
         save_path: Путь для сохранения
         n_samples: Количество семплов для визуализации
     """
@@ -101,6 +103,30 @@ def visualize_training_results(
         axes = axes.reshape(1, -1)
 
     for i in range(n_samples):
+        # Получаем имя семпла из датасета если доступен
+        if dataset is not None and hasattr(dataset, 'samples') and isinstance(dataset.samples, list):
+            sample_idx = batch['sample_idx'][i].item() if 'sample_idx' in batch else i
+            # samples - это список словарей путей, ключи имеют формат {number}_{name}
+            # Нам нужно получить этот ключ. Поскольку samples[sample_idx] - это dict с путями,
+            # мы можем извлечь номер и имя из любого пути в этом словаре
+            sample_paths = dataset.samples[sample_idx]
+            # Берем первый ключ (например, 'rgb') и извлекаем имя из пути
+            first_path = list(sample_paths.values())[0]
+            # Извлекаем basename без расширения
+            from pathlib import Path
+            filename = Path(first_path).stem
+            # Паттерн: {number}_{x|y}_{type}_{name}, извлекаем number и name
+            import re
+            match = re.match(r'^(\d+)_[xy]_[^_]+_(.+)$', filename)
+            if match:
+                number = match.group(1)
+                name = match.group(2)
+                sample_name = f"{number}_{name}"
+            else:
+                sample_name = f"sample_{sample_idx}"
+        else:
+            sample_name = f"Sample {i}"
+
         # Оригинальная RGB карта (без изолиний)
         rgb_img = x_rgb[i].cpu().permute(1, 2, 0).numpy()
         rgb_img = np.clip(rgb_img, 0, 1)
@@ -122,24 +148,24 @@ def visualize_training_results(
 
         # Отображаем
         axes[i, 0].imshow(rgb_img)
-        axes[i, 0].set_title(f'RGB Map (No Isolines)\nSample {i}')
+        axes[i, 0].set_title(f'RGB Map (No Isolines)\n{sample_name}')
         axes[i, 0].axis('off')
 
         axes[i, 1].imshow(gt_traps, cmap='gray')
-        axes[i, 1].set_title(f'Ground Truth Traps\n(Sample {i})')
+        axes[i, 1].set_title(f'Ground Truth Traps\n({sample_name})')
         axes[i, 1].axis('off')
 
         axes[i, 2].imshow(pred_traps, cmap='gray')
-        axes[i, 2].set_title(f'Predicted Traps\n(Sample {i})')
+        axes[i, 2].set_title(f'Predicted Traps\n({sample_name})')
         axes[i, 2].axis('off')
 
         axes[i, 3].imshow(overlay)
-        axes[i, 3].set_title(f'Prediction Overlay (Gray)\n(Sample {i})')
+        axes[i, 3].set_title(f'Prediction Overlay (Gray)\n({sample_name})')
         axes[i, 3].axis('off')
 
         # Визуализация карты ошибок с colormap
         im_error = axes[i, 4].imshow(error_map, cmap='RdYlBu_r', vmin=0, vmax=1)
-        axes[i, 4].set_title(f'Error Map (|GT - Pred)|\n(Sample {i})')
+        axes[i, 4].set_title(f'Error Map (|GT - Pred)|\n({sample_name})')
         axes[i, 4].axis('off')
         plt.colorbar(im_error, ax=axes[i, 4], fraction=0.046, pad=0.04)
 
@@ -164,6 +190,7 @@ def visualize_test_results(
     batch: Dict[str, torch.Tensor],
     predictions: torch.Tensor,
     sample_indices: List[int],
+    dataset=None,
     save_path: str = './logs/test_visualizations/',
     alpha: float = 0.4
 ) -> None:
@@ -175,6 +202,7 @@ def visualize_test_results(
         batch: Батч данных
         predictions: Предсказания модели
         sample_indices: Индексы семплов для визуализации
+        dataset: Объект GeologyTrapsDataset для получения имен семплов
         save_path: Путь для сохранения
         alpha: Прозрачность наложения (не используется, оставлен для совместимости)
     """
@@ -188,6 +216,27 @@ def visualize_test_results(
     for idx in sample_indices:
         if idx >= x_rgb.shape[0]:
             continue
+
+        # Получаем имя семпла из датасета если доступен
+        if dataset is not None and hasattr(dataset, 'samples') and isinstance(dataset.samples, list):
+            # samples - это список словарей путей, ключи имеют формат {number}_{name}
+            sample_paths = dataset.samples[idx]
+            # Берем первый ключ (например, 'rgb') и извлекаем имя из пути
+            first_path = list(sample_paths.values())[0]
+            # Извлекаем basename без расширения
+            from pathlib import Path
+            filename = Path(first_path).stem
+            # Паттерн: {number}_{x|y}_{type}_{name}, извлекаем number и name
+            import re
+            match = re.match(r'^(\d+)_[xy]_[^_]+_(.+)$', filename)
+            if match:
+                number = match.group(1)
+                name = match.group(2)
+                sample_name = f"{number}_{name}"
+            else:
+                sample_name = f"sample_{idx}"
+        else:
+            sample_name = f"Test Sample {idx}"
 
         rgb_img = x_rgb[idx].cpu().permute(1, 2, 0).numpy()
         rgb_img = np.clip(rgb_img, 0, 1)
@@ -207,23 +256,23 @@ def visualize_test_results(
         fig, axes = plt.subplots(1, 5, figsize=(20, 5))
 
         axes[0].imshow(rgb_img)
-        axes[0].set_title(f'RGB Map (No Isolines)\nTest Sample {idx}')
+        axes[0].set_title(f'RGB Map (No Isolines)\n{sample_name}')
         axes[0].axis('off')
 
         axes[1].imshow(gt_traps, cmap='gray')
-        axes[1].set_title(f'Ground Truth Traps')
+        axes[1].set_title(f'Ground Truth Traps\n({sample_name})')
         axes[1].axis('off')
 
         axes[2].imshow(pred_traps, cmap='gray')
-        axes[2].set_title(f'Predicted Traps')
+        axes[2].set_title(f'Predicted Traps\n({sample_name})')
         axes[2].axis('off')
 
         axes[3].imshow(overlay)
-        axes[3].set_title(f'Prediction Overlay (Gray)')
+        axes[3].set_title(f'Prediction Overlay (Gray)\n({sample_name})')
         axes[3].axis('off')
 
         im_error = axes[4].imshow(error_map, cmap='RdYlBu_r', vmin=0, vmax=1)
-        axes[4].set_title(f'Error Map (|GT - Pred)|')
+        axes[4].set_title(f'Error Map (|GT - Pred)|\n({sample_name})')
         axes[4].axis('off')
         plt.colorbar(im_error, ax=axes[4], fraction=0.046, pad=0.04)
 
@@ -246,6 +295,7 @@ def visualize_advanced_metrics(
     batch: Dict[str, torch.Tensor],
     predictions: torch.Tensor,
     epoch: int,
+    dataset=None,
     save_path: str = './logs/advanced_visualizations/',
     n_samples: int = 4,
     threshold: float = 0.5
@@ -261,6 +311,7 @@ def visualize_advanced_metrics(
         batch: Батч данных
         predictions: Предсказания модели
         epoch: Номер эпохи
+        dataset: Объект GeologyTrapsDataset для получения имен семплов
         save_path: Путь для сохранения
         n_samples: Количество семплов для визуализации
         threshold: Порог бинаризации предсказаний
@@ -282,6 +333,28 @@ def visualize_advanced_metrics(
     all_dice = []
 
     for i in range(n_samples):
+        # Получаем имя семпла из датасета если доступен
+        if dataset is not None and hasattr(dataset, 'samples') and isinstance(dataset.samples, list):
+            sample_idx = batch['sample_idx'][i].item() if 'sample_idx' in batch else i
+            # samples - это список словарей путей, ключи имеют формат {number}_{name}
+            sample_paths = dataset.samples[sample_idx]
+            # Берем первый ключ (например, 'rgb') и извлекаем имя из пути
+            first_path = list(sample_paths.values())[0]
+            # Извлекаем basename без расширения
+            from pathlib import Path
+            filename = Path(first_path).stem
+            # Паттерн: {number}_{x|y}_{type}_{name}, извлекаем number и name
+            import re
+            match = re.match(r'^(\d+)_[xy]_[^_]+_(.+)$', filename)
+            if match:
+                number = match.group(1)
+                name = match.group(2)
+                sample_name = f"{number}_{name}"
+            else:
+                sample_name = f"sample_{sample_idx}"
+        else:
+            sample_name = f"Sample {i}"
+
         rgb_img = x_rgb[i].cpu().permute(1, 2, 0).numpy()
         rgb_img = np.clip(rgb_img, 0, 1)
 
@@ -310,17 +383,17 @@ def visualize_advanced_metrics(
 
         # 1. RGB изображение
         axes[i, 0].imshow(rgb_img)
-        axes[i, 0].set_title(f'RGB Map\nSample {i}')
+        axes[i, 0].set_title(f'RGB Map\n{sample_name}')
         axes[i, 0].axis('off')
 
         # 2. Ground Truth
         axes[i, 1].imshow(gt_traps, cmap='gray')
-        axes[i, 1].set_title(f'Ground Truth\n(IoU={iou:.3f})')
+        axes[i, 1].set_title(f'Ground Truth\n(IoU={iou:.3f})\n({sample_name})')
         axes[i, 1].axis('off')
 
         # 3. Prediction (probability)
         axes[i, 2].imshow(pred_traps, cmap='gray')
-        axes[i, 2].set_title(f'Prediction (prob)\n(Dice={dice:.3f})')
+        axes[i, 2].set_title(f'Prediction (prob)\n(Dice={dice:.3f})\n({sample_name})')
         axes[i, 2].axis('off')
 
         # 4. Binary prediction vs GT overlay
@@ -338,7 +411,7 @@ def visualize_advanced_metrics(
             map_mask_np = batch['mask_map'][i, 0, :, :].cpu().numpy() if batch['mask_map'].dim() == 4 else batch['mask_map'][i].cpu().numpy()
         error_map = create_error_map(gt_traps, pred_traps, map_mask=map_mask_np)
         im_error = axes[i, 4].imshow(error_map, cmap='RdYlBu_r', vmin=0, vmax=1)
-        axes[i, 4].set_title(f'Error Map\n(MAE={np.mean(error_map):.3f})')
+        axes[i, 4].set_title(f'Error Map\n(MAE={np.mean(error_map):.3f})\n({sample_name})')
         axes[i, 4].axis('off')
         plt.colorbar(im_error, ax=axes[i, 4], fraction=0.046, pad=0.04)
 
@@ -351,7 +424,7 @@ def visualize_advanced_metrics(
                           label=f'Threshold={threshold}')
         axes[i, 5].set_xlabel('Probability')
         axes[i, 5].set_ylabel('Density')
-        axes[i, 5].set_title(f'Distribution\nTP={tp}, FP={fp}, FN={fn}')
+        axes[i, 5].set_title(f'Distribution\nTP={tp}, FP={fp}, FN={fn}\n({sample_name})')
         axes[i, 5].legend(fontsize=8)
         axes[i, 5].grid(True, alpha=0.3)
 
@@ -378,6 +451,7 @@ def visualize_comparison_grid(
     batches: List[Dict[str, torch.Tensor]],
     all_predictions: List[torch.Tensor],
     epochs: List[int],
+    dataset=None,
     save_path: str = './logs/comparison_grid/',
     n_samples: int = 2
 ) -> None:
@@ -389,6 +463,7 @@ def visualize_comparison_grid(
         batches: Список батчей с разных эпох
         all_predictions: Список предсказаний с разных эпох
         epochs: Список номеров эпох
+        dataset: Объект GeologyTrapsDataset для получения имен семплов
         save_path: Путь для сохранения
         n_samples: Количество семплов для визуализации
     """
@@ -402,6 +477,28 @@ def visualize_comparison_grid(
         axes = axes.reshape(1, -1)
 
     for i in range(n_samples):
+        # Получаем имя семпла из датасета если доступен
+        if dataset is not None and hasattr(dataset, 'samples') and isinstance(dataset.samples, list):
+            sample_idx = batches[0]['sample_idx'][i].item() if 'sample_idx' in batches[0] else i
+            # samples - это список словарей путей, ключи имеют формат {number}_{name}
+            sample_paths = dataset.samples[sample_idx]
+            # Берем первый ключ (например, 'rgb') и извлекаем имя из пути
+            first_path = list(sample_paths.values())[0]
+            # Извлекаем basename без расширения
+            from pathlib import Path
+            filename = Path(first_path).stem
+            # Паттерн: {number}_{x|y}_{type}_{name}, извлекаем number и name
+            import re
+            match = re.match(r'^(\d+)_[xy]_[^_]+_(.+)$', filename)
+            if match:
+                number = match.group(1)
+                name = match.group(2)
+                sample_name = f"{number}_{name}"
+            else:
+                sample_name = f"sample_{sample_idx}"
+        else:
+            sample_name = f"Sample {i}"
+
         # Берем первый батч для RGB и GT (предполагаем одинаковые данные)
         x_rgb = batches[0]['x'][:, :3, :, :]
         y_traps = batches[0]['y']
@@ -413,12 +510,12 @@ def visualize_comparison_grid(
 
         # RGB
         axes[i, 0].imshow(rgb_img)
-        axes[i, 0].set_title(f'RGB Map\nSample {i}')
+        axes[i, 0].set_title(f'RGB Map\n{sample_name}')
         axes[i, 0].axis('off')
 
         # GT
         axes[i, 1].imshow(gt_traps, cmap='gray')
-        axes[i, 1].set_title(f'Ground Truth')
+        axes[i, 1].set_title(f'Ground Truth\n({sample_name})')
         axes[i, 1].axis('off')
 
         # Predictions для каждой эпохи
@@ -436,7 +533,7 @@ def visualize_comparison_grid(
             fn = np.sum((gt_binary == 1) & (pred_binary == 0))
             iou = tp / (tp + fp + fn) if (tp + fp + fn) > 0 else 0
 
-            axes[i, j + 2].set_title(f'Epoch {epoch}\nIoU={iou:.3f}')
+            axes[i, j + 2].set_title(f'Epoch {epoch}\nIoU={iou:.3f}\n({sample_name})')
             axes[i, j + 2].axis('off')
 
     plt.tight_layout()
