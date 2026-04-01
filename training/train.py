@@ -12,6 +12,7 @@ from tqdm import tqdm
 from metrics.metrics import MetricsCalculator
 from visualization.visualize import visualize_training_results
 from settings import settings
+from training.gradient_tracker import GradientNormTracker, compute_per_sample_grad_norms
 
 
 def train_with_wandb(
@@ -28,7 +29,12 @@ def train_with_wandb(
     wandb_project: str = 'geology-traps-segmentation',
     wandb_run_name: str = None,
     checkpoint_path: str = './checkpoints/',
-    log_gradients: bool = True
+    log_gradients: bool = True,
+    grad_anomaly_tracking: bool = True,
+    grad_abs_threshold: float = 10.0,
+    grad_std_multiplier: float = 3.0,
+    save_anomaly_batches: bool = True,
+    max_anomalies_to_save: int = 20
 ) -> Dict:
     """
     Fine-tuning U-Net++ с мониторингом в wandb.
@@ -48,6 +54,11 @@ def train_with_wandb(
         wandb_run_name: Имя запуска
         checkpoint_path: Путь для сохранения чекпоинтов
         log_gradients: Логировать ли градиенты
+        grad_anomaly_tracking: Трекать ли аномалии градиентов
+        grad_abs_threshold: Абсолютный порог grad_norm для аномалий
+        grad_std_multiplier: Множитель std для динамического порога
+        save_anomaly_batches: Сохранять ли проблемные батчи
+        max_anomalies_to_save: Максимум аномалий для сохранения
     
     Returns:
         История обучения
@@ -93,6 +104,16 @@ def train_with_wandb(
     best_val_dice = 0.0
     patience_counter = 0
     
+    # Инициализация трекера аномалий градиентов
+    grad_tracker = None
+    if grad_anomaly_tracking:
+        grad_tracker = GradientNormTracker(
+            abs_threshold=grad_abs_threshold,
+            std_multiplier=grad_std_multiplier,
+            save_dir='./gradient_anomalies/'
+        )
+        print(f"Gradient anomaly tracking enabled: abs_threshold={grad_abs_threshold}, std_multiplier={grad_std_multiplier}")
+    
     for epoch in range(n_epochs):
         start_time = time.time()
         
@@ -130,7 +151,40 @@ def train_with_wandb(
                 # Градиентный клиппинг
                 if log_gradients:
                     grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-                    wandb.log({'grad_norm': grad_norm.item()})
+                    grad_norm_value = grad_norm.item()
+                    
+                    # Логгируем в wandb
+                    wandb.log({'grad_norm': grad_norm_value})
+                    
+                    # Проверяем на аномалии
+                    if grad_tracker is not None:
+                        is_anomaly, stats = grad_tracker.update(grad_norm_value)
+                        
+                        # Логируем расширенную статистику
+                        wandb.log({
+                            'grad_norm_running_mean': stats['running_mean'],
+                            'grad_norm_running_std': stats['running_std'],
+                            'grad_norm_threshold': stats['threshold']
+                        })
+                        
+                        # Если аномалия - сохраняем батч
+                        if is_anomaly and save_anomaly_batches and len(grad_tracker.anomalies) <= max_anomalies_to_save:
+                            grad_tracker.log_anomaly(
+                                epoch=epoch,
+                                batch_idx=batch_idx,
+                                grad_norm=grad_norm_value,
+                                batch_data=batch,
+                                model=model,
+                                save_batch=True
+                            )
+                            
+                            # Логируем в wandb
+                            wandb.log({
+                                'gradient_anomaly_detected': 1,
+                                'gradient_anomaly_grad_norm': grad_norm_value,
+                                'gradient_anomaly_batch_idx': batch_idx,
+                                'gradient_anomaly_epoch': epoch
+                            })
                 
                 optimizer.step()
                 optimizer.zero_grad()
@@ -280,6 +334,22 @@ def train_with_wandb(
     
     # Завершение wandb
     if wandb.run is not None:
+        # Логируем финальную сводку по аномалиям
+        if grad_tracker is not None:
+            summary = grad_tracker.get_summary()
+            wandb.log({
+                'gradient_anomalies_total': summary['total_anomalies'],
+                'gradient_anomaly_rate': summary['anomaly_rate'],
+                'gradient_norm_final_mean': summary['running_mean'],
+                'gradient_norm_final_std': summary['running_std']
+            })
+            print(f"\nGradient Anomaly Summary:")
+            print(f"  Total anomalies: {summary['total_anomalies']}")
+            print(f"  Anomaly rate: {summary['anomaly_rate']:.2%}")
+            print(f"  Final running mean: {summary['running_mean']:.2f}")
+            print(f"  Final running std: {summary['running_std']:.2f}")
+            print(f"  Saved to: {grad_tracker.save_dir}")
+        
         wandb.finish()
     
     # Сохраняем историю
