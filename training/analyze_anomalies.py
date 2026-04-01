@@ -4,6 +4,9 @@ import torch
 import json
 from pathlib import Path
 from typing import Dict
+import sys
+
+sys.path.append(str(Path(__file__).parent.parent))
 
 
 def load_anomaly_info(anomaly_dir: str) -> Dict:
