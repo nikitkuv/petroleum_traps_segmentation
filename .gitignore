@@ -28,6 +28,7 @@ htmlcov/
 #data/images/
 data/cps/
 data/raw/
+data/images_orig/
 prompts/
 logs/
 .ipynb_checkpoints/
