@@ -173,7 +173,8 @@ def visualize_training_results(
 
     plt.tight_layout()
 
-    filename = f'epoch_{epoch:03d}_training_visualization.png'
+    name_of_image = "validation" if save_path == settings.LOGS_VAL_VIZ_DIR else "training"
+    filename = f'epoch_{epoch:03d}_{name_of_image}_visualization.png'
     filepath = os.path.join(save_path, filename)
     plt.savefig(filepath, dpi=150, bbox_inches='tight')
     plt.close()
@@ -183,7 +184,7 @@ def visualize_training_results(
     # Логируем в wandb если активен
     if wandb.run is not None:
         wandb.log({
-            'training_visualization': wandb.Image(filepath),
+            f'{name_of_image}_visualization': wandb.Image(filepath),
             'epoch': epoch
         })
 
