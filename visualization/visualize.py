@@ -6,6 +6,8 @@ import cv2
 import torch
 import wandb
 
+from settings import settings
+
 
 def create_prediction_overlay(rgb_img: np.ndarray, pred_traps: np.ndarray, alpha: float = 0.4) -> np.ndarray:
     """
@@ -69,7 +71,7 @@ def visualize_training_results(
     batch: Dict[str, torch.Tensor],
     predictions: torch.Tensor,
     epoch: int,
-    save_path: str = './logs/visualizations/',
+    save_path: str = settings.LOGS_TRAIN_VIZ_DIR,
     dataset=None,
     n_samples: int = 4
 ) -> None:
@@ -191,7 +193,7 @@ def visualize_test_results(
     predictions: torch.Tensor,
     sample_indices: List[int],
     dataset=None,
-    save_path: str = './logs/test_visualizations/',
+    save_path: str = settings.LOGS_TEST_VIZ_DIR,
     alpha: float = 0.4
 ) -> None:
     """
@@ -289,162 +291,6 @@ def visualize_test_results(
             wandb.log({
                 f'test_visualization_sample_{idx}': wandb.Image(filepath)
             })
-
-
-def visualize_advanced_metrics(
-    batch: Dict[str, torch.Tensor],
-    predictions: torch.Tensor,
-    epoch: int,
-    dataset=None,
-    save_path: str = './logs/advanced_visualizations/',
-    n_samples: int = 4,
-    threshold: float = 0.5
-) -> None:
-    """
-    Расширенная визуализация с дополнительными метриками качества:
-    - IoU карта (пересечение над объединением для каждого пикселя)
-    - Precision-Recall кривые для разных порогов
-    - Гистограмма распределения ошибок
-    - Confusion matrix visualization
-
-    Args:
-        batch: Батч данных
-        predictions: Предсказания модели
-        epoch: Номер эпохи
-        dataset: Объект GeologyTrapsDataset для получения имен семплов
-        save_path: Путь для сохранения
-        n_samples: Количество семплов для визуализации
-        threshold: Порог бинаризации предсказаний
-    """
-    os.makedirs(save_path, exist_ok=True)
-
-    x_rgb = batch['x'][:, :3, :, :]
-    y_traps = batch['y']
-    preds_prob = torch.sigmoid(predictions)
-
-    n_samples = min(n_samples, x_rgb.shape[0])
-
-    # 6 колонок: RGB, GT, Pred, Comparison, Error Map, Distribution
-    fig, axes = plt.subplots(n_samples, 6, figsize=(30, 5 * n_samples))
-    if n_samples == 1:
-        axes = axes.reshape(1, -1)
-
-    all_ious = []
-    all_dice = []
-
-    for i in range(n_samples):
-        # Получаем имя семпла из датасета если доступен
-        if dataset is not None and hasattr(dataset, 'samples') and isinstance(dataset.samples, list):
-            sample_idx = batch['sample_idx'][i].item() if 'sample_idx' in batch else i
-            # samples - это список словарей путей, ключи имеют формат {number}_{name}
-            sample_paths = dataset.samples[sample_idx]
-            # Берем первый ключ (например, 'rgb') и извлекаем имя из пути
-            first_path = list(sample_paths.values())[0]
-            # Извлекаем basename без расширения
-            from pathlib import Path
-            filename = Path(first_path).stem
-            # Паттерн: {number}_{x|y}_{type}_{name}, извлекаем number и name
-            import re
-            match = re.match(r'^(\d+)_[xy]_[^_]+_(.+)$', filename)
-            if match:
-                number = match.group(1)
-                name = match.group(2)
-                sample_name = f"{number}_{name}"
-            else:
-                sample_name = f"sample_{sample_idx}"
-        else:
-            sample_name = f"Sample {i}"
-
-        rgb_img = x_rgb[i].cpu().permute(1, 2, 0).numpy()
-        rgb_img = np.clip(rgb_img, 0, 1)
-
-        gt_traps = y_traps[i, 0, :, :].cpu().numpy() if y_traps.dim() == 4 else y_traps[i].cpu().numpy()
-        pred_traps = preds_prob[i, 0, :, :].cpu().detach().numpy()
-
-        # Бинаризация предсказаний
-        pred_binary = (pred_traps >= threshold).astype(np.float32)
-        gt_binary = (gt_traps >= threshold).astype(np.float32)
-
-        # IoU для каждого пикселя (локальный IoU в скользящем окне)
-        intersection = gt_binary * pred_binary
-        union = np.maximum(gt_binary, pred_binary)
-
-        # Глобальные метрики
-        tp = np.sum((gt_binary == 1) & (pred_binary == 1))
-        fp = np.sum((gt_binary == 0) & (pred_binary == 1))
-        fn = np.sum((gt_binary == 1) & (pred_binary == 0))
-        tn = np.sum((gt_binary == 0) & (pred_binary == 0))
-
-        iou = tp / (tp + fp + fn) if (tp + fp + fn) > 0 else 0
-        dice = 2 * tp / (2 * tp + fp + fn) if (2 * tp + fp + fn) > 0 else 0
-
-        all_ious.append(iou)
-        all_dice.append(dice)
-
-        # 1. RGB изображение
-        axes[i, 0].imshow(rgb_img)
-        axes[i, 0].set_title(f'RGB Map\n{sample_name}')
-        axes[i, 0].axis('off')
-
-        # 2. Ground Truth
-        axes[i, 1].imshow(gt_traps, cmap='gray')
-        axes[i, 1].set_title(f'Ground Truth\n(IoU={iou:.3f})\n({sample_name})')
-        axes[i, 1].axis('off')
-
-        # 3. Prediction (probability)
-        axes[i, 2].imshow(pred_traps, cmap='gray')
-        axes[i, 2].set_title(f'Prediction (prob)\n(Dice={dice:.3f})\n({sample_name})')
-        axes[i, 2].axis('off')
-
-        # 4. Binary prediction vs GT overlay
-        comparison = np.zeros((*gt_binary.shape, 3))
-        comparison[:, :, 0] = gt_binary  # Red - GT
-        comparison[:, :, 2] = pred_binary  # Blue - Pred
-        # Purple areas show overlap
-        axes[i, 3].imshow(comparison)
-        axes[i, 3].set_title(f'GT(Red) vs Pred(Blue)\nOverlap=Purple')
-        axes[i, 3].axis('off')
-
-        # 5. Error map с градиентом (с учетом mask_map если есть)
-        map_mask_np = None
-        if 'mask_map' in batch and batch['mask_map'] is not None:
-            map_mask_np = batch['mask_map'][i, 0, :, :].cpu().numpy() if batch['mask_map'].dim() == 4 else batch['mask_map'][i].cpu().numpy()
-        error_map = create_error_map(gt_traps, pred_traps, map_mask=map_mask_np)
-        im_error = axes[i, 4].imshow(error_map, cmap='RdYlBu_r', vmin=0, vmax=1)
-        axes[i, 4].set_title(f'Error Map\n(MAE={np.mean(error_map):.3f})\n({sample_name})')
-        axes[i, 4].axis('off')
-        plt.colorbar(im_error, ax=axes[i, 4], fraction=0.046, pad=0.04)
-
-        # 6. Распределение вероятностей предсказаний
-        axes[i, 5].hist(pred_traps.flatten(), bins=50, alpha=0.7,
-                       color='blue', label='Predictions', density=True)
-        axes[i, 5].hist(gt_traps.flatten(), bins=50, alpha=0.7,
-                       color='green', label='Ground Truth', density=True)
-        axes[i, 5].axvline(x=threshold, color='red', linestyle='--',
-                          label=f'Threshold={threshold}')
-        axes[i, 5].set_xlabel('Probability')
-        axes[i, 5].set_ylabel('Density')
-        axes[i, 5].set_title(f'Distribution\nTP={tp}, FP={fp}, FN={fn}\n({sample_name})')
-        axes[i, 5].legend(fontsize=8)
-        axes[i, 5].grid(True, alpha=0.3)
-
-    plt.tight_layout()
-
-    filename = f'epoch_{epoch:03d}_advanced_metrics.png'
-    filepath = os.path.join(save_path, filename)
-    plt.savefig(filepath, dpi=150, bbox_inches='tight')
-    plt.close()
-
-    print(f"Saved advanced visualization to {filepath}")
-    print(f"Average IoU: {np.mean(all_ious):.4f}, Average Dice: {np.mean(all_dice):.4f}")
-
-    if wandb.run is not None:
-        wandb.log({
-            'advanced_visualization': wandb.Image(filepath),
-            'avg_iou': np.mean(all_ious),
-            'avg_dice': np.mean(all_dice),
-            'epoch': epoch
-        })
 
 
 def visualize_comparison_grid(

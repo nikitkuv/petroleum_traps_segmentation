@@ -150,7 +150,7 @@ def run_full_pipeline(
             optimizer=optimizer,
             device=device,
             n_epochs=100,
-            save_path='./logs/overfit_check/'
+            save_path=settings.LOGS_OVERFIT_CHECK_DIR
         )
     else:
         # ========== 8. ОБУЧЕНИЕ С W&B ==========
@@ -192,7 +192,7 @@ def run_full_pipeline(
             test_loader=test_loader,
             device=device,
             sample_indices=[0, 1, 2, 3],
-            save_path='./logs/test_visualizations/',
+            save_path=settings.LOGS_TEST_VIZ_DIR,
             alpha=0.4
         )
         
