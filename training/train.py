@@ -233,6 +233,7 @@ def train_with_wandb(
                     batch_example,
                     preds_example,
                     epoch + 1,
+                    dataset=val_loader.dataset,
                     save_path='./logs/val_visualizations/',
                     n_samples=4
                 )

@@ -154,6 +154,7 @@ def visualize_test_predictions(
                 batch=batch,
                 predictions=predictions,
                 sample_indices=sample_indices,
+                dataset=test_loader.dataset,
                 save_path=save_path,
                 alpha=alpha
             )
