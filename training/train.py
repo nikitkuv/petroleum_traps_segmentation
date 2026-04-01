@@ -288,7 +288,7 @@ def train_with_wandb(
                     preds_example,
                     epoch + 1,
                     dataset=val_loader.dataset,
-                    save_path='./logs/val_visualizations/',
+                    save_path=settings.LOGS_VAL_VIZ_DIR,
                     n_samples=4
                 )
         

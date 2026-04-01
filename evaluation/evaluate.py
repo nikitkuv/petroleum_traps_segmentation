@@ -118,7 +118,7 @@ def visualize_test_predictions(
     test_loader: DataLoader,
     device: str = None,
     sample_indices: List[int] = None,
-    save_path: str = './logs/test_visualizations/',
+    save_path: str = settings.LOGS_TEST_VIZ_DIR,
     alpha: float = 0.4
 ) -> None:
     """

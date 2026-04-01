@@ -1,15 +1,9 @@
-"""
-Скрипт для анализа сохраненных проблемных батчей с аномальными градиентами.
-
-Запуск:
-    python training/analyze_anomalies.py --anomaly_dir ./gradient_anomalies/
-"""
 import os
 import argparse
 import torch
 import json
 from pathlib import Path
-from typing import List, Dict
+from typing import Dict
 
 
 def load_anomaly_info(anomaly_dir: str) -> Dict:

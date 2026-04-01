@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     CPS_DIR: str = './data/cps/'
     CHECKPOINT_DIR: str = './checkpoints/'
     LOGS_DIR: str = './logs/'
+    LOGS_TRAIN_VIZ_DIR: str = './logs/visualizations/'
+    LOGS_VAL_VIZ_DIR: str = './logs/val_visualizations/'
+    LOGS_TEST_VIZ_DIR: str = './logs/test_visualizations/'
+    LOGS_OVERFIT_CHECK_DIR: str = './logs/overfit_check/'
+    GRAD_ANOMALIES_DIR: str = './gradient_anomalies/'
 
     # Размеры изображений
     TARGET_HEIGHT: int = 1248
@@ -78,6 +83,26 @@ class Settings(BaseSettings):
     @property
     def logs_path(self) -> Path:
         return Path(self.LOGS_DIR)
+    
+    @property
+    def logs_train_viz_path(self) -> Path:
+        return Path(self.LOGS_TRAIN_VIZ_DIR)
+
+    @property
+    def logs_val_viz_path(self) -> Path:
+        return Path(self.LOGS_VAL_VIZ_DIR)
+    
+    @property
+    def logs_test_viz_path(self) -> Path:
+        return Path(self.LOGS_TEST_VIZ_DIR)
+    
+    @property
+    def logs_overfit_check_path(self) -> Path:
+        return Path(self.LOGS_OVERFIT_CHECK_DIR)
+    
+    @property
+    def grad_anomalies_path(self) -> Path:
+        return Path(self.GRAD_ANOMALIES_DIR)
 
     @property
     def is_cps(self) -> bool:
@@ -90,6 +115,11 @@ class Settings(BaseSettings):
     def create_dirs(self):
         self.checkpoint_path.mkdir(parents=True, exist_ok=True)
         self.logs_path.mkdir(parents=True, exist_ok=True)
+        self.logs_train_viz_path.mkdir(parents=True, exist_ok=True)
+        self.logs_val_viz_path.mkdir(parents=True, exist_ok=True)
+        self.logs_test_viz_path.mkdir(parents=True, exist_ok=True)
+        self.logs_overfit_check_path.mkdir(parents=True, exist_ok=True)
+        self.grad_anomalies_path.mkdir(parents=True, exist_ok=True)
 
 
 # Глобальный экземпляр настроек

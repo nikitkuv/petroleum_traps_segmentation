@@ -17,7 +17,7 @@ def overfit_check(
     optimizer: torch.optim.Optimizer,
     device: str = None,
     n_epochs: int = None,
-    save_path: str = './logs/overfit_check/'
+    save_path: str = settings.LOGS_OVERFIT_CHECK_DIR
 ) -> None:
     """
     Проверка обучения на overfit на 1-2 картах без валидации.
