@@ -13,3 +13,5 @@ albumentations
 opencv-python
 torchvision
 pydantic_settings
+pytest 
+pytest-cov

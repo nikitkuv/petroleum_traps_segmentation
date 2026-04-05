@@ -1,21 +1,5 @@
-"""
-Tests for input data validation (PNG and CPS formats).
-
-Covers:
-- File format validation
-- File naming convention checks
-- Image loading and format verification
-- CPS grid parsing
-- Data integrity checks
-"""
-
 import pytest
 import numpy as np
-import torch
-from pathlib import Path
-from unittest.mock import patch, MagicMock
-import tempfile
-import os
 
 from utils.images_utils import (
     load_image,
@@ -30,7 +14,6 @@ from utils.cps_utils import (
     cps_to_grayscale,
     cps_to_binary_mask
 )
-from settings import settings
 
 
 class TestImageLoading:
