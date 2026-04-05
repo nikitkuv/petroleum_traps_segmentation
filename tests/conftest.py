@@ -1,7 +1,3 @@
-"""
-Pytest configuration and fixtures for Geology Traps tests.
-"""
-
 import pytest
 import numpy as np
 import torch

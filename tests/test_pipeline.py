@@ -1,18 +1,5 @@
-"""
-Tests for the complete training pipeline.
-
-Covers:
-- Pipeline integration tests
-- Overfit check mode
-- Full training cycle (short)
-- Evaluation on test data
-"""
-
 import pytest
 import numpy as np
-import torch
-from pathlib import Path
-import tempfile
 import os
 import cv2
 

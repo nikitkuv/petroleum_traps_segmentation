@@ -1,23 +1,6 @@
-"""
-Tests for training readiness and training process.
-
-Covers:
-- Model loading and architecture verification
-- Loss function tests
-- Optimizer and scheduler setup
-- Training loop validation
-- Overfit check mode
-- Metrics calculation
-- Gradient tracking
-"""
-
 import pytest
-import numpy as np
 import torch
 import torch.nn as nn
-from pathlib import Path
-from unittest.mock import patch, MagicMock
-import tempfile
 import os
 
 from models.unetplusplus import load_unetplusplus, save_model_checkpoint
@@ -487,8 +470,8 @@ def test_training_smoke_test():
     criterion = CombinedLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     
-    x = torch.randn(1, 4, 32, 32)
-    y = torch.randint(0, 2, (1, 1, 32, 32)).float()
+    x = torch.randn(1, 4, 64, 64)
+    y = torch.randint(0, 2, (1, 1, 64, 64)).float()
     
     model.train()
     output = model(x)

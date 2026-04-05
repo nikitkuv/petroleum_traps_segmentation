@@ -1,21 +1,6 @@
-"""
-Tests for GeologyTrapsDataset and data loading pipeline.
-
-Covers:
-- Dataset initialization
-- File parsing and grouping
-- Sample loading (__getitem__)
-- Data source handling (PNG vs CPS)
-- Augmentation application
-- Fault mask handling
-"""
-
 import pytest
 import numpy as np
 import torch
-from pathlib import Path
-from unittest.mock import patch, MagicMock
-import tempfile
 import os
 import cv2
 
