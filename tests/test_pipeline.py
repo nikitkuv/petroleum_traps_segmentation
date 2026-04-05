@@ -69,41 +69,6 @@ class TestPipelineIntegration:
         finally:
             settings.CHECKPOINT_DIR = original_checkpoint
             settings.LOGS_DIR = original_logs
-    
-    @pytest.mark.slow
-    def test_pipeline_overfit_mode(self, minimal_dataset, tmp_path):
-        """Test pipeline in overfit check mode."""
-        checkpoint_dir = tmp_path / "checkpoints"
-        logs_dir = tmp_path / "logs"
-        
-        original_checkpoint = settings.CHECKPOINT_DIR
-        original_logs = settings.LOGS_DIR
-        original_overfit = settings.OVERFIT_SIZE
-        
-        try:
-            settings.CHECKPOINT_DIR = str(checkpoint_dir)
-            settings.LOGS_DIR = str(logs_dir)
-            settings.OVERFIT_SIZE = 1
-            
-            result = run_full_pipeline(
-                data_dir=minimal_dataset,
-                use_faults=False,
-                data_source='png',
-                overfit_check_mode=True,
-                wandb_project=None
-            )
-            
-            # Overfit mode returns empty dict
-            assert isinstance(result, dict)
-            
-            # Check that overfit visualization was created
-            overfit_dir = checkpoint_dir / "overfit_check"
-            assert overfit_dir.exists()
-            
-        finally:
-            settings.CHECKPOINT_DIR = original_checkpoint
-            settings.LOGS_DIR = original_logs
-            settings.OVERFIT_SIZE = original_overfit
 
 
 class TestOverfitCheck:
