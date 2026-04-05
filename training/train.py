@@ -311,7 +311,7 @@ def train_with_wandb(
                 }
             }
             
-            best_model_path = os.path.join(checkpoint_path, 'best_model.pth')
+            best_model_path = os.path.join(checkpoint_path, f'{"faults" if settings.USE_FAULTS else "no_faults"}_epochs-{settings.NUM_EPOCHS}_lr-{settings.LEARNING_RATE}_bs-{settings.BATCH_SIZE}.pth')
             torch.save(checkpoint, best_model_path)
             print(f"  ✓ Saved best model with Dice={best_val_dice:.4f}")
             

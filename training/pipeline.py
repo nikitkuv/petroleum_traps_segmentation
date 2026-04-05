@@ -174,7 +174,7 @@ def run_full_pipeline(
         
         # ========== 9. ЗАГРУЗКА ЛУЧШЕЙ МОДЕЛИ И ТЕСТИРОВАНИЕ ==========
         print("\n[STEP 9] Evaluating best model on test data...")
-        best_model_path = os.path.join(settings.CHECKPOINT_DIR, 'best_model.pth')
+        best_model_path = os.path.join(settings.CHECKPOINT_DIR, f'{"faults" if settings.USE_FAULTS else "no_faults"}_epochs-{settings.NUM_EPOCHS}_lr-{settings.LEARNING_RATE}_bs-{settings.BATCH_SIZE}.pth')
         model = load_model_checkpoint(model, best_model_path, device)
         
         test_metrics = evaluate_on_test(
