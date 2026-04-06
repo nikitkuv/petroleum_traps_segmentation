@@ -78,14 +78,14 @@ def evaluate_on_test(
     
     # Агрегируем метрики по всем батчам
     avg_metrics = {
-        'test_loss': total_loss / n_batches,
-        'test_dice': 0.0,
-        'test_iou': 0.0,
-        'test_recall': 0.0,
-        'test_precision': 0.0,
-        'test_f1': 0.0,
-        'test_fp_area': 0.0,
-        'test_fn_area': 0.0
+        'loss': total_loss / n_batches,
+        'dice': 0.0,
+        'iou': 0.0,
+        'recall': 0.0,
+        'precision': 0.0,
+        'f1': 0.0,
+        'fp_area': 0.0,
+        'fn_area': 0.0
     }
     
     # Пересчитываем метрики на всех данных сразу для большей точности
@@ -100,14 +100,14 @@ def evaluate_on_test(
     print("\n" + "=" * 60)
     print("TEST RESULTS")
     print("=" * 60)
-    print(f"Loss:    {avg_metrics['test_loss']:.4f}")
-    print(f"Dice:    {avg_metrics['test_dice']:.4f}")
-    print(f"IoU:     {avg_metrics['test_iou']:.4f}")
-    print(f"Recall:  {avg_metrics['test_recall']:.4f}")
-    print(f"Precision: {avg_metrics['test_precision']:.4f}")
-    print(f"F1:      {avg_metrics['test_f1']:.4f}")
-    print(f"FP Area: {avg_metrics['test_fp_area']:.4f}")
-    print(f"FN Area: {avg_metrics['test_fn_area']:.4f}")
+    print(f"Loss:    {avg_metrics['loss']:.4f}")
+    print(f"Dice:    {avg_metrics['dice']:.4f}")
+    print(f"IoU:     {avg_metrics['iou']:.4f}")
+    print(f"Recall:  {avg_metrics['recall']:.4f}")
+    print(f"Precision: {avg_metrics['precision']:.4f}")
+    print(f"F1:      {avg_metrics['f1']:.4f}")
+    print(f"FP Area: {avg_metrics['fp_area']:.4f}")
+    print(f"FN Area: {avg_metrics['fn_area']:.4f}")
     print("=" * 60)
     
     return avg_metrics
