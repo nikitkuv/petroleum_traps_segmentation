@@ -149,7 +149,7 @@ def train_with_wandb(
             # Шаг оптимизатора с накоплением градиентов
             if (batch_idx + 1) % gradient_accumulation_steps == 0:
                 # Градиентный клиппинг
-                if log_gradients:
+                if log_gradients and wandb.run is not None:
                     grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                     grad_norm_value = grad_norm.item()
                     

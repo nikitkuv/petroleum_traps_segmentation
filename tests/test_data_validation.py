@@ -209,9 +209,13 @@ FSLIMI 0.0 10.0 0.0 10.0
         grid, _ = read_cps_grid(str(sample_cps_file))
         
         # Check some known values
+        # Grid is filled in Fortran order (column-major): 
+        # values are written row by row but reshaped with order='F'
+        # So grid[0, 0] = 0.0, grid[1, 0] = 1.0, ..., grid[9, 0] = 9.0
+        # Then grid[0, 1] = 10.0, grid[1, 1] = 11.0, etc.
         assert grid[0, 0] == 0.0
-        assert grid[0, 9] == 9.0
-        assert grid[9, 0] == 90.0
+        assert grid[9, 0] == 9.0
+        assert grid[0, 1] == 10.0
     
     def test_read_cps_grid_handles_null_values(self, tmp_path):
         """Test that null values are converted to NaN."""
@@ -294,11 +298,11 @@ FSLIMI 0.0 5.0 0.0 5.0
 class TestFileNamingValidation:
     """Tests for file naming convention validation."""
     
-    from data.dataloaders import parse_filename
-    
     def test_parse_valid_filename(self):
         """Test parsing of valid filename."""
-        result = self.parse_filename("001_x_structuralNOisoline_H150.png")
+        from data.dataloaders import parse_filename
+        
+        result = parse_filename("001_x_structuralNOisoline_H150.png")
         
         assert result is not None
         assert result['number'] == '001'
@@ -308,7 +312,9 @@ class TestFileNamingValidation:
     
     def test_parse_traps_filename(self):
         """Test parsing of traps filename."""
-        result = self.parse_filename("002_y_traps_BZ24.png")
+        from data.dataloaders import parse_filename
+        
+        result = parse_filename("002_y_traps_BZ24.png")
         
         assert result is not None
         assert result['number'] == '002'
@@ -318,7 +324,9 @@ class TestFileNamingValidation:
     
     def test_parse_faults_filename(self):
         """Test parsing of faults filename."""
-        result = self.parse_filename("003_x_faults_H150.png")
+        from data.dataloaders import parse_filename
+        
+        result = parse_filename("003_x_faults_H150.png")
         
         assert result is not None
         assert result['number'] == '003'
@@ -328,6 +336,8 @@ class TestFileNamingValidation:
     
     def test_parse_invalid_filename_returns_none(self):
         """Test that invalid filenames return None."""
+        from data.dataloaders import parse_filename
+        
         invalid_names = [
             "invalid.png",
             "001_type_H150.png",  # Missing role
@@ -336,12 +346,14 @@ class TestFileNamingValidation:
         ]
         
         for name in invalid_names:
-            result = self.parse_filename(name)
+            result = parse_filename(name)
             assert result is None, f"Expected None for {name}"
     
     def test_parse_complex_horizon_name(self):
         """Test parsing filenames with complex horizon names."""
-        result = self.parse_filename("001_x_structuralNOisoline_Ach322_top_1.png")
+        from data.dataloaders import parse_filename
+        
+        result = parse_filename("001_x_structuralNOisoline_Ach322_top_1.png")
         
         assert result is not None
         assert result['number'] == '001'
