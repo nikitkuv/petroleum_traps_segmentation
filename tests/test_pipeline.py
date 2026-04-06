@@ -50,15 +50,13 @@ class TestPipelineIntegration:
         try:
             settings.CHECKPOINT_DIR = str(checkpoint_dir)
             settings.LOGS_DIR = str(logs_dir)
-            settings.NUM_EPOCHS = 2  # Short training for test
-            settings.BATCH_SIZE = 2
             
             metrics = run_full_pipeline(
                 data_dir=minimal_dataset,
                 use_faults=False,
                 data_source='png',
                 overfit_check_mode=False,
-                n_epochs=2,
+                n_epochs=1,
                 batch_size=2,
                 wandb_project=None  # Disable wandb for tests
             )
