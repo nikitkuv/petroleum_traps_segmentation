@@ -206,13 +206,8 @@ FSLIMI 0.0 10.0 0.0 10.0
     
     def test_read_cps_grid_values(self, sample_cps_file):
         """Test CPS grid values are correctly parsed."""
-        grid, _ = read_cps_grid(str(sample_cps_file))
+        grid, _ = read_cps_grid(str(sample_cps_file), vertical_flip=False)
         
-        # Check some known values
-        # Grid is filled in Fortran order (column-major): 
-        # values are written row by row but reshaped with order='F'
-        # So grid[0, 0] = 0.0, grid[1, 0] = 1.0, ..., grid[9, 0] = 9.0
-        # Then grid[0, 1] = 10.0, grid[1, 1] = 11.0, etc.
         assert grid[0, 0] == 0.0
         assert grid[9, 0] == 9.0
         assert grid[0, 1] == 10.0
