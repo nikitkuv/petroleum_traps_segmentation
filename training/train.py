@@ -240,9 +240,16 @@ def train_with_wandb(
                 })
         
         # Средние метрики за эпоху (val)
-        avg_val_loss = epoch_val_loss / n_val_batches
-        avg_val_dice = epoch_val_dice / n_val_batches
-        avg_val_iou = epoch_val_iou / n_val_batches
+        if n_val_batches > 0:
+            avg_val_loss = epoch_val_loss / n_val_batches
+            avg_val_dice = epoch_val_dice / n_val_batches
+            avg_val_iou = epoch_val_iou / n_val_batches
+        else:
+            # Если валидационная выборка пустая, используем train метрики
+            avg_val_loss = avg_train_loss
+            avg_val_dice = avg_train_dice
+            avg_val_iou = avg_train_iou
+            print("WARNING: Validation set is empty, using training metrics for validation")
         
         # ========== LOGGING ==========
         # Learning rate
