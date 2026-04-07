@@ -89,15 +89,15 @@ def print_anomaly_summary(anomaly_info: Dict):
     print(f"Total anomalies detected: {anomaly_info['total_anomalies']}")
     print(f"\nTracker configuration:")
     config = anomaly_info['tracker_config']
-    print(f"  - Absolute threshold: {config['abs_threshold']}")
-    print(f"  - Std multiplier: {config['std_multiplier']}")
-    print(f"  - Min samples for std: {config['min_samples_for_std']}")
+    print(f" - Absolute threshold: {config['abs_threshold']}")
+    print(f" - Std multiplier: {config['std_multiplier']}")
+    print(f" - Min samples for std: {config['min_samples_for_std']}")
     
     print(f"\nFinal statistics:")
     stats = anomaly_info['final_stats']
-    print(f"  - Running mean: {stats['running_mean']:.2f}")
-    print(f"  - Running std: {stats['running_std']:.2f}")
-    print(f"  - Total batches processed: {stats['count']}")
+    print(f" - Running mean: {stats['running_mean']:.2f}")
+    print(f" - Running std: {stats['running_std']:.2f}")
+    print(f" - Total batches processed: {stats['count']}")
     
     print(f"\nAnomaly rate: {anomaly_info['total_anomalies'] / max(stats['count'], 1) * 100:.2f}%")
     
@@ -173,15 +173,15 @@ def main():
                 )
                 results.append(result)
                 
-                print(f"  Per-sample grad norms: {result['per_sample_grad_norms']}")
-                print(f"  Top sample: index={result['top_samples'][0]['index']}, "
+                print(f" Per-sample grad norms: {result['per_sample_grad_norms']}")
+                print(f" Top sample: index={result['top_samples'][0]['index']}, "
                       f"grad_norm={result['top_samples'][0]['grad_norm']:.2f}")
-                print(f"  Statistics: mean={result['statistics']['mean']:.2f}, "
+                print(f" Statistics: mean={result['statistics']['mean']:.2f}, "
                       f"std={result['statistics']['std']:.2f}, "
                       f"max={result['statistics']['max']:.2f}")
                 
             except Exception as e:
-                print(f"  Error analyzing batch: {e}")
+                print(f" Error analyzing batch: {e}")
         
         # Сохраняем результаты анализа
         if results:

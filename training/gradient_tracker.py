@@ -155,11 +155,11 @@ class GradientNormTracker:
         # Сохраняем общий список аномалий
         self._save_anomalies_list()
         
-        print(f"\n⚠️  GRADIENT ANOMALY DETECTED!")
-        print(f"   Epoch: {epoch}, Batch: {batch_idx}")
-        print(f"   Grad Norm: {grad_norm:.2f} (threshold: {anomaly_info['running_mean'] + self.std_multiplier * np.sqrt(self.running_m2 / (self.count - 1)) if self.count > 1 else self.abs_threshold:.2f})")
-        print(f"   Running Mean: {self.running_mean:.2f}, Std: {np.sqrt(self.running_m2 / (self.count - 1)) if self.count > 1 else 0.0:.2f}")
-        print(f"   Saved to: {self.save_dir}")
+        print(f"\n  GRADIENT ANOMALY DETECTED!")
+        print(f"  Epoch: {epoch+1}, Batch: {batch_idx}")
+        print(f"  Grad Norm: {grad_norm:.2f} (threshold: {anomaly_info['running_mean'] + self.std_multiplier * np.sqrt(self.running_m2 / (self.count - 1)) if self.count > 1 else self.abs_threshold:.2f})")
+        print(f"  Running Mean: {self.running_mean:.2f}, Std: {np.sqrt(self.running_m2 / (self.count - 1)) if self.count > 1 else 0.0:.2f}")
+        print(f"  Saved to: {self.save_dir}")
     
     def _save_batch_preview(self, x: torch.Tensor, anomaly_id: str):
         """Сохранить превью изображений из батча для быстрого анализа."""

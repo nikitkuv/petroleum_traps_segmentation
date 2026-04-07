@@ -178,7 +178,7 @@ class GeologyTrapsDataset(Dataset):
             
             # Конвертация structuralNOisoline → RGB + depth_norm
             rgb_img = cps_to_rgb(rgb_grid, cmap_name='purple_jet')
-            depth_img = cps_to_grayscale(rgb_grid, invert=True)  # Из того же грида!
+            depth_img = cps_to_grayscale(rgb_grid, invert=True)  # Из того же грида
             
             # Faults если нужен
             if self.use_faults and 'faults' in sample_paths:

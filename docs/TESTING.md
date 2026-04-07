@@ -180,7 +180,7 @@ tests/test_pipeline.py .......                                           [100%]
 ======================== 50 passed in 15.23s =============================
 ```
 
-✅ Все тесты прошли: `XX passed`
+ Все тесты прошли: `XX passed`
 
 ### Проваленные тесты
 
@@ -207,7 +207,7 @@ FAILED tests/test_dataset.py::TestDatasetGetItem::test_getitem_channels
 ========================= 1 failed, 49 passed in 12.34s ========================
 ```
 
-❌ Тесты провалены: смотрите `FAILURES` и `AssertionError`
+ Тесты провалены: смотрите `FAILURES` и `AssertionError`
 
 ### Ошибки
 
@@ -226,7 +226,7 @@ ERROR tests/test_file.py::test_something - FileNotFoundError
 ========================== 1 error in 0.5s ====================================
 ```
 
-⚠️ Ошибки (ERROR): проблемы в фикстурах или настройке, не в самих тестах
+ Ошибки (ERROR): проблемы в фикстурах или настройке, не в самих тестах
 
 ## Интерпретация результатов
 
