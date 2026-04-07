@@ -160,25 +160,25 @@ def print_leakage_report(
     print(f"Test files:  {file_results['total_test']}")
 
     if file_results['train_val_overlap']:
-        print(f"\n❌ LEAKAGE DETECTED: Train ∩ Val = {len(file_results['train_val_overlap'])} files")
+        print(f"\n LEAKAGE DETECTED: Train ∩ Val = {len(file_results['train_val_overlap'])} files")
         for f in list(file_results['train_val_overlap'])[:5]:
-            print(f"   - {f}")
+            print(f"  - {f}")
     else:
-        print("\n✅ No leakage between Train and Val")
+        print("\n No leakage between Train and Val")
 
     if file_results['train_test_overlap']:
-        print(f"\n❌ LEAKAGE DETECTED: Train ∩ Test = {len(file_results['train_test_overlap'])} files")
+        print(f"\n LEAKAGE DETECTED: Train ∩ Test = {len(file_results['train_test_overlap'])} files")
         for f in list(file_results['train_test_overlap'])[:5]:
-            print(f"   - {f}")
+            print(f"  - {f}")
     else:
-        print("\n✅ No leakage between Train and Test")
+        print("\n No leakage between Train and Test")
 
     if file_results['val_test_overlap']:
-        print(f"\n❌ LEAKAGE DETECTED: Val ∩ Test = {len(file_results['val_test_overlap'])} files")
+        print(f"\n LEAKAGE DETECTED: Val ∩ Test = {len(file_results['val_test_overlap'])} files")
         for f in list(file_results['val_test_overlap'])[:5]:
-            print(f"   - {f}")
+            print(f"  - {f}")
     else:
-        print("\n✅ No leakage between Val and Test")
+        print("\n No leakage between Val and Test")
 
     # 2. Проверка на уровне семплов
     print("\n2. SAMPLE-LEVEL CHECK (ключи {number}_{name})")
@@ -188,25 +188,25 @@ def print_leakage_report(
     print(f"Test samples:  {sample_results['total_test_samples']}")
 
     if sample_results['train_val_overlap']:
-        print(f"\n❌ LEAKAGE DETECTED: Train ∩ Val = {len(sample_results['train_val_overlap'])} samples")
+        print(f"\n LEAKAGE DETECTED: Train ∩ Val = {len(sample_results['train_val_overlap'])} samples")
         for s in list(sample_results['train_val_overlap'])[:5]:
-            print(f"   - {s}")
+            print(f"  - {s}")
     else:
-        print("\n✅ No leakage between Train and Val")
+        print("\n No leakage between Train and Val")
 
     if sample_results['train_test_overlap']:
-        print(f"\n❌ LEAKAGE DETECTED: Train ∩ Test = {len(sample_results['train_test_overlap'])} samples")
+        print(f"\n LEAKAGE DETECTED: Train ∩ Test = {len(sample_results['train_test_overlap'])} samples")
         for s in list(sample_results['train_test_overlap'])[:5]:
-            print(f"   - {s}")
+            print(f"  - {s}")
     else:
-        print("\n✅ No leakage between Train and Test")
+        print("\n No leakage between Train and Test")
 
     if sample_results['val_test_overlap']:
-        print(f"\n❌ LEAKAGE DETECTED: Val ∩ Test = {len(sample_results['val_test_overlap'])} samples")
+        print(f"\n LEAKAGE DETECTED: Val ∩ Test = {len(sample_results['val_test_overlap'])} samples")
         for s in list(sample_results['val_test_overlap'])[:5]:
-            print(f"   - {s}")
+            print(f"  - {s}")
     else:
-        print("\n✅ No leakage between Val and Test")
+        print("\n No leakage between Val and Test")
 
     # 3. Проверка на уровне горизонтов (НАИБОЛЕЕ ВАЖНО)
     print("\n3. HORIZON-LEVEL CHECK (названия горизонтов - name)")
@@ -216,25 +216,25 @@ def print_leakage_report(
     print(f"Test horizons:  {horizon_results['total_test_horizons']}")
 
     if horizon_results['train_val_overlap']:
-        print(f"\n❌ CRITICAL LEAKAGE: Train ∩ Val = {len(horizon_results['train_val_overlap'])} horizons")
+        print(f"\n CRITICAL LEAKAGE: Train ∩ Val = {len(horizon_results['train_val_overlap'])} horizons")
         for h in sorted(horizon_results['train_val_overlap']):
-            print(f"   - {h}")
+            print(f"  - {h}")
     else:
-        print("\n✅ No horizon leakage between Train and Val")
+        print("\n No horizon leakage between Train and Val")
 
     if horizon_results['train_test_overlap']:
-        print(f"\n❌ CRITICAL LEAKAGE: Train ∩ Test = {len(horizon_results['train_test_overlap'])} horizons")
+        print(f"\n CRITICAL LEAKAGE: Train ∩ Test = {len(horizon_results['train_test_overlap'])} horizons")
         for h in sorted(horizon_results['train_test_overlap']):
-            print(f"   - {h}")
+            print(f"  - {h}")
     else:
-        print("\n✅ No horizon leakage between Train and Test")
+        print("\n No horizon leakage between Train and Test")
 
     if horizon_results['val_test_overlap']:
-        print(f"\n❌ CRITICAL LEAKAGE: Val ∩ Test = {len(horizon_results['val_test_overlap'])} horizons")
+        print(f"\n CRITICAL LEAKAGE: Val ∩ Test = {len(horizon_results['val_test_overlap'])} horizons")
         for h in sorted(horizon_results['val_test_overlap']):
-            print(f"   - {h}")
+            print(f"  - {h}")
     else:
-        print("\n✅ No horizon leakage between Val and Test")
+        print("\n No horizon leakage between Val and Test")
 
     # 4. Распределение семплов по горизонтам
     print("\n4. LEAKED SAMPLE DISTRIBUTION BY HORIZON")
@@ -255,7 +255,7 @@ def print_leakage_report(
 
         # Подсветка проблем
         non_zero_splits = sum([train_count > 0, val_count > 0, test_count > 0])
-        marker = " ⚠️" if non_zero_splits > 1 else ""
+        marker = " " if non_zero_splits > 1 else ""
 
         if non_zero_splits > 1:
             print(f"{horizon:<20} | {train_count:<8} | {val_count:<8} | {test_count:<8} | {total:<8}{marker}")
@@ -277,11 +277,11 @@ def print_leakage_report(
     )
 
     if has_leakage:
-        print("❌ DATA LEAKAGE DETECTED! Training may be compromised.")
-        print("   Please ensure that each horizon appears in only ONE split.")
+        print("DATA LEAKAGE DETECTED! Training may be compromised.")
+        print("Please ensure that each horizon appears in only ONE split.")
     else:
-        print("✅ NO DATA LEAKAGE DETECTED!")
-        print("   The dataset splits are clean and ready for training.")
+        print("NO DATA LEAKAGE DETECTED!")
+        print("The dataset splits are clean and ready for training.")
 
     print("=" * 80)
 
@@ -375,7 +375,7 @@ def check_leakage_with_split_function(data_dir: str, data_source: str = 'png'):
     all_files = get_file_list(data_dir, data_source)
 
     if len(all_files) == 0:
-        print("❌ No files found!")
+        print("No files found!")
         return None
 
     # Разделяем на train/val/test

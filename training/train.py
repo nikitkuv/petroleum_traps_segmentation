@@ -12,7 +12,7 @@ from tqdm import tqdm
 from metrics.metrics import MetricsCalculator
 from visualization.visualize import visualize_training_results
 from settings import settings
-from training.gradient_tracker import GradientNormTracker, compute_per_sample_grad_norms
+from training.gradient_tracker import GradientNormTracker
 
 
 def train_with_wandb(
@@ -24,15 +24,15 @@ def train_with_wandb(
     scheduler: Optional[torch.optim.lr_scheduler._LRScheduler],
     device: str = None,
     n_epochs: int = None,
-    early_stopping_patience: int = 15,
-    gradient_accumulation_steps: int = 1,
+    early_stopping_patience: int = settings.ES_PATIANCE,
+    gradient_accumulation_steps: int = settings.GRADIENT_ACC_STEPS,
     wandb_project: str = 'geology-traps-segmentation',
     wandb_run_name: str = None,
-    checkpoint_path: str = './checkpoints/',
-    log_gradients: bool = True,
-    grad_anomaly_tracking: bool = True,
-    grad_abs_threshold: float = 10.0,
-    grad_std_multiplier: float = 3.0,
+    checkpoint_path: str = settings.CHECKPOINT_DIR,
+    log_gradients: bool = settings.LOG_GRADIENTS,
+    grad_anomaly_tracking: bool = settings.TRACK_GRADIENT_ANOMALIES,
+    grad_abs_threshold: float = settings.ABS_THRESHOLD,
+    grad_std_multiplier: float = settings.STD_MULTIPLIER,
     save_anomaly_batches: bool = True,
     max_anomalies_to_save: int = 20
 ) -> Dict:
@@ -117,7 +117,6 @@ def train_with_wandb(
     for epoch in range(n_epochs):
         start_time = time.time()
         
-        # ========== TRAINING ==========
         model.train()
         epoch_train_loss = 0.0
         epoch_train_dice = 0.0
@@ -208,7 +207,7 @@ def train_with_wandb(
         avg_train_dice = epoch_train_dice / n_train_batches
         avg_train_iou = epoch_train_iou / n_train_batches
         
-        # ========== VALIDATION ==========
+        # Валидация
         model.eval()
         epoch_val_loss = 0.0
         epoch_val_dice = 0.0
@@ -244,7 +243,6 @@ def train_with_wandb(
         avg_val_dice = epoch_val_dice / n_val_batches
         avg_val_iou = epoch_val_iou / n_val_batches
         
-        # ========== LOGGING ==========
         # Learning rate
         current_lr = optimizer.param_groups[0]['lr']
         history['learning_rates'].append(current_lr)
@@ -272,11 +270,11 @@ def train_with_wandb(
             })
         
         print(f"\nEpoch {epoch+1}/{n_epochs}:")
-        print(f"  Train: Loss={avg_train_loss:.4f}, Dice={avg_train_dice:.4f}, IoU={avg_train_iou:.4f}")
-        print(f"  Val:   Loss={avg_val_loss:.4f}, Dice={avg_val_dice:.4f}, IoU={avg_val_iou:.4f}")
-        print(f"  Time:  {time.time() - start_time:.1f}s, LR: {current_lr:.2e}")
+        print(f" Train: Loss={avg_train_loss:.4f}, Dice={avg_train_dice:.4f}, IoU={avg_train_iou:.4f}")
+        print(f" Val:   Loss={avg_val_loss:.4f}, Dice={avg_val_dice:.4f}, IoU={avg_val_iou:.4f}")
+        print(f" Time:  {time.time() - start_time:.1f}s, LR: {current_lr:.2e}")
         
-        # ========== VISUALIZATION ==========
+        # Визуализация
         if (epoch + 1) % 5 == 0 or epoch == 0:
             # Визуализация на валидации
             with torch.no_grad():
@@ -292,7 +290,6 @@ def train_with_wandb(
                     n_samples=4
                 )
         
-        # ========== CHECKPOINT ==========
         if avg_val_dice > best_val_dice:
             best_val_dice = avg_val_dice
             patience_counter = 0
@@ -314,21 +311,19 @@ def train_with_wandb(
             checkpoint_name = f'{"faults" if settings.USE_FAULTS else "no_faults"}_epochs-{settings.NUM_EPOCHS}_lr-{settings.LEARNING_RATE}_bs-{settings.BATCH_SIZE}.pth'
             best_model_path = os.path.join(checkpoint_path, checkpoint_name)
             torch.save(checkpoint, best_model_path)
-            print(f"  ✓ Saved best model with Dice={best_val_dice:.4f}")
+            print(f"Saved best model with Dice={best_val_dice:.4f}")
             
             if wandb.run is not None:
                 wandb.save(best_model_path)
         else:
             patience_counter += 1
         
-        # ========== SCHEDULER ==========
         if scheduler is not None:
             if isinstance(scheduler, ReduceLROnPlateau):
                 scheduler.step(avg_val_loss)
             else:
                 scheduler.step(epoch)
         
-        # ========== EARLY STOPPING ==========
         if patience_counter >= early_stopping_patience:
             print(f"\nEarly stopping triggered after {epoch+1} epochs")
             break
@@ -345,11 +340,11 @@ def train_with_wandb(
                 'gradient_norm_final_std': summary['running_std']
             })
             print(f"\nGradient Anomaly Summary:")
-            print(f"  Total anomalies: {summary['total_anomalies']}")
-            print(f"  Anomaly rate: {summary['anomaly_rate']:.2%}")
-            print(f"  Final running mean: {summary['running_mean']:.2f}")
-            print(f"  Final running std: {summary['running_std']:.2f}")
-            print(f"  Saved to: {grad_tracker.save_dir}")
+            print(f" Total anomalies: {summary['total_anomalies']}")
+            print(f" Anomaly rate: {summary['anomaly_rate']:.2%}")
+            print(f" Final running mean: {summary['running_mean']:.2f}")
+            print(f" Final running std: {summary['running_std']:.2f}")
+            print(f" Saved to: {grad_tracker.save_dir}")
         
         wandb.finish()
     

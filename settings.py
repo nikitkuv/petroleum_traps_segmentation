@@ -55,8 +55,10 @@ class Settings(BaseSettings):
     GRADIENT_ACC_STEPS: int = 1
 
     # Трекинг градиентов
+    LOG_GRADIENTS: bool = True
+    TRACK_GRADIENT_ANOMALIES: bool = True
     GRAD_ALPHA: float = 0.95
-    ABS_THRESHOLD: float = 15
+    ABS_THRESHOLD: float = 10
     STD_MULTIPLIER: float = 3
     MIN_SAMPLES_FOR_STD: int = 20
 
