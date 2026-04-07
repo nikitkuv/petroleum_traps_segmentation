@@ -75,6 +75,25 @@ def evaluate_on_test(
                 'dice': f'{metrics["dice"]:.4f}',
                 'iou': f'{metrics["iou"]:.4f}'
             })
+
+    # Handle empty test loader
+    if n_batches == 0:
+        print("\n" + "=" * 60)
+        print("TEST RESULTS")
+        print("=" * 60)
+        print("No test data available (empty test loader)")
+        print("=" * 60)
+
+        return {
+            'loss': 0.0,
+            'dice': 0.0,
+            'iou': 0.0,
+            'recall': 0.0,
+            'precision': 0.0,
+            'f1': 0.0,
+            'fp_area': 0.0,
+            'fn_area': 0.0
+        }
     
     # Агрегируем метрики по всем батчам
     avg_metrics = {

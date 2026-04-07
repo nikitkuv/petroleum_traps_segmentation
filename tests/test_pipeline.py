@@ -17,9 +17,21 @@ class TestPipelineIntegration:
         data_dir = tmp_path / "data"
         data_dir.mkdir()
         
-        # Create 4 complete samples (enough for train/val/test split)
-        for card_num in range(1, 5):
-            horizon = "H150" if card_num % 2 == 0 else "BZ24"
+        # Create 6 complete samples with 3 different map groups (for train/val/test splits)
+        # Each map group needs at least one complete sample
+        sample_configs = [
+            # Map group KEK2 - will go to train
+            (1, "KEK2"),
+            (2, "KEK2"),
+            # Map group BZ24 - will go to val
+            (3, "BZ24"),
+            (4, "BZ24"),
+            # Map group XUY1 - will go to test
+            (5, "XUY1"),
+            (6, "XUY1"),
+        ]
+
+        for card_num, horizon in sample_configs:
             
             # RGB image
             rgb_img = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
