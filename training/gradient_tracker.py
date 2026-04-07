@@ -125,7 +125,6 @@ class GradientNormTracker:
             'grad_norm': grad_norm,
             'running_mean': self.running_mean,
             'running_std': np.sqrt(self.running_m2 / (self.count - 1)) if self.count > 1 else 0.0,
-            'timestamp': torch.cuda.current_stream().cuda_time() if torch.cuda.is_available() else None
         }
         
         self.anomalies.append(anomaly_info)
