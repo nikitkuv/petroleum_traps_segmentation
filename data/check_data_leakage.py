@@ -1,7 +1,11 @@
 from typing import List, Dict, Set
 from collections import defaultdict
+from pathlib import Path
+import sys
 
-from data.dataloaders import parse_filename, get_sample_key
+sys.path.append(str(Path(__file__).parent.parent))
+
+from data.dataloaders import parse_filename, get_sample_key, get_file_list, split_data_by_groups
 
 
 def extract_horizon_name(parsed: dict) -> str:
@@ -233,7 +237,7 @@ def print_leakage_report(
         print("\n✅ No horizon leakage between Val and Test")
 
     # 4. Распределение семплов по горизонтам
-    print("\n4. SAMPLE DISTRIBUTION BY HORIZON")
+    print("\n4. LEAKED SAMPLE DISTRIBUTION BY HORIZON")
     print("-" * 80)
 
     all_horizons = set()
@@ -253,7 +257,8 @@ def print_leakage_report(
         non_zero_splits = sum([train_count > 0, val_count > 0, test_count > 0])
         marker = " ⚠️" if non_zero_splits > 1 else ""
 
-        print(f"{horizon:<20} | {train_count:<8} | {val_count:<8} | {test_count:<8} | {total:<8}{marker}")
+        if non_zero_splits > 1:
+            print(f"{horizon:<20} | {train_count:<8} | {val_count:<8} | {test_count:<8} | {total:<8}{marker}")
 
     print("\n" + "=" * 80)
     print("SUMMARY")
@@ -361,7 +366,6 @@ def check_leakage_with_split_function(data_dir: str, data_source: str = 'png'):
         data_dir: Путь к директории с данными
         data_source: Источник данных ('png' или 'cps')
     """
-    from data.dataloaders import get_file_list, split_data_by_groups
 
     print(f"Loading files from: {data_dir}")
     print(f"Data source: {data_source}")
