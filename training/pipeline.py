@@ -11,6 +11,7 @@ from optimizers.optimizers import create_optimizer_and_scheduler
 from training.overfit_check import overfit_check
 from training.train import train_with_wandb
 from evaluation.evaluate import evaluate_on_test, visualize_test_predictions
+from data.check_data_leakage import check_leakage_from_dataloaders, validate_data_source_consistency
 
 
 def run_full_pipeline(
@@ -77,6 +78,38 @@ def run_full_pipeline(
         train_ratio=0.8,
         val_ratio=0.1,
     )
+
+    # ========== 2.5. ПРОВЕРКА DATA LEAKAGE И КОНСИСТЕНТНОСТИ ==========
+    print("\n[STEP 2.5] Checking data leakage and source consistency...")
+
+    # Проверка консистентности источника данных (PNG vs CPS)
+    validate_data_source_consistency(all_files, data_source)
+    print(f"✅ Data source consistency check passed: {data_source} mode only")
+
+    # Проверка data leakage между выборками
+    leakage_results = check_leakage_from_dataloaders(
+        train_files=train_files,
+        val_files=val_files,
+        test_files=test_files
+    )
+
+    # Assert для остановки обучения при обнаружении leakage
+    has_leakage = (
+        len(leakage_results['horizon_check']['train_val_overlap']) > 0 or
+        len(leakage_results['horizon_check']['train_test_overlap']) > 0 or
+        len(leakage_results['horizon_check']['val_test_overlap']) > 0
+    )
+
+    if has_leakage:
+        raise AssertionError(
+            "❌ DATA LEAKAGE DETECTED! Training aborted.\n"
+            "Horizons must not overlap between train/val/test splits.\n"
+            f"Train-Val overlap: {leakage_results['horizon_check']['train_val_overlap']}\n"
+            f"Train-Test overlap: {leakage_results['horizon_check']['train_test_overlap']}\n"
+            f"Val-Test overlap: {leakage_results['horizon_check']['val_test_overlap']}"
+        )
+    else:
+        print("✅ No data leakage detected between train/val/test splits")
     
     # ========== 3. СОЗДАНИЕ DATALOADERS ==========
     print("\n[STEP 3] Creating dataloaders...")
