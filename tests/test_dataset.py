@@ -23,21 +23,30 @@ class TestFileListCollection:
         data_dir = tmp_path / "data"
         data_dir.mkdir()
         
-        # Create complete samples for 2 cards
-        # Card 001_H150
+        # Create complete samples for 3 cards (one for each split: train, val, test)
+        # Card 001_KEK2
         for filename in [
-            "001_x_structuralNOisoline_H150.png",
-            "001_x_structuralBlackWhite_H150.png",
-            "001_y_traps_H150.png"
+            "001_x_structuralNOisoline_KEK2.png",
+            "001_x_structuralBlackWhite_KEK2.png",
+            "001_y_traps_KEK2.png"
         ]:
             img = np.zeros((100, 100, 3), dtype=np.uint8)
             cv2.imwrite(str(data_dir / filename), img)
-        
+
         # Card 002_BZ24
         for filename in [
             "002_x_structuralNOisoline_BZ24.png",
             "002_x_structuralBlackWhite_BZ24.png",
             "002_y_traps_BZ24.png"
+        ]:
+            img = np.zeros((100, 100, 3), dtype=np.uint8)
+            cv2.imwrite(str(data_dir / filename), img)
+
+        # Card 003_XUY1
+        for filename in [
+            "003_x_structuralNOisoline_XUY1.png",
+            "003_x_structuralBlackWhite_XUY1.png",
+            "003_y_traps_XUY1.png"
         ]:
             img = np.zeros((100, 100, 3), dtype=np.uint8)
             cv2.imwrite(str(data_dir / filename), img)
@@ -53,7 +62,7 @@ class TestFileListCollection:
         files = get_file_list(str(sample_data_dir), data_source='png')
         
         # Should find 6 valid files (3 per card × 2 cards)
-        assert len(files) == 6
+        assert len(files) == 9
         
         # All should be PNG files
         assert all(f.endswith('.png') for f in files)
@@ -70,12 +79,13 @@ class TestFileListCollection:
         files = get_file_list(str(sample_data_dir), data_source='png')
         samples = collect_samples(files)
         
-        # Should have 2 samples
-        assert len(samples) == 2
-        
+        # Should have 3 samples
+        assert len(samples) == 3
+
         # Check sample keys
-        assert '001_H150' in samples
+        assert '001_KEK2' in samples
         assert '002_BZ24' in samples
+        assert '003_XUY1' in samples
         
         # Each sample should have rgb, depth, traps
         for key, sample_files in samples.items():
