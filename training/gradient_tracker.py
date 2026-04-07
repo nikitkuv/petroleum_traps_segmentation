@@ -5,6 +5,8 @@ from typing import Dict, List, Optional, Tuple
 from collections import deque
 import numpy as np
 
+from settings import settings
+
 
 class GradientNormTracker:
     """
@@ -16,11 +18,11 @@ class GradientNormTracker:
     
     def __init__(
         self,
-        alpha: float = 0.95,  # Коэффициент сглаживания (ближе к 1 = больше вес истории)
-        abs_threshold: float = 10.0,  # Абсолютный порог для аномалий
-        std_multiplier: float = 3.0,  # Количество стандартных отклонений для аномалий
-        min_samples_for_std: int = 20,  # Минимум сэмплов перед использованием std-порога
-        save_dir: str = './gradient_anomalies/'
+        alpha: float = settings.GRAD_ALPHA,  # Коэффициент сглаживания (ближе к 1 = больше вес истории)
+        abs_threshold: float = settings.ABS_THRESHOLD,  # Абсолютный порог для аномалий
+        std_multiplier: float = settings.STD_MULTIPLIER,  # Количество стандартных отклонений для аномалий
+        min_samples_for_std: int = settings.MIN_SAMPLES_FOR_STD,  # Минимум сэмплов перед использованием std-порога
+        save_dir: str = settings.GRAD_ANOMALIES_DIR
     ):
         """
         Args:
