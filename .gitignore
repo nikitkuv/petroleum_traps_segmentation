@@ -1,60 +1,37 @@
-```
-# Logs and temp files
-*.log
-*.tmp
-*.swp
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+
+# Dependencies
+.venv/
+venv/
+node_modules/
 
 # Environment
 .env
 .env.local
-*.env.*
+.env.*
 
 # Editors
 .vscode/
 .idea/
 
-# Dependencies
-node_modules/
-.venv/
-venv/
-__pycache__/
-.mypy_cache/
-.pytest_cache/
-dist/
-build/
-target/
-.gradle/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Coverage
+# Coverage reports
+.coverage
 coverage/
 htmlcov/
-.coverage
 
-# Compressed files
-*.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
-```
+# Python cache
+.mypy_cache/
+.pytest_cache/
+
+#data/images/
+data/cps/
+data/raw/
+data/images_orig/
+prompts/
+logs/
+.ipynb_checkpoints/
+test_something.py
+checkpoints/
+gradient_anomalies/
