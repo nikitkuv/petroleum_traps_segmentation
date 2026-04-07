@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     OVERFIT_SIZE: int = 2
     AUGMENT_TRAIN: bool = True
     BATCH_SIZE: int = 4
-    NUM_WORKERS: int = 4
+    NUM_WORKERS: int = 2
     LEARNING_RATE: float = 1e-4
     ENCODER_LR_MULTIPLIER: float = 0.1
     WEIGHT_DECAY: float = 1e-4
