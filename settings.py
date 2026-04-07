@@ -54,6 +54,12 @@ class Settings(BaseSettings):
     ES_PATIANCE: int = 15
     GRADIENT_ACC_STEPS: int = 1
 
+    # Трекинг градиентов
+    GRAD_ALPHA: float = 0.95
+    ABS_THRESHOLD: float = 15
+    STD_MULTIPLIER: float = 3
+    MIN_SAMPLES_FOR_STD: int = 20
+
     # Loss
     BCE_WEIGHT_RATIO: float = 0.5
     DICE_WEIGHT_RATIO: float = 0.5
