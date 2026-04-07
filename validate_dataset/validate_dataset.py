@@ -245,12 +245,13 @@ class DatasetValidator:
         print("-" * 70)
         
         try:
+            pin_memory_flag = torch.cuda.is_available()
             loader = DataLoader(
                 dataset,
                 batch_size=settings.BATCH_SIZE,
                 shuffle=False,
                 num_workers=settings.NUM_WORKERS,
-                pin_memory=True
+                pin_memory=pin_memory_flag
             )
             
             batch_count = 0

@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 from torch.utils.data import DataLoader
 import random
+import torch
 
 from data.dataset import GeologyTrapsDataset
 from settings import settings
@@ -293,6 +294,8 @@ def create_dataloaders(
         use_faults=use_faults,
         data_source=data_source
     )
+
+    pin_memory_flag = torch.cuda.is_available()
     
     # Создаем dataloaders
     train_loader = DataLoader(
@@ -300,7 +303,7 @@ def create_dataloaders(
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,
-        pin_memory=True,
+        pin_memory=pin_memory_flag,
         drop_last=True
     )
     
@@ -309,7 +312,7 @@ def create_dataloaders(
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
-        pin_memory=True,
+        pin_memory=pin_memory_flag,
         drop_last=False
     )
     
@@ -318,7 +321,7 @@ def create_dataloaders(
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
-        pin_memory=True,
+        pin_memory=pin_memory_flag,
         drop_last=False
     )
     

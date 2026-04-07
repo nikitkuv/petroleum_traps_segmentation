@@ -99,12 +99,14 @@ def run_full_pipeline(
         overfit_indices = list(range(min(settings.OVERFIT_SIZE, len(overfit_dataset))))  # 2 семпла
         print(f"Selected indices for overfit: {overfit_indices}")
         overfit_subset = Subset(overfit_dataset, overfit_indices)
+
+        pin_memory_flag = torch.cuda.is_available()
         train_loader = torch.utils.data.DataLoader(
             overfit_subset,
             batch_size=batch_size,
             shuffle=True,
             num_workers=0,
-            pin_memory=True
+            pin_memory=pin_memory_flag
         )
         print(f"Size of train_loader: {len(train_loader.dataset)}")
     
