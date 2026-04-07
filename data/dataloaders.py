@@ -199,6 +199,19 @@ def split_data_by_groups(
     train_names = unique_names[:n_train]
     val_names = unique_names[n_train : n_train + n_val]
     test_names = unique_names[n_train + n_val:]
+
+    # Фиксируем ситуации, когда маленький датасет и происходит утечка
+    if len(val_names) == 0 and len(train_names) >= 1:
+        print("Fixing empty validation split (by groups)")
+        val_names = [train_names.pop()]
+
+    if len(test_names) == 0 and len(train_names) >= 1:
+        print("Fixing empty test split (by groups)")
+        test_names = [train_names.pop()]
+
+    # Если train полностью вытащили, а он пустой, оставляем хотя бы один
+    if len(train_names) == 0:
+        train_names = val_names[:1]  # можно вернуть один элемент обратно
     
     # Собираем файлы по группам
     def build_split(names_list):

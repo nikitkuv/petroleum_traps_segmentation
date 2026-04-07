@@ -394,7 +394,7 @@ class TestTrainingReadiness:
         
         # Gradients should be zeroed
         for param in model.parameters():
-            assert (param.grad == 0).all()
+            assert param.grad is None or torch.all(param.grad == 0)
 
 
 class TestCheckpointSaving:
