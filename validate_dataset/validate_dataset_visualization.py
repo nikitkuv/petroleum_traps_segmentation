@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+import torch
 
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -223,12 +224,13 @@ if __name__ == "__main__":
                                 save_path=str(settings.logs_path / f'viz_test_{settings.DATA_SOURCE}.png'))
         
         # Проверка DataLoader
+        pin_memory_flag = torch.cuda.is_available()
         train_loader = DataLoader(
             train_dataset,
             batch_size=settings.BATCH_SIZE,
             shuffle=True,
             num_workers=settings.NUM_WORKERS,
-            pin_memory=True
+            pin_memory=pin_memory_flag
         )
         
         batch = next(iter(train_loader))
