@@ -10,13 +10,15 @@
 
 ```
 /workspace/
-├── pipeline.py              # Главный файл для запуска полного пайплайна
-├── dataset.py               # Dataset класс для загрузки данных
-├── settings.py              # Конфигурация и гиперпараметры
+├── settings.py              # Конфигурация и гиперпараметры (Pydantic Settings)
 │
 ├── data/                    # Модуль работы с данными
 │   ├── __init__.py
-│   └── dataloaders.py       # Загрузка файлов, разделение на выборки, создание DataLoader
+│   ├── dataset.py           # GeologyTrapsDataset: загрузка и аугментация данных
+│   ├── dataloaders.py       # Утилиты: get_file_list, split_data_by_groups, create_dataloaders
+│   ├── check_data_leakage.py # Проверка leakage между train/val/test
+│   ├── check_image_sizes.py # Скрипт проверки размеров изображений
+│   └── move_to_images_folder.py # Скрипт перемещения файлов
 │
 ├── models/                  # Модуль моделей
 │   ├── __init__.py
@@ -26,37 +28,64 @@
 │   ├── __init__.py
 │   └── losses.py            # MaskedBCE, MaskedDice, CombinedLoss
 │
-├── optimizers/              # Модуль оптимизаторов
-│   ├── __init__.py
-│   └── optimizers.py        # AdamW с differential LR, планировщики, статистика градиентов
-│
 ├── metrics/                 # Модуль метрик
 │   ├── __init__.py
 │   └── metrics.py           # Dice, IoU, Recall, Precision, F1, FP/FN area
 │
+├── optimizers/              # Модуль оптимизаторов
+│   ├── __init__.py
+│   └── optimizers.py        # AdamW с differential LR, планировщики, статистика градиентов
+│
 ├── visualization/           # Модуль визуализации
 │   ├── __init__.py
-│   └── visualize.py         # Визуализация обучения и тестовых результатов
+│   └── visualize.py         # Визуализация обучения, валидации и тестовых результатов
 │
 ├── training/                # Модуль обучения
 │   ├── __init__.py
+│   ├── pipeline.py          # Полный пайплайн обучения
+│   ├── train.py             # Fine-tuning с W&B мониторингом
 │   ├── overfit_check.py     # Проверка overfit на 1-2 картах
-│   └── train.py             # Fine-tuning с W&B мониторингом
+│   ├── gradient_tracker.py  # Трекинг аномалий градиентов
+│   └── analyze_anomalies.py # Анализ сохраненных аномальных батчей
 │
 ├── evaluation/              # Модуль оценки
 │   ├── __init__.py
 │   └── evaluate.py          # Тестирование и визуализация результатов
 │
 ├── utils/                   # Утилиты
+│   ├── __init__.py
 │   ├── images_utils.py      # Утилиты для PNG (загрузка, маски, паддинг)
 │   ├── augmentations.py     # Аугментации (Albumentations)
-│   └── cps_utils.py         # Утилиты для CPS (если используются)
+│   └── cps_utils.py         # Утилиты для CPS гридов
+│
+├── tests/                   # Тесты
+│   ├── __init__.py
+│   ├── conftest.py          # Фикстуры pytest
+│   ├── test_data_validation.py # Тесты валидации данных
+│   ├── test_dataset.py      # Тесты Dataset
+│   ├── test_training.py     # Тесты обучения
+│   └── test_pipeline.py     # Интеграционные тесты
+│
+├── validate_dataset/        # Валидация датасета
+│   ├── validate_dataset.py
+│   └── validate_dataset_visualization.py
+│
+├── checkpoints/             # Сохранённые модели (создается автоматически)
+├── logs/                    # Логи и визуализации (создается автоматически)
+│   ├── visualizations/      # Training визуализации
+│   ├── val_visualizations/  # Validation визуализации
+│   ├── test_visualizations/ # Test визуализации
+│   └── overfit_check/       # Overfit check логи
+│
+├── gradient_anomalies/      # Сохраненные аномальные батчи (создается автоматически)
 │
 └── docs/                    # Документация
     ├── PLAN.md              # План проекта и требования
-    ├── README_FORMAT.md     # Формат имен файлов
-    ├── README_MODULES.md    # Этот файл
-    └── TRAINING_GUIDE.md    # Руководство по обучению
+    ├── PROJECT_STRUCTURE.md # Этот файл
+    ├── DATA_FORMAT.md       # Формат имен файлов
+    ├── TRAINING_GUIDE.md    # Руководство по обучению
+    ├── TESTING.md           # Руководство по тестированию
+    └── GRADIENT_TRACKING.md # Трекинг градиентов
 ```
 
 ## Формат названий изображений
@@ -224,7 +253,12 @@ overfit_check(model, train_loader, criterion, optimizer, n_epochs=100)
 
 # Полное обучение
 history = train_with_wandb(
-    model, train_loader, val_loader, criterion, optimizer, scheduler,
+    model=model,
+    train_loader=train_loader,
+    val_loader=val_loader,
+    criterion=criterion,
+    optimizer=optimizer,
+    scheduler=scheduler,
     n_epochs=100,
     wandb_project='my-project',
     early_stopping_patience=15
@@ -250,7 +284,7 @@ visualize_test_predictions(model, test_loader, sample_indices=[0,1,2,3])
 - `USE_FAULTS`: Использовать ли разломы (True/False)
 - `DATA_DIR`: Путь к данным
 - `BATCH_SIZE`: Размер батча (по умолчанию 4)
-- `NUM_EPOCHS`: Количество эпох (по умолчанию 100)
+- `NUM_EPOCHS`: Количество эпох (по умолчанию 50)
 - `LEARNING_RATE`: Базовая скорость обучения (1e-4)
 - `TARGET_HEIGHT`: Целевая высота (1248)
 - `TARGET_WIDTH`: Целевая ширина (512)
@@ -279,3 +313,4 @@ visualize_test_predictions(model, test_loader, sample_indices=[0,1,2,3])
 - **Инициализация**: Предобученные веса ImageNet для первых 3 каналов (RGB), остальные инициализируются средним значением RGB весов
 - **Differential LR**: Encoder обучается с LR × 0.1, Decoder с базовым LR
 - **Gradient Accumulation**: Поддерживается для больших моделей
+- **Gradient Anomaly Tracking**: Автоматическое детектирование и сохранение проблемных батчей
