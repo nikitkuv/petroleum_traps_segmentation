@@ -372,6 +372,60 @@ pydantic-settings
 - Маски: map_mask + depth_mask
 - Может улучшить качество, если разломы важны для задачи
 
+## Мониторинг и отладка
+
+### Gradient Tracking
+
+Пайплайн включает продвинутый трекинг градиентов для диагностики проблем обучения:
+
+```python
+from training.gradient_tracker import GradientTracker
+
+# Автоматический трекинг в train_with_wandb
+history = train_with_wandb(
+    model=model,
+    # ... другие параметры
+    log_gradients=True,  # Включить логирование градиентов
+    gradient_clip_value=1.0  # Опционально: gradient clipping
+)
+```
+
+**Что отслеживается**:
+- Norm градиентов по слоям (encoder, decoder, first conv)
+- Статистика градиентов (mean, std, min, max)
+- Графики в W&B для визуализации динамики
+
+**Интерпретация**:
+- **Градиенты > 10**: Возможна нестабильность, уменьшите LR или добавьте gradient clipping
+- **Градиенты < 1e-6**: Возможное vanishing gradient, проверьте архитектуру или увеличьте LR
+- **Скачки градиентов**: Проверьте данные на аномалии
+
+### Анализ аномалий
+
+Для выявления проблемных карт в датасете используйте `analyze_anomalies`:
+
+```python
+from training.pipeline import analyze_anomalies
+
+# Найти карты с аномально высоким loss
+anomalies = analyze_anomalies(
+    model=model,
+    dataloader=train_loader,
+    criterion=criterion,
+    device='cuda',
+    top_k=10  # Показать топ-10 худших карт
+)
+
+# Выводит названия файлов и соответствующие loss
+for file_name, loss in anomalies:
+    print(f"{file_name}: loss={loss:.4f}")
+```
+
+Это помогает выявить:
+- Неправильно размеченные данные
+- Артефакты на картах
+- Выбросы в распределении данных
+
 ## Возможные улучшения (TODO)
 
 - [ ] Tversky loss (α=0.7, β=0.3) или Focal loss при дисбалансе классов
