@@ -193,25 +193,21 @@ def split_data_by_groups(
     random.shuffle(unique_names)
     
     n_total = len(unique_names)
-    n_train = int(n_total * train_ratio)
-    n_val = int(n_total * val_ratio)
+    n_train = max(1, int(n_total * train_ratio))
+    n_val = max(1, int(n_total * val_ratio))
+
+    # Гарантируем что останется хотя бы 1 группа для test
+    if n_train + n_val >= n_total:
+        n_train = max(1, n_total - 2)
+        n_val = max(1, n_total - n_train - 1)
     
     train_names = unique_names[:n_train]
     val_names = unique_names[n_train : n_train + n_val]
     test_names = unique_names[n_train + n_val:]
 
-    # Фиксируем ситуации, когда маленький датасет и происходит утечка
-    if len(val_names) == 0 and len(train_names) >= 1:
-        print("Fixing empty validation split (by groups)")
-        val_names = [train_names.pop()]
-
-    if len(test_names) == 0 and len(train_names) >= 1:
-        print("Fixing empty test split (by groups)")
-        test_names = [train_names.pop()]
-
-    # Если train полностью вытащили, а он пустой, оставляем хотя бы один
-    if len(train_names) == 0:
-        train_names = val_names[:1]  # можно вернуть один элемент обратно
+    assert set(train_names).isdisjoint(val_names), "Leakage: train and val share groups"
+    assert set(train_names).isdisjoint(test_names), "Leakage: train and test share groups"
+    assert set(val_names).isdisjoint(test_names), "Leakage: val and test share groups"
     
     # Собираем файлы по группам
     def build_split(names_list):

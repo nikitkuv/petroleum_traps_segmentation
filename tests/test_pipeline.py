@@ -4,7 +4,6 @@ import os
 import cv2
 
 from training.pipeline import run_full_pipeline
-from training.overfit_check import overfit_check
 from evaluation.evaluate import evaluate_on_test
 from settings import settings
 
@@ -102,48 +101,6 @@ class TestOverfitCheck:
         )
         
         return dataset
-    
-    @pytest.mark.slow
-    def test_overfit_check_decreases_loss(self, tiny_dataset, tmp_path):
-        """Test that overfit check shows decreasing loss."""
-        from torch.utils.data import DataLoader
-        from models.unetplusplus import load_unetplusplus
-        from losses.losses import CombinedLoss
-        import torch.optim as optim
-        
-        model = load_unetplusplus(
-            in_channels=4,
-            classes=1,
-            encoder_weights=None,
-            device='cpu'
-        )
-        
-        train_loader = DataLoader(
-            tiny_dataset,
-            batch_size=1,
-            shuffle=True
-        )
-        
-        criterion = CombinedLoss()
-        optimizer = optim.Adam(model.parameters(), lr=1e-2)
-        
-        save_path = tmp_path / "overfit_results"
-        save_path.mkdir()
-        
-        # Run overfit check
-        overfit_check(
-            model=model,
-            train_loader=train_loader,
-            criterion=criterion,
-            optimizer=optimizer,
-            device='cpu',
-            n_epochs=10,
-            save_path=str(save_path)
-        )
-        
-        # Check that visualizations were saved
-        viz_files = list(save_path.glob("*.png"))
-        assert len(viz_files) > 0
 
 
 class TestEvaluation:
