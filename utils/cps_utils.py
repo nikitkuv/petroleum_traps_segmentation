@@ -5,13 +5,13 @@ from typing import Tuple
 from settings import settings
 
 
-def read_cps_grid(file_path: str, vertical_flip: bool = None) -> Tuple[np.ndarray, dict]:
+def read_cps_grid(file_path: str, vertical_flip: bool = False) -> Tuple[np.ndarray, dict]:
     """
     Загружает CPS грид из файла.
     
     Args:
         file_path: Путь к CPS файлу
-        vertical_flip: Флип по вертикали (по умолчанию из settings)
+        vertical_flip: Флип по вертикали
     
     Returns:
         grid: 2D numpy array с значениями
@@ -22,13 +22,13 @@ def read_cps_grid(file_path: str, vertical_flip: bool = None) -> Tuple[np.ndarra
     with open(file_path, 'r') as f:
         lines = f.readlines()
     
-    # --- Initialize ---
+    # Инициализация параметров грида
     nx = ny = None
     xmin = xmax = ymin = ymax = None
     null_value = settings.CPS_NULL_VALUE
     data_start = None
     
-    # --- Parse header ---
+    # Парсинг заголовков файла
     for i, line in enumerate(lines):
         if line.startswith("FSASCI"):
             parts = line.split()
@@ -53,27 +53,30 @@ def read_cps_grid(file_path: str, vertical_flip: bool = None) -> Tuple[np.ndarra
     if None in (nx, ny, xmin, xmax, ymin, ymax):
         raise ValueError(f"Failed to parse CPS header: {file_path}")
     
-    # --- Read grid values ---
+    # Читаем значения
     values = []
     for line in lines[data_start:]:
         values.extend([float(x) for x in line.split()])
     
     values = np.array(values, dtype=np.float32)
     
-    # --- Safety check ---
+    # Проверка количества ячеек
     expected = nx * ny
     if len(values) != expected:
         warnings.warn(f"CPS {file_path}: expected {expected}, got {len(values)}. Truncating.")
         values = values[:expected]
     
-    # --- Reshape (Fortran order) ---
+    # Решейп по Фортрану
     grid = values.reshape((ny, nx), order='F')
     
-    # --- Flip vertically ---
+    # Вертикальный флип
     if vertical_flip:
         grid = np.flipud(grid)
+
+    # Поворот на 180 градусов
+    grid = np.rot90(grid, k=2)
     
-    # --- Replace null values ---
+    # Заменяем пустые значения
     grid[np.isclose(grid, null_value)] = np.nan
     
     metadata = {

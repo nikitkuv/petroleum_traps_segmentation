@@ -24,8 +24,8 @@ class Settings(BaseSettings):
     GRAD_ANOMALIES_DIR: str = './gradient_anomalies/'
 
     # Размеры изображений
-    TARGET_HEIGHT: int = 1248
-    TARGET_WIDTH: int = 512
+    TARGET_HEIGHT: int = 864
+    TARGET_WIDTH: int = 448
     
     # Порог бинаризации масок
     BINARY_THRESHOLD: int = 128
@@ -34,8 +34,9 @@ class Settings(BaseSettings):
     AUGMENT_PROB: float = 0.5
 
     # CPS настройки
+    TILE_OVERLAP_RATIO: float = 0.25
     CPS_NULL_VALUE: float = -99999.0  
-    CPS_VERTICAL_FLIP: bool = True
+    CPS_VERTICAL_FLIP: bool = False
 
     # Разделение данных
     SEED: int = 24
