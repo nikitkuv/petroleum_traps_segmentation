@@ -188,12 +188,13 @@ if __name__ == "__main__":
     print("=" * 70)
     
     # Список файлов в зависимости от источника
-    if settings.DATA_SOURCE == 'cps':
-        # CPS: без расширения
-        file_list = ['001_x_structuralNOisoline_H76', '001_y_traps_H76']
-        if settings.USE_FAULTS:
-            file_list.extend(['001_x_faults_H76'])
-        data_dir = settings.CPS_DIR
+    if settings.DATA_SOURCE == 'cps_tiles':
+        # CPS tiles: PNG файлы из images_cps/
+        file_list = [
+            '001_x_structuralNOisoline_H150.png', '001_x_structuralBlackWhite_H150.png', 
+            '001_x_faults_H150.png', '001_y_traps_H150.png'
+        ]
+        data_dir = settings.CPS_TILES_DIR
     else:
         # PNG: с расширением
         file_list = [
@@ -212,8 +213,8 @@ if __name__ == "__main__":
     
     train_dataset = GeologyTrapsDataset(
         file_list, 
-        data_dir=data_dir if settings.DATA_SOURCE == 'png' else None,
-        cps_dir=data_dir if settings.DATA_SOURCE == 'cps' else None,
+        data_dir=data_dir if settings.DATA_SOURCE != 'cps_tiles' else None,
+        cps_tiles_dir=data_dir if settings.DATA_SOURCE == 'cps_tiles' else None,
         augment=False
     )
     
