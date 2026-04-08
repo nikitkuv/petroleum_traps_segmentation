@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+import torch
 
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -9,8 +10,8 @@ import matplotlib.pyplot as plt
 from typing import Optional
 
 from settings import settings
-from dataset import GeologyTrapsDataset
-from utils import load_grayscale_image, load_image
+from data.dataset import GeologyTrapsDataset
+from utils.images_utils import load_grayscale_image, load_image
 
 
 def visualize_dataset_sample(
@@ -119,7 +120,6 @@ def visualize_dataset_sample(
     composite[:, :, 0] = np.maximum(composite[:, :, 0], fault_overlay * 0.7)  # Красный канал для разломов
     ax11.imshow(composite)
     
-    # 🔧 Исправление: динамический заголовок без ...
     n_channels = 5 if sample_data['use_faults'] else 4
     ax11.set_title(f'Input Overview ({n_channels} channels)\nRGB + Depth' + (' + Faults' if sample_data['use_faults'] else ''), fontsize=10, pad=15)
     ax11.axis('off')
@@ -131,7 +131,7 @@ def visualize_dataset_sample(
     info_text = (
         f"Sample Statistics\n\n"
         f"Sample Index: {idx}\n"
-        f"Augmentations: {'✓ ON' if dataset.augment else '✗ OFF'}\n\n"
+        f"Augmentations: {'ON' if dataset.augment else '✗ OFF'}\n\n"
         f"Input Shape: {sample_data['x'].shape}\n"
         f"Target Shape: {sample_data['y'].shape}\n\n"
         f"Map Valid: {mask_map.sum():.0f} px ({mask_map.mean()*100:.1f}%)\n"
@@ -146,33 +146,33 @@ def visualize_dataset_sample(
     
     if save_path:
         plt.savefig(save_path, dpi=150, bbox_inches='tight')
-        print(f"✓ Saved visualization to {save_path}")
+        print(f"Saved visualization to {save_path}")
     
     plt.show()
     
 
     print("\n" + "="*60)
-    print(f"📋 DATASET SAMPLE REPORT (Idx={idx})")
+    print(f"DATASET SAMPLE REPORT (Idx={idx})")
     print("="*60)
-    print(f"Augmentations: {'✓ ON' if dataset.augment else '✗ OFF'}")
+    print(f"Augmentations: {'ON' if dataset.augment else '✗ OFF'}")
     print(f"\nTensor Shapes:")
-    print(f"  Input (x):      {sample_data['x'].shape}")
-    print(f"  Target (y):     {sample_data['y'].shape}")
+    print(f" Input (x):      {sample_data['x'].shape}")
+    print(f" Target (y):     {sample_data['y'].shape}")
     if sample_data['mask_depth'] is not None:
-        print(f"  Mask Depth:     {sample_data['mask_depth'].shape}")
+        print(f" Mask Depth:     {sample_data['mask_depth'].shape}")
     else:
-        print(f"  Mask Depth:     None (not used)")
-    print(f"  Mask Map:       {sample_data['mask_map'].shape}")
+        print(f" Mask Depth:     None (not used)")
+    print(f" Mask Map:       {sample_data['mask_map'].shape}")
     print(f"\nPixel Statistics:")
-    print(f"  Map Valid:      {mask_map.sum():.0f} px ({mask_map.mean()*100:.1f}%)")
-    print(f"  Depth Valid:    {mask_depth.sum():.0f} px ({mask_depth.mean()*100:.1f}%)")
-    print(f"  Faults:         {x_faults.sum():.0f} px ({x_faults.mean()*100:.2f}%)")
-    print(f"  Traps (Y):      {y_traps.sum():.0f} px ({y_traps.mean()*100:.2f}%)")
+    print(f" Map Valid:      {mask_map.sum():.0f} px ({mask_map.mean()*100:.1f}%)")
+    print(f" Depth Valid:    {mask_depth.sum():.0f} px ({mask_depth.mean()*100:.1f}%)")
+    print(f" Faults:         {x_faults.sum():.0f} px ({x_faults.mean()*100:.2f}%)")
+    print(f" Traps (Y):      {y_traps.sum():.0f} px ({y_traps.mean()*100:.2f}%)")
     print(f"\nValue Ranges:")
-    print(f"  RGB:            [{x_rgb.min():.3f}, {x_rgb.max():.3f}]")
-    print(f"  Depth:          [{x_depth.min():.3f}, {x_depth.max():.3f}]")
-    print(f"  Faults:         [{x_faults.min():.3f}, {x_faults.max():.3f}]")
-    print(f"  Traps (Y):      [{y_traps.min():.3f}, {y_traps.max():.3f}]")
+    print(f" RGB:            [{x_rgb.min():.3f}, {x_rgb.max():.3f}]")
+    print(f" Depth:          [{x_depth.min():.3f}, {x_depth.max():.3f}]")
+    print(f" Faults:         [{x_faults.min():.3f}, {x_faults.max():.3f}]")
+    print(f" Traps (Y):      [{y_traps.min():.3f}, {y_traps.max():.3f}]")
     print("="*60)
 
 
@@ -180,14 +180,14 @@ if __name__ == "__main__":
     settings.create_dirs()
     
     print("=" * 70)
-    print("🧪 GEOLOGY TRAPS DATASET TEST")
+    print("GEOLOGY TRAPS DATASET TEST")
     print("=" * 70)
     print(f"DATA_SOURCE:  {settings.DATA_SOURCE}")
     print(f"USE_FAULTS:   {settings.USE_FAULTS}")
     print(f"IN_CHANNELS:  {settings.in_channels}")
     print("=" * 70)
     
-    # 🔑 Список файлов в зависимости от источника
+    # Список файлов в зависимости от источника
     if settings.DATA_SOURCE == 'cps':
         # CPS: без расширения
         file_list = ['001_x_structuralNOisoline_H76', '001_y_traps_H76']
@@ -206,8 +206,8 @@ if __name__ == "__main__":
         ]
         data_dir = settings.DATA_DIR
     
-    print(f"\n📁 Data directory: {data_dir}")
-    print(f"📄 Files to load: {len(file_list)}")
+    print(f"\nData directory: {data_dir}")
+    print(f"Files to load: {len(file_list)}")
     print()
     
     train_dataset = GeologyTrapsDataset(
@@ -223,24 +223,25 @@ if __name__ == "__main__":
                                 save_path=str(settings.logs_path / f'viz_test_{settings.DATA_SOURCE}.png'))
         
         # Проверка DataLoader
+        pin_memory_flag = torch.cuda.is_available()
         train_loader = DataLoader(
             train_dataset,
             batch_size=settings.BATCH_SIZE,
             shuffle=True,
             num_workers=settings.NUM_WORKERS,
-            pin_memory=True
+            pin_memory=pin_memory_flag
         )
         
         batch = next(iter(train_loader))
-        print(f"\n✅ Batch Input Shape:  {batch['x'].shape}")
-        print(f"✅ Batch Target Shape: {batch['y'].shape}")
-        print(f"✅ Actual channels: {batch['x'].shape[1]}")
+        print(f"\n Batch Input Shape:  {batch['x'].shape}")
+        print(f"Batch Target Shape: {batch['y'].shape}")
+        print(f"Actual channels: {batch['x'].shape[1]}")
         
         expected_channels = 5 if settings.USE_FAULTS else 4
         
         if batch['x'].shape[1] == expected_channels:
-            print(f"\n✅ TEST PASSED! Ready for training! ({expected_channels} channels)")
+            print(f"\n TEST PASSED! Ready for training! ({expected_channels} channels)")
         else:
-            print(f"\n❌ TEST FAILED! Expected {expected_channels} channels, got {batch['x'].shape[1]}")
+            print(f"\n TEST FAILED! Expected {expected_channels} channels, got {batch['x'].shape[1]}")
     else:
-        print("\n❌ No samples loaded! Check file paths and naming.")
+        print("\n No samples loaded! Check file paths and naming.")

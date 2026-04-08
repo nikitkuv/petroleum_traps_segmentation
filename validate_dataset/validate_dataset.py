@@ -8,7 +8,7 @@ from collections import defaultdict
 sys.path.append(str(Path(__file__).parent.parent))
 
 from settings import settings
-from dataset import GeologyTrapsDataset
+from data.dataset import GeologyTrapsDataset
 
 
 class DatasetValidator:
@@ -38,13 +38,11 @@ class DatasetValidator:
             data_path = Path(self.data_dir)
             files = sorted([f.name for f in data_path.glob("*.png")])
         
-        print(f"📁 Found {len(files)} files in {self.data_dir}")
+        print(f"Found {len(files)} files in {self.data_dir}")
         
         self.file_list = files
         
         return files
-    
-    # ... остальной код без изменений ...
     
     def analyze_files(self, file_list: List[str]) -> Dict:
         """Анализирует структуру файлов."""
@@ -87,32 +85,30 @@ class DatasetValidator:
         use_faults = use_faults if use_faults is not None else settings.USE_FAULTS
         
         print("\n" + "=" * 70)
-        print(f"🔍 DATASET VALIDATION (use_faults={use_faults})")
+        print(f"DATASET VALIDATION (use_faults={use_faults})")
         print("=" * 70)
         
-        # 🔧 ИСПРАВЛЕНИЕ: Если file_list пустой — сканируем директорию
         if len(self.file_list) == 0:
-            print("⚠️  file_list is empty, scanning directory...")
+            print(" file_list is empty, scanning directory...")
             self.scan_directory()
         
         # 1. Анализ файлов
-        print("\n📊 FILE ANALYSIS:")
+        print("\n FILE ANALYSIS:")
         print("-" * 70)
         analysis = self.analyze_files(self.file_list)
         
-        print(f"  Total files:           {analysis['total_files']}")
-        print(f"  Unique cards:          {analysis['unique_cards']}")
-        print(f"  Cards with faults:     {analysis['cards_with_faults']}")
-        print(f"  Cards without faults:  {analysis['cards_without_faults']}")
+        print(f" Total files:           {analysis['total_files']}")
+        print(f" Unique cards:          {analysis['unique_cards']}")
+        print(f" Cards with faults:     {analysis['cards_with_faults']}")
+        print(f" Cards without faults:  {analysis['cards_without_faults']}")
         print(f"\n  File types:")
         for ftype, count in analysis['file_types'].items():
-            print(f"    - {ftype}: {count}")
+            print(f"   - {ftype}: {count}")
         
-        # 🔧 ИСПРАВЛЕНИЕ: Проверка на пустой датасет
         if analysis['unique_cards'] == 0:
-            print("\n❌ No valid cards found! Check file naming convention.")
-            print("   Expected format: NNN_x_type_HORIZON.png")
-            print("   Example: 001_x_structuralNOisoline_H150.png")
+            print("\n No valid cards found! Check file naming convention.")
+            print("Expected format: NNN_x_type_HORIZON.png")
+            print("Example: 001_x_structuralNOisoline_H150.png")
             return {
                 'success': False,
                 'errors': ['No valid cards found'],
@@ -126,7 +122,7 @@ class DatasetValidator:
             }
         
         # 2. Создание Dataset
-        print("\n📦 CREATING DATASET:")
+        print("\n CREATING DATASET:")
         print("-" * 70)
         try:
             dataset = GeologyTrapsDataset(
@@ -135,11 +131,11 @@ class DatasetValidator:
                 augment=False,
                 use_faults=use_faults
             )
-            print(f"  ✓ Dataset created successfully")
-            print(f"  ✓ Total samples: {len(dataset)}")
+            print(f"Dataset created successfully")
+            print(f"Total samples: {len(dataset)}")
         except Exception as e:
             self.errors.append(f"Dataset creation failed: {str(e)}")
-            print(f"  ❌ Dataset creation failed: {str(e)}")
+            print(f"  Dataset creation failed: {str(e)}")
             return {
                 'success': False,
                 'errors': self.errors,
@@ -152,9 +148,8 @@ class DatasetValidator:
                 'file_analysis': analysis
             }
         
-        # 🔧 ИСПРАВЛЕНИЕ: Проверка на пустой датасет после создания
         if len(dataset) == 0:
-            print("\n❌ Dataset has 0 samples! Check file naming and _parse_files logic.")
+            print("\n Dataset has 0 samples! Check file naming and _parse_files logic.")
             return {
                 'success': False,
                 'errors': ['Dataset has 0 samples'],
@@ -168,7 +163,7 @@ class DatasetValidator:
             }
         
         # 3. Проверка каждого семпла
-        print("\n🔍 VALIDATING EACH SAMPLE:")
+        print("\n VALIDATING EACH SAMPLE:")
         print("-" * 70)
         
         expected_channels = 5 if use_faults else 4
@@ -232,25 +227,26 @@ class DatasetValidator:
                 
                 # Прогресс
                 if (idx + 1) % 50 == 0 or idx == len(dataset) - 1:
-                    print(f"  Processed {idx + 1}/{len(dataset)} samples "
+                    print(f" Processed {idx + 1}/{len(dataset)} samples "
                           f"({(idx + 1) / len(dataset) * 100:.1f}%)")
                 
             except Exception as e:
                 self.errors.append(f"Sample {idx}: {str(e)}")
                 failed_samples += 1
-                print(f"  ❌ Sample {idx} failed: {str(e)}")
+                print(f"  Sample {idx} failed: {str(e)}")
         
         # 4. Проверка DataLoader
-        print("\n📦 VALIDATING DATALOADER:")
+        print("\n VALIDATING DATALOADER:")
         print("-" * 70)
         
         try:
+            pin_memory_flag = torch.cuda.is_available()
             loader = DataLoader(
                 dataset,
                 batch_size=settings.BATCH_SIZE,
                 shuffle=False,
                 num_workers=settings.NUM_WORKERS,
-                pin_memory=True
+                pin_memory=pin_memory_flag
             )
             
             batch_count = 0
@@ -265,61 +261,60 @@ class DatasetValidator:
                 total_batch_samples += batch['x'].shape[0]
                 
                 if (batch_idx + 1) % 10 == 0:
-                    print(f"  Processed {batch_idx + 1} batches "
+                    print(f" Processed {batch_idx + 1} batches "
                           f"({total_batch_samples} samples)")
             
-            print(f"  ✓ DataLoader validation passed")
-            print(f"  ✓ Total batches: {batch_count}")
-            print(f"  ✓ Total samples in batches: {total_batch_samples}")
+            print(f"DataLoader validation passed")
+            print(f"Total batches: {batch_count}")
+            print(f"Total samples in batches: {total_batch_samples}")
             
         except Exception as e:
             self.errors.append(f"DataLoader validation failed: {str(e)}")
-            print(f"  ❌ DataLoader validation failed: {str(e)}")
+            print(f"  DataLoader validation failed: {str(e)}")
         
         # 5. Итоговый отчёт
         print("\n" + "=" * 70)
-        print("📋 VALIDATION REPORT")
+        print("VALIDATION REPORT")
         print("=" * 70)
         
-        # 🔧 ИСПРАВЛЕНИЕ: Защита от деления на ноль
         total = len(dataset)
         success_pct = (successful_samples / total * 100) if total > 0 else 0
         fail_pct = (failed_samples / total * 100) if total > 0 else 0
         
-        print(f"\n✅ SUCCESSFUL SAMPLES: {successful_samples}/{total} ({success_pct:.1f}%)")
-        print(f"❌ FAILED SAMPLES: {failed_samples}/{total} ({fail_pct:.1f}%)")
-        print(f"⚠️  CHANNEL MISMATCHES: {channel_mismatches}")
+        print(f"\n SUCCESSFUL SAMPLES: {successful_samples}/{total} ({success_pct:.1f}%)")
+        print(f"FAILED SAMPLES: {failed_samples}/{total} ({fail_pct:.1f}%)")
+        print(f" CHANNEL MISMATCHES: {channel_mismatches}")
         
-        print(f"\n📊 SHAPE STATISTICS:")
-        print(f"  X shapes: {len(shape_stats['x_shapes'])} unique")
+        print(f"\n SHAPE STATISTICS:")
+        print(f" X shapes: {len(shape_stats['x_shapes'])} unique")
         for shape in shape_stats['x_shapes']:
-            print(f"    - {shape}")
-        print(f"  Y shapes: {len(shape_stats['y_shapes'])} unique")
+            print(f"   - {shape}")
+        print(f" Y shapes: {len(shape_stats['y_shapes'])} unique")
         for shape in shape_stats['y_shapes']:
-            print(f"    - {shape}")
+            print(f"   - {shape}")
         
-        print(f"\n📊 VALUE STATISTICS:")
+        print(f"\n VALUE STATISTICS:")
         if value_stats['x_min'] != float('inf'):
-            print(f"  X range: [{value_stats['x_min']:.4f}, {value_stats['x_max']:.4f}]")
-            print(f"  Y range: [{value_stats['y_min']:.4f}, {value_stats['y_max']:.4f}]")
-            print(f"  Traps coverage: {value_stats['traps_pixels'] / value_stats['total_pixels'] * 100:.2f}%")
+            print(f" X range: [{value_stats['x_min']:.4f}, {value_stats['x_max']:.4f}]")
+            print(f" Y range: [{value_stats['y_min']:.4f}, {value_stats['y_max']:.4f}]")
+            print(f" Traps coverage: {value_stats['traps_pixels'] / value_stats['total_pixels'] * 100:.2f}%")
         else:
-            print("  No value statistics (no samples processed)")
+            print(" No value statistics (no samples processed)")
         
         if self.errors:
-            print(f"\n❌ ERRORS ({len(self.errors)}):")
+            print(f"\n ERRORS ({len(self.errors)}):")
             for err in self.errors[:10]:  # Показать первые 10
-                print(f"  - {err}")
+                print(f" - {err}")
             if len(self.errors) > 10:
-                print(f"  ... and {len(self.errors) - 10} more errors")
+                print(f" ... and {len(self.errors) - 10} more errors")
         
         # 6. Итоговый статус
         print("\n" + "=" * 70)
         if len(self.errors) == 0 and failed_samples == 0:
-            print("✅ VALIDATION PASSED! Dataset is ready for training!")
+            print("VALIDATION PASSED! Dataset is ready for training!")
             success = True
         else:
-            print("❌ VALIDATION FAILED! Fix errors before training!")
+            print("VALIDATION FAILED! Fix errors before training!")
             success = False
         print("=" * 70)
         
@@ -339,7 +334,7 @@ class DatasetValidator:
 def main():
     """Главная функция валидации."""
     print("\n" + "=" * 70)
-    print("🚀 GEOLOGY TRAPS DATASET VALIDATOR")
+    print("GEOLOGY TRAPS DATASET VALIDATOR")
     print("=" * 70)
     
     # Создание директорий
@@ -350,10 +345,9 @@ def main():
     all_files = validator.scan_directory()
     
     if len(all_files) == 0:
-        print("❌ No PNG files found in data directory!")
+        print("No PNG files found in data directory!")
         return
     
-    # 🔧 ИСПРАВЛЕНИЕ: Сохраняем файлы в validator
     validator.file_list = all_files
     
     # Валидация в режиме БЕЗ разломов
@@ -365,7 +359,7 @@ def main():
     
     # Если первая валидация провалилась — не продолжаем
     if not result_no_faults['success']:
-        print("\n❌ First validation failed. Fix errors before continuing.")
+        print("\n First validation failed. Fix errors before continuing.")
         return
     
     # Валидация в режиме С разломами (опционально)
@@ -407,7 +401,7 @@ def main():
             f.write(f"Failed: {result_with_faults['failed_samples']}\n")
             f.write(f"Errors: {len(result_with_faults['errors'])}\n")
     
-    print(f"\n📄 Report saved to: {report_path}")
+    print(f"\nReport saved to: {report_path}")
     
     return result_no_faults, result_with_faults
 

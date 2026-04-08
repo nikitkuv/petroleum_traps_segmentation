@@ -27,19 +27,19 @@ def check_all_image_sizes():
             size_groups[(h, w)].append(f.name)
     
     # Выводим статистику
-    print("📊 SIZE DISTRIBUTION:")
+    print("SIZE DISTRIBUTION:")
     print("-" * 70)
     
     for (h, w), file_list in sorted(size_groups.items(), key=lambda x: -len(x[1])):
         pct = len(file_list) / len(files) * 100
-        status = "✅" if h <= settings.TARGET_HEIGHT and w <= settings.TARGET_WIDTH else "⚠️"
+        status = "" if h <= settings.TARGET_HEIGHT and w <= settings.TARGET_WIDTH else ""
         print(f"{status} {h}×{w}: {len(file_list)} files ({pct:.1f}%)")
         
         # Показываем первые 5 имён
         for fname in file_list[:5]:
-            print(f"      - {fname}")
+            print(f"     - {fname}")
         if len(file_list) > 5:
-            print(f"      ... and {len(file_list) - 5} more")
+            print(f"     ... and {len(file_list) - 5} more")
         print()
     
     # Сохранение отчёта
@@ -54,7 +54,7 @@ def check_all_image_sizes():
             for fname in file_list:
                 f.write(f"  {fname}\n")
     
-    print(f"📄 Report saved to: {report_path}")
+    print(f"Report saved to: {report_path}")
     print("=" * 70)
 
 

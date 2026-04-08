@@ -12,5 +12,6 @@ scipy
 albumentations 
 opencv-python
 torchvision
-cv2
 pydantic_settings
+pytest 
+pytest-cov

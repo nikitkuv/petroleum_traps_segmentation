@@ -1,6 +1,7 @@
 from pydantic_settings import BaseSettings
 from pathlib import Path
 from typing import Literal
+import torch
 
 
 class Settings(BaseSettings):
@@ -16,6 +17,11 @@ class Settings(BaseSettings):
     CPS_DIR: str = './data/cps/'
     CHECKPOINT_DIR: str = './checkpoints/'
     LOGS_DIR: str = './logs/'
+    LOGS_TRAIN_VIZ_DIR: str = './logs/visualizations/'
+    LOGS_VAL_VIZ_DIR: str = './logs/val_visualizations/'
+    LOGS_TEST_VIZ_DIR: str = './logs/test_visualizations/'
+    LOGS_OVERFIT_CHECK_DIR: str = './logs/overfit_check/'
+    GRAD_ANOMALIES_DIR: str = './gradient_anomalies/'
 
     # Размеры изображений
     TARGET_HEIGHT: int = 1248
@@ -29,16 +35,42 @@ class Settings(BaseSettings):
 
     # CPS настройки
     CPS_NULL_VALUE: float = -99999.0  
-    CPS_VERTICAL_FLIP: bool = True    
+    CPS_VERTICAL_FLIP: bool = True
+
+    # Разделение данных
+    SEED: int = 24
+    TRAIN_RATIO: float = 0.8
+    VAL_RATIO: float = 0.1    
     
     # Обучение
+    OVERFIT_SIZE: int = 2
+    AUGMENT_TRAIN: bool = True
     BATCH_SIZE: int = 4
-    NUM_WORKERS: int = 4
+    NUM_WORKERS: int = 2
     LEARNING_RATE: float = 1e-4
-    NUM_EPOCHS: int = 100
+    ENCODER_LR_MULTIPLIER: float = 0.1
+    WEIGHT_DECAY: float = 1e-4
+    NUM_EPOCHS: int = 50
+    ES_PATIANCE: int = 15
+    GRADIENT_ACC_STEPS: int = 1
+
+    # Трекинг градиентов
+    LOG_GRADIENTS: bool = True
+    TRACK_GRADIENT_ANOMALIES: bool = True
+    GRAD_ALPHA: float = 0.95
+    ABS_THRESHOLD: float = 10
+    STD_MULTIPLIER: float = 3
+    MIN_SAMPLES_FOR_STD: int = 20
+
+    # Loss
+    BCE_WEIGHT_RATIO: float = 0.5
+    DICE_WEIGHT_RATIO: float = 0.5
+
+    # Метрики
+    TEST_THRESHOLD: float = 0.5
     
     # Устройство
-    DEVICE: str = 'cuda'
+    DEVICE: str = 'cuda' if torch.cuda.is_available() else 'cpu'
     
     class Config:
         env_file = '.env'
@@ -59,6 +91,26 @@ class Settings(BaseSettings):
     @property
     def logs_path(self) -> Path:
         return Path(self.LOGS_DIR)
+    
+    @property
+    def logs_train_viz_path(self) -> Path:
+        return Path(self.LOGS_TRAIN_VIZ_DIR)
+
+    @property
+    def logs_val_viz_path(self) -> Path:
+        return Path(self.LOGS_VAL_VIZ_DIR)
+    
+    @property
+    def logs_test_viz_path(self) -> Path:
+        return Path(self.LOGS_TEST_VIZ_DIR)
+    
+    @property
+    def logs_overfit_check_path(self) -> Path:
+        return Path(self.LOGS_OVERFIT_CHECK_DIR)
+    
+    @property
+    def grad_anomalies_path(self) -> Path:
+        return Path(self.GRAD_ANOMALIES_DIR)
 
     @property
     def is_cps(self) -> bool:
@@ -71,6 +123,11 @@ class Settings(BaseSettings):
     def create_dirs(self):
         self.checkpoint_path.mkdir(parents=True, exist_ok=True)
         self.logs_path.mkdir(parents=True, exist_ok=True)
+        self.logs_train_viz_path.mkdir(parents=True, exist_ok=True)
+        self.logs_val_viz_path.mkdir(parents=True, exist_ok=True)
+        self.logs_test_viz_path.mkdir(parents=True, exist_ok=True)
+        self.logs_overfit_check_path.mkdir(parents=True, exist_ok=True)
+        self.grad_anomalies_path.mkdir(parents=True, exist_ok=True)
 
 
 # Глобальный экземпляр настроек

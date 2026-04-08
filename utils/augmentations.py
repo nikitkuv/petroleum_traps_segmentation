@@ -12,17 +12,14 @@ def get_train_transforms():
         # Геометрические трансформации
         A.HorizontalFlip(p=p),
         A.VerticalFlip(p=p),
-        A.RandomRotate90(p=p),
         
         # Цветовые трансформации (только для RGB)
         A.OneOf([
             A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
-            A.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=20, val_shift_limit=10, p=0.5),
         ], p=0.3),
         
         # Шум и размытие
         A.OneOf([
-            A.GaussNoise(sigma=(10.0, 50.0), p=0.5),
             A.GaussianBlur(blur_limit=(3, 5), p=0.5),
         ], p=0.3),
         
