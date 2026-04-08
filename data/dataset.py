@@ -14,12 +14,6 @@ from utils.images_utils import (
     create_map_mask, 
     pad_image
 )
-from utils.cps_utils import (
-    read_cps_grid, 
-    cps_to_rgb, 
-    cps_to_grayscale, 
-    cps_to_binary_mask,
-)
 from utils.augmentations import get_train_transforms, get_val_transforms
 
 
@@ -28,7 +22,7 @@ class GeologyTrapsDataset(Dataset):
         self,
         file_list: List[str],
         data_dir: str = None,
-        cps_dir: str = None,
+        cps_tiles_dir: str = None,
         target_h: int = None,
         target_w: int = None,
         augment: bool = True,
@@ -38,7 +32,7 @@ class GeologyTrapsDataset(Dataset):
         self.file_list = file_list
         self.data_source = data_source if data_source is not None else settings.DATA_SOURCE
         self.data_dir = data_dir or str(settings.data_path)
-        self.cps_dir = cps_dir or str(settings.cps_path)
+        self.cps_tiles_dir = cps_tiles_dir or str(settings.cps_tiles_path)
         self.target_h = target_h or settings.TARGET_HEIGHT
         self.target_w = target_w or settings.TARGET_WIDTH
         self.augment = augment
@@ -60,9 +54,9 @@ class GeologyTrapsDataset(Dataset):
         print(f"Target size: {self.target_h}×{self.target_w}")
         
         # Информация о требуемых файлах
-        if self.data_source == 'cps':
-            n_files = 3 if self.use_faults else 2
-            print(f"Required files per sample: {n_files} (structuralNOisoline, [faults], traps)")
+        if self.data_source == 'cps_tiles':
+            n_files = 4 if self.use_faults else 3
+            print(f"Required files per sample: {n_files} (rgb, depth_norm, [faults], traps)")
         else:
             print(f"Required files per sample: 4 (rgb, depth_norm, [faults], traps)")
     
@@ -91,10 +85,7 @@ class GeologyTrapsDataset(Dataset):
         pattern = r'^(\d+)_(x|y)_([^_]+)_(.+)$'
         
         for f in file_list:
-            if self.data_source == 'cps':
-                f_clean = f.replace('.cps', '').replace('.grd', '')
-            else:
-                f_clean = Path(f).stem  # убираем расширение .png
+            f_clean = Path(f).stem  # убираем расширение .png
             
             match = re.match(pattern, f_clean)
             
@@ -126,17 +117,22 @@ class GeologyTrapsDataset(Dataset):
         
         result = []
         for key, paths in samples.items():
-            if self.data_source == 'cps':
-                # CPS режим: depth_norm не требуется (генерируется из rgb)
-                required_keys = ['rgb', 'traps']
+            if self.data_source == 'cps_tiles':
+                # CPS tiles режим: используем PNG файлы из images_cps/
+                # Требуемые файлы: rgb, depth_norm, traps (и faults опционально)
+                required_keys = ['rgb', 'depth_norm', 'traps']
                 if self.use_faults:
                     required_keys.append('faults')
                 
                 if all(k in paths for k in required_keys):
-                    clean_paths = {
-                        k: os.path.join(self.cps_dir, v) for k, v in paths.items() 
-                        if k in required_keys or k == 'depth_norm'
-                    }
+                    clean_paths = {}
+                    for k, v in paths.items():
+                        if k in required_keys or k == 'faults':
+                            # Проверяем, является ли путь уже полным
+                            if os.path.isabs(v) or v.startswith('./') or v.startswith('../'):
+                                clean_paths[k] = v
+                            else:
+                                clean_paths[k] = os.path.join(self.cps_tiles_dir, v)
                     result.append(clean_paths)
             else:
                 # PNG режим: все 4 файла (или 3 без faults)
@@ -171,32 +167,26 @@ class GeologyTrapsDataset(Dataset):
         sample_paths = self.samples[idx]
         
         # Загрузка в зависимости от источника
-        if self.data_source == 'cps':
-            # CPS режим
-            rgb_grid, rgb_meta = read_cps_grid(sample_paths['rgb'])
-            traps_grid, traps_meta = read_cps_grid(sample_paths['traps'])
+        if self.data_source == 'cps_tiles':
+            # CPS tiles режим (PNG файлы из images_cps/)
+            # Работаем как с обычными PNG, но используем путь к cps_tiles_dir
+            rgb_img = load_image(sample_paths['rgb'])
+            depth_img = load_grayscale_image(sample_paths['depth_norm'])
+            traps_img = load_grayscale_image(sample_paths['traps'])
             
-            # Конвертация structuralNOisoline → RGB + depth_norm
-            rgb_img = cps_to_rgb(rgb_grid, cmap_name='purple_jet')
-            depth_img = cps_to_grayscale(rgb_grid, invert=True)  # Из того же грида
-            
-            # Faults если нужен
             if self.use_faults and 'faults' in sample_paths:
-                faults_grid, _ = read_cps_grid(sample_paths['faults'])
-                fault_mask = cps_to_binary_mask(faults_grid)
+                faults_img = load_grayscale_image(sample_paths['faults'])
+                fault_mask = create_binary_mask(faults_img, invert=False)
             else:
                 fault_mask = np.zeros_like(depth_img, dtype=np.float32)
             
-            # Traps mask
-            trap_mask = cps_to_binary_mask(traps_grid)
+            trap_mask = create_binary_mask(traps_img, invert=False)
             
             metadata = {
-                'rgb': rgb_meta,
-                'traps': traps_meta,
-                'source': 'cps'
+                'source': 'cps_tiles'
             }
         else:
-            # PNG режим
+            # PNG режим (обычные PNG файлы из images/)
             rgb_img = load_image(sample_paths['rgb'])
             depth_img = load_grayscale_image(sample_paths['depth_norm'])
             traps_img = load_grayscale_image(sample_paths['traps'])

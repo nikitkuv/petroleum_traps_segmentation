@@ -16,7 +16,7 @@ def get_file_list(data_dir: str, data_source: str = 'png') -> List[str]:
     
     Args:
         data_dir: Путь к директории с данными
-        data_source: Источник данных ('png' или 'cps')
+        data_source: Источник данных ('png' или 'cps_tiles')
     
     Returns:
         Список путей к файлам
@@ -35,16 +35,20 @@ def get_file_list(data_dir: str, data_source: str = 'png') -> List[str]:
         print(f"Found {len(png_files)} PNG files matching format {{number}}_{{x|y}}_{{type}}_{{name}}.png")
         return png_files
     
-    elif data_source == 'cps':
-        # Для CPS данных (если понадобится в будущем)
-        cps_files = []
+    elif data_source == 'cps_tiles':
+        # Ищем все PNG файлы в директории images_cps/
+        # Формат: {number}_{x|y}_{type}_{name}.png
+        png_files = []
         for root, _, files in os.walk(data_dir):
             for file in files:
-                if file.endswith('.cps'):
-                    cps_files.append(os.path.join(root, file))
+                if file.endswith('.png'):
+                    # Проверяем, что файл соответствует формату
+                    parsed = parse_filename(file)
+                    if parsed:
+                        png_files.append(os.path.join(root, file))
         
-        print(f"Found {len(cps_files)} CPS files")
-        return cps_files
+        print(f"Found {len(png_files)} CPS tile PNG files matching format {{number}}_{{x|y}}_{{type}}_{{name}}.png")
+        return png_files
     
     else:
         raise ValueError(f"Unknown data_source: {data_source}")
@@ -236,7 +240,7 @@ def create_dataloaders(
     val_files: List[str],
     test_files: List[str],
     data_dir: str = None,
-    cps_dir: str = None,
+    cps_tiles_dir: str = None,
     batch_size: int = None,
     num_workers: int = None,
     use_faults: bool = False,
@@ -251,11 +255,11 @@ def create_dataloaders(
         val_files: Файлы валидационной выборки
         test_files: Файлы тестовой выборки
         data_dir: Путь к данным
-        cps_dir: Путь к CPS данным
+        cps_tiles_dir: Путь к CPS tiles данным (PNG файлы из images_cps/)
         batch_size: Размер батча
         num_workers: Количество рабочих процессов
         use_faults: Использовать ли разломы
-        data_source: Источник данных ('png' или 'cps')
+        data_source: Источник данных ('png' или 'cps_tiles')
     
     Returns:
         Кортеж (train_loader, val_loader, test_loader)
@@ -263,7 +267,7 @@ def create_dataloaders(
     batch_size = batch_size or settings.BATCH_SIZE
     num_workers = num_workers or settings.NUM_WORKERS
     data_dir = data_dir or settings.DATA_DIR
-    cps_dir = cps_dir or settings.CPS_DIR
+    cps_tiles_dir = cps_tiles_dir or settings.CPS_TILES_DIR
     data_source = data_source or settings.DATA_SOURCE
     augment_train = augment_train or settings.AUGMENT_TRAIN
     
@@ -271,7 +275,7 @@ def create_dataloaders(
     train_dataset = GeologyTrapsDataset(
         file_list=train_files,
         data_dir=data_dir,
-        cps_dir=cps_dir,
+        cps_tiles_dir=cps_tiles_dir,
         augment=augment_train,
         use_faults=use_faults,
         data_source=data_source
@@ -280,7 +284,7 @@ def create_dataloaders(
     val_dataset = GeologyTrapsDataset(
         file_list=val_files,
         data_dir=data_dir,
-        cps_dir=cps_dir,
+        cps_tiles_dir=cps_tiles_dir,
         augment=False,
         use_faults=use_faults,
         data_source=data_source
@@ -289,7 +293,7 @@ def create_dataloaders(
     test_dataset = GeologyTrapsDataset(
         file_list=test_files,
         data_dir=data_dir,
-        cps_dir=cps_dir,
+        cps_tiles_dir=cps_tiles_dir,
         augment=False,
         use_faults=use_faults,
         data_source=data_source
