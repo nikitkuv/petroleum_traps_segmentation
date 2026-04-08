@@ -25,6 +25,8 @@ htmlcov/
 .mypy_cache/
 .pytest_cache/
 
+data/images_cps/
+data/images_cps_full/
 data/raw/
 data/images_orig/
 prompts/
@@ -33,5 +35,3 @@ logs/
 test_something.py
 checkpoints/
 gradient_anomalies/
-data/images_cps/
-data/images_cps_full/
