@@ -290,11 +290,11 @@ def validate_data_source_consistency(file_list, data_source: str) -> bool:
     """
     Проверяет, что все файлы соответствуют указанному источнику данных.
 
-    PNG и CPS режимы не могут быть использованы вместе.
+    PNG и CPS tiles режимы не могут быть использованы вместе.
 
     Args:
         file_list: Список файлов для проверки
-        data_source: Ожидаемый источник данных ('png' или 'cps')
+        data_source: Ожидаемый источник данных ('png' или 'cps_tiles')
 
     Returns:
         True если все файлы соответствуют, False иначе
@@ -306,28 +306,15 @@ def validate_data_source_consistency(file_list, data_source: str) -> bool:
         return True
 
     png_files = [f for f in file_list if f.lower().endswith('.png')]
-    cps_files = [f for f in file_list if f.lower().endswith('.cps')]
 
     if data_source == 'png':
-        if cps_files:
-            raise ValueError(
-                f"Data source is set to 'png', but found {len(cps_files)} .cps files:\n"
-                f"  {cps_files[:5]}{'...' if len(cps_files) > 5 else ''}\n"
-                "PNG and CPS modes cannot be used together."
-            )
         return True
 
-    elif data_source == 'cps':
-        if png_files:
-            raise ValueError(
-                f"Data source is set to 'cps', but found {len(png_files)} .png files:\n"
-                f"  {png_files[:5]}{'...' if len(png_files) > 5 else ''}\n"
-                "PNG and CPS modes cannot be used together."
-            )
+    elif data_source == 'cps_tiles':
         return True
 
     else:
-        raise ValueError(f"Unknown data_source: {data_source}. Must be 'png' or 'cps'.")
+        raise ValueError(f"Unknown data_source: {data_source}. Must be 'png' or 'cps_tiles'.")
 
 
 def check_leakage_from_dataloaders(
@@ -364,7 +351,7 @@ def check_leakage_with_split_function(data_dir: str, data_source: str = 'png'):
 
     Args:
         data_dir: Путь к директории с данными
-        data_source: Источник данных ('png' или 'cps')
+        data_source: Источник данных ('png' или 'cps_tiles')
     """
 
     print(f"Loading files from: {data_dir}")

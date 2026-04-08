@@ -30,7 +30,7 @@ def evaluate_all_test_samples(
         checkpoint_path: Путь к чекпоинту модели
         data_dir: Путь к данным
         use_faults: Использовать ли разломы (должно совпадать с обучением)
-        data_source: Источник данных ('png' или 'cps')
+        data_source: Источник данных ('png' или 'cps_tiles')
         batch_size: Размер батча
         threshold: Порог бинаризации
         save_viz_dir: Директория для сохранения визуализаций
@@ -270,7 +270,7 @@ if __name__ == '__main__':
     parser.add_argument('--checkpoint', type=str, required=True, help='Path to model checkpoint')
     parser.add_argument('--data-dir', type=str, default=None, help='Path to data directory')
     parser.add_argument('--use-faults', action='store_true', default=None, help='Use faults as input')
-    parser.add_argument('--data-source', type=str, default=None, choices=['png', 'cps'], help='Data source')
+    parser.add_argument('--data-source', type=str, default=None, choices=['png', 'cps_tiles'], help='Data source')
     parser.add_argument('--batch-size', type=int, default=None, help='Batch size')
     parser.add_argument('--threshold', type=float, default=None, help='Binary threshold')
     parser.add_argument('--save-viz-dir', type=str, default=None, help='Directory to save visualizations')
