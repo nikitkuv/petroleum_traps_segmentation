@@ -335,7 +335,7 @@ def pad_image(img: np.ndarray, target_h: int, target_w: int) -> np.ndarray:
 
 def main():
     """Основная функция."""
-    cps_dir = settings.CPS_DIR
+    cps_dir = './data/cps/'
     full_images_dir = './data/images_cps_full/'
     tiles_dir = './data/images_cps/'
 

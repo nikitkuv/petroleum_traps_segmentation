@@ -1,37 +1,46 @@
-# Compiled and build artifacts
+```
+# Compiled Python files
 *.pyc
 __pycache__/
 
-# Dependencies
-.venv/
-venv/
-node_modules/
+# Test cache
+.pytest_cache/
 
-# Environment
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+
+# Environment files
 .env
 .env.local
-.env.*
-
-# Editors
-.vscode/
-.idea/
+*.env.*
 
 # Coverage reports
 .coverage
 coverage/
 htmlcov/
 
-# Python cache
-.mypy_cache/
-.pytest_cache/
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
 
-# data/images_cps/
-# data/images_cps_full/
-data/raw/
-data/images_orig/
-prompts/
-logs/
-.ipynb_checkpoints/
-test_something.py
-checkpoints/
-gradient_anomalies/
+# Build artifacts
+dist/
+build/
+target/
+*.out
+
+# Dependencies
+.venv/
+venv/
+node_modules/
+.mypy_cache/
+
+# System files
+.DS_Store
+Thumbs.db
+```

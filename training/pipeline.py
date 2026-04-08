@@ -26,7 +26,8 @@ def run_full_pipeline(
     batch_size: int = None,
     learning_rate: float = None,
     early_stopping_patience: int = None,
-    encoder_lr_multiplier: float = None
+    encoder_lr_multiplier: float = None,
+    cps_tiles_dir: str = None
 ) -> Dict[str, float]:
     """
     Запускает полный пайплайн обучения и тестирования модели.
@@ -34,7 +35,7 @@ def run_full_pipeline(
     Args:
         data_dir: Путь к данным
         use_faults: Использовать ли разломы
-        data_source: Источник данных ('png' или 'cps')
+        data_source: Источник данных ('png' или 'cps_tiles')
         overfit_check_mode: Режим проверки overfit
         wandb_project: wandb
         wandb_run_name: Имя запуска
@@ -43,6 +44,7 @@ def run_full_pipeline(
         learning_rate: Скорость обучения
         early_stopping_patience: Патанс для ранней остановки
         encoder_lr_multiplier: Множитель LR для энкодера
+        cps_tiles_dir: Путь к CPS tiles данным (для data_source='cps_tiles')
     
     Returns:
         Метрики на тестовой выборке
@@ -56,6 +58,7 @@ def run_full_pipeline(
     n_epochs = n_epochs or settings.NUM_EPOCHS
     early_stopping_patience = early_stopping_patience or settings.ES_PATIANCE
     encoder_lr_multiplier = encoder_lr_multiplier or settings.ENCODER_LR_MULTIPLIER
+    cps_tiles_dir = cps_tiles_dir or settings.CPS_TILES_DIR
     
     print("=" * 80)
     print("GEOLOGY TRAPS SEGMENTATION PIPELINE")
@@ -65,7 +68,7 @@ def run_full_pipeline(
     print("=" * 80)
     
     print("\n[STEP 1] Loading data...")
-    all_files = get_file_list(data_dir, data_source=data_source)
+    all_files = get_file_list(data_dir if data_source != 'cps_tiles' else cps_tiles_dir, data_source=data_source)
     
     if len(all_files) == 0:
         raise ValueError("No data files found!")
@@ -114,6 +117,7 @@ def run_full_pipeline(
         val_files=val_files,
         test_files=test_files,
         data_dir=data_dir,
+        cps_tiles_dir=cps_tiles_dir,
         batch_size=batch_size,
         use_faults=use_faults,
         data_source=data_source,

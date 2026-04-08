@@ -7,14 +7,18 @@ import torch
 class Settings(BaseSettings):
 
     # Источник данных
-    DATA_SOURCE: Literal['png', 'cps'] = 'png'
+    DATA_SOURCE: Literal['png', 'cps_tiles'] = 'png'
+    
+    # CPS настройки
+    CPS_NULL_VALUE: float = -999.0  # Значение null для CPS файлов
 
     # Работаем с разломами или нет
     USE_FAULTS: bool = False
     
     # Пути
     DATA_DIR: str = './data/images/'
-    CPS_DIR: str = './data/cps/'
+    CPS_TILES_DIR: str = './data/images_cps/'
+    CPS_FULL_DIR: str = './data/images_cps_full/'
     CHECKPOINT_DIR: str = './checkpoints/'
     LOGS_DIR: str = './logs/'
     LOGS_TRAIN_VIZ_DIR: str = './logs/visualizations/'
@@ -33,9 +37,8 @@ class Settings(BaseSettings):
     # Аугментации
     AUGMENT_PROB: float = 0.5
 
-    # CPS настройки
+    # CPS tiles настройки
     TILE_OVERLAP_RATIO: float = 0.25
-    CPS_NULL_VALUE: float = -99999.0  
     CPS_VERTICAL_FLIP: bool = False
 
     # Разделение данных
@@ -82,8 +85,12 @@ class Settings(BaseSettings):
         return Path(self.DATA_DIR)
 
     @property
-    def cps_path(self) -> Path:
-        return Path(self.CPS_DIR)
+    def cps_tiles_path(self) -> Path:
+        return Path(self.CPS_TILES_DIR)
+    
+    @property
+    def cps_full_path(self) -> Path:
+        return Path(self.CPS_FULL_DIR)
     
     @property
     def checkpoint_path(self) -> Path:
@@ -114,8 +121,8 @@ class Settings(BaseSettings):
         return Path(self.GRAD_ANOMALIES_DIR)
 
     @property
-    def is_cps(self) -> bool:
-        return self.DATA_SOURCE.lower() == 'cps'
+    def is_cps_tiles(self) -> bool:
+        return self.DATA_SOURCE.lower() == 'cps_tiles'
     
     @property
     def in_channels(self) -> int:
