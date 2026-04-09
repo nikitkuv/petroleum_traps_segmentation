@@ -112,20 +112,43 @@ class TestMaskCreation:
         img = np.full((10, 10, 3), 255, dtype=np.uint8)  # All background
         img[5, 5] = [0, 0, 0]  # Non-background pixel
         
-        mask = create_map_mask(img)
+        mask = create_map_mask(img, data_source='images')
         
         assert mask.shape == (10, 10)
         assert mask.dtype == np.float32
         assert mask[5, 5] == 1.0  # Non-background
         assert mask[0, 0] == 0.0  # Background
+
+    def test_create_map_mask_cps_tiles_black_background(self):
+        """Test map mask correctly identifies non-background areas for 'cps_tiles' source."""
+        # Background is ~0 (black background)
+        img = np.full((10, 10, 3), 0, dtype=np.uint8)  # All black background
+        img[5, 5] = [100, 100, 100]  # Non-background pixel (map area)
+
+        mask = create_map_mask(img, data_source='cps_tiles')
+
+        assert mask.shape == (10, 10)
+        assert mask.dtype == np.float32
+        assert mask[5, 5] == 1.0  # Non-background (map area)
+        assert mask[0, 0] == 0.0  # Black background
     
     def test_create_map_mask_grayscale_input(self):
-        """Test map mask works with grayscale input."""
-        img = np.full((10, 10), 255, dtype=np.uint8)  # All background
+        """Test map mask works with grayscale input for default 'images' source."""
+        img = np.full((10, 10), 255, dtype=np.uint8)  # All background (white)
         img[5, 5] = 0  # Non-background pixel
-        
-        mask = create_map_mask(img)
-        
+
+        mask = create_map_mask(img, data_source='images')
+
+        assert mask[5, 5] == 1.0
+        assert mask[0, 0] == 0.0
+
+    def test_create_map_mask_grayscale_cps_tiles(self):
+        """Test map mask works with grayscale input for 'cps_tiles' source."""
+        img = np.full((10, 10), 0, dtype=np.uint8)  # All black background
+        img[5, 5] = 100  # Non-background pixel (map area)
+
+        mask = create_map_mask(img, data_source='cps_tiles')
+
         assert mask[5, 5] == 1.0
         assert mask[0, 0] == 0.0
 
