@@ -3,14 +3,13 @@ from pathlib import Path
 import torch
 import argparse
 import random
-import os
 from typing import List
 
 sys.path.append(str(Path(__file__).parent.parent))
 
-from torch.utils.data import DataLoader
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
 from settings import settings
 from data.dataset import GeologyTrapsDataset
@@ -42,6 +41,12 @@ def visualize_sample(
     orig_traps = load_grayscale_image(sample_paths['traps'])
     orig_faults = load_grayscale_image(sample_paths['faults']) if 'faults' in sample_paths else None
 
+    # Получаем имена файлов для заголовков
+    rgb_filename = Path(sample_paths['rgb']).name
+    depth_filename = Path(sample_paths['depth_norm']).name
+    traps_filename = Path(sample_paths['traps']).name
+    faults_filename = Path(sample_paths['faults']).name if 'faults' in sample_paths else "N/A"
+
     # Извлекаем тензоры из dataset и конвертируем в numpy
     x_rgb = sample_data['x'][:3].permute(1, 2, 0).numpy()      # (H, W, 3)
     x_depth = sample_data['x'][3].numpy()                       # (H, W)
@@ -61,100 +66,96 @@ def visualize_sample(
     else:
         mask_depth = np.zeros_like(x_depth)
 
-    # Определяем количество рядов и колонок
-    n_rows = 4
-    n_cols = 3
-    fig = plt.figure(figsize=(20, 14))
+    # Извлекаем номер и название горизонта из имени файла
+    # Формат имени файла: {number}_..._{name}_...
+    sample_filename = Path(sample_paths['rgb']).name
+    parts = sample_filename.split('_')
+    sample_number = parts[0]  # номер семпла (например, "001")
+    # Название горизонта - часть после последнего подчеркивания без расширения
+    sample_name = Path(sample_paths['rgb']).stem.split('_')[-1]  # например, "kolltop1" или "H150"
+    sample_id = f"{sample_number}_{sample_name}"
 
-    # Extract sample info for title
-    sample_key = list(dataset.samples.keys())[idx] if hasattr(dataset.samples, 'keys') else f"sample_{idx}"
-    rgb_filename = Path(sample_paths['rgb']).name
-    depth_filename = Path(sample_paths['depth_norm']).name
-    traps_filename = Path(sample_paths['traps']).name
-    faults_filename = Path(sample_paths['faults']).name if 'faults' in sample_paths else "N/A"
+    # Структура: 3 ряда x 4 колонки (GridSpec: 3x4)
+    # Row 0: RGB orig | RGB proc | Depth orig | Depth proc
+    # Row 1: Faults orig | Faults proc | Traps orig | Traps proc (target Y)
+    # Row 2: Map mask | Depth mask | Statistics (spans cols 2-3)
+    fig = plt.figure(figsize=(24, 14))
+    gs = gridspec.GridSpec(3, 4, figure=fig,
+                           height_ratios=[1, 1, 1],
+                           width_ratios=[1, 1, 1, 1],
+                           hspace=0.15, wspace=0.1,
+                           top=0.94, bottom=0.05, left=0.04, right=0.97)
 
     # 1. Original RGB
-    ax1 = fig.add_subplot(n_rows, n_cols, 1)
+    ax1 = fig.add_subplot(gs[0, 0])
     ax1.imshow(orig_rgb)
-    ax1.set_title(f'Original RGB\n{rgb_filename}', fontsize=9, pad=8)
+    ax1.set_title(f'Original RGB\n{rgb_filename}', fontsize=11, pad=6)
     ax1.axis('off')
 
-    # 2. Processed RGB (из dataset)
-    ax2 = fig.add_subplot(n_rows, n_cols, 2)
+    # 2. Processed RGB
+    ax2 = fig.add_subplot(gs[0, 1])
     ax2.imshow(x_rgb)
-    ax2.set_title(f'Processed RGB\n{x_rgb.shape[0]}×{x_rgb.shape[1]}', fontsize=9, pad=8)
+    ax2.set_title(f'Processed RGB\n{x_rgb.shape[0]}×{x_rgb.shape[1]}', fontsize=11, pad=6)
     ax2.axis('off')
 
     # 3. Original Depth
-    ax3 = fig.add_subplot(n_rows, n_cols, 3)
+    ax3 = fig.add_subplot(gs[0, 2])
     ax3.imshow(orig_depth, cmap='gray')
-    ax3.set_title(f'Original Depth\n{depth_filename}', fontsize=9, pad=8)
+    ax3.set_title(f'Original Depth\n{depth_filename}', fontsize=11, pad=6)
     ax3.axis('off')
 
-    # 4. Processed Depth (из dataset)
-    ax4 = fig.add_subplot(n_rows, n_cols, 4)
+    # 4. Processed Depth
+    ax4 = fig.add_subplot(gs[0, 3])
     ax4.imshow(x_depth, cmap='gray')
-    ax4.set_title('Processed Depth\nBlack=High, White=Low', fontsize=9, pad=8)
+    ax4.set_title('Processed Depth\nBlack=High, White=Low', fontsize=11, pad=6)
     ax4.axis('off')
 
-    # 5. Original Faults (if available)
-    ax5 = fig.add_subplot(n_rows, n_cols, 5)
+    # 5. Original Faults
+    ax5 = fig.add_subplot(gs[1, 0])
     if orig_faults is not None:
         ax5.imshow(orig_faults, cmap='gray')
-        ax5.set_title(f'Original Fault Mask\n{faults_filename}', fontsize=9, pad=8)
+        ax5.set_title(f'Original Fault Mask\n{faults_filename}', fontsize=11, pad=6)
     else:
         ax5.imshow(np.zeros_like(x_depth), cmap='gray')
-        ax5.set_title('Original Fault Mask\nN/A', fontsize=9, pad=8)
+        ax5.set_title('Original Fault Mask\nN/A', fontsize=11, pad=6)
     ax5.axis('off')
 
-    # 6. Processed Faults (из dataset)
-    ax6 = fig.add_subplot(n_rows, n_cols, 6)
+    # 6. Processed Faults
+    ax6 = fig.add_subplot(gs[1, 1])
     ax6.imshow(x_faults, cmap='gray')
-    ax6.set_title('Processed Fault Mask\n1=Faults (White)', fontsize=9, pad=8)
+    ax6.set_title('Processed Fault Mask\n1=Faults (White)', fontsize=11, pad=6)
     ax6.axis('off')
 
     # 7. Original Traps
-    ax7 = fig.add_subplot(n_rows, n_cols, 7)
+    ax7 = fig.add_subplot(gs[1, 2])
     ax7.imshow(orig_traps, cmap='gray')
-    ax7.set_title(f'Original Trap Mask\n{traps_filename}', fontsize=9, pad=8)
+    ax7.set_title(f'Original Trap Mask\n{traps_filename}', fontsize=11, pad=6)
     ax7.axis('off')
 
-    # 8. Processed Traps / Target Y (из dataset)
-    ax8 = fig.add_subplot(n_rows, n_cols, 8)
+    # 8. Processed Traps / Target Y
+    ax8 = fig.add_subplot(gs[1, 3])
     ax8.imshow(y_traps, cmap='gray')
-    ax8.set_title('Target Y (Traps)\n1=Traps (White)', fontsize=9, pad=8)
+    ax8.set_title('Target Y (Traps)\n1=Traps (White)', fontsize=11, pad=6)
     ax8.axis('off')
 
     # 9. Map Mask
-    ax9 = fig.add_subplot(n_rows, n_cols, 9)
+    ax9 = fig.add_subplot(gs[2, 0])
     ax9.imshow(mask_map, cmap='gray')
-    ax9.set_title('Map Mask\n1=Map Area (White)', fontsize=9, pad=8)
+    ax9.set_title('Map Mask\n1=Map Area (White)', fontsize=11, pad=6)
     ax9.axis('off')
 
     # 10. Depth Mask
-    ax10 = fig.add_subplot(n_rows, n_cols, 10)
+    ax10 = fig.add_subplot(gs[2, 1])
     ax10.imshow(mask_depth, cmap='gray')
-    ax10.set_title('Depth Mask\n1=Valid (White), 0=Faults/Pad (Black)', fontsize=9, pad=8)
+    ax10.set_title('Depth Mask\n1=Valid (White), 0=Faults/Pad (Black)', fontsize=11, pad=6)
     ax10.axis('off')
 
-    # 11. Input Channels Overview (RGB+Depth+Faults)
-    ax11 = fig.add_subplot(n_rows, n_cols, 11)
-    # Показываем композит: RGB + контуры разломов
-    composite = x_rgb.copy()
-    fault_overlay = (x_faults > 0.5).astype(np.float32)
-    composite[:, :, 0] = np.maximum(composite[:, :, 0], fault_overlay * 0.7)  # Красный канал для разломов
-    ax11.imshow(composite)
-
-    n_channels = 5 if sample_data['use_faults'] else 4
-    ax11.set_title(f'Input Overview ({n_channels} channels)\nRGB + Depth' + (' + Faults' if sample_data['use_faults'] else ''), fontsize=9, pad=8)
+    # 11. Statistics Info Box — справа внизу, занимает cols 2-3
+    ax11 = fig.add_subplot(gs[2, 2:])
     ax11.axis('off')
 
-    # 12. Statistics Info Box
-    ax12 = fig.add_subplot(n_rows, n_cols, 12)
-    ax12.axis('off')
-
     info_text = (
-        f"Sample: {sample_key}\n\n"
+        f"Sample: {sample_id}\n\n"
         f"Augmentations: {'ON' if dataset.augment else 'OFF'}\n"
         f"Data Source: {dataset.data_source.upper()}\n\n"
         f"Input Shape: {sample_data['x'].shape}\n"
@@ -164,11 +165,10 @@ def visualize_sample(
         f"Faults: {x_faults.sum():.0f} px ({x_faults.mean()*100:.2f}%)\n"
         f"Traps (Y): {y_traps.sum():.0f} px ({y_traps.mean()*100:.2f}%)"
     )
-    ax12.text(0.5, 0.5, info_text, ha='center', va='center', fontsize=9,
-              bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.5, pad=1.5))
+    ax11.text(0.5, 0.5, info_text, ha='center', va='center', fontsize=10,
+              bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.5, pad=1.2))
 
-    plt.suptitle(f'Sample Visualization: {sample_key}', fontsize=14, fontweight='bold', y=0.98)
-    plt.subplots_adjust(hspace=0.35, wspace=0.25, top=0.92, bottom=0.05)
+    plt.suptitle(f'Sample {idx}: {sample_id}', fontsize=16, fontweight='bold', y=0.99)
 
     # Save the figure
     plt.savefig(save_path, dpi=150, bbox_inches='tight')
@@ -322,12 +322,21 @@ def main():
         # Get sample key for filename
         sample_key = list(train_dataset.samples.keys())[idx] if hasattr(train_dataset.samples, 'keys') else f"sample_{idx}"
 
-        # Create safe filename
-        safe_name = sample_key.replace('/', '_').replace('\\', '_')
-        save_filename = f"sample_{idx}_{safe_name}.png"
+        # Create safe filename using sample_id format {number}_{name}
+        sample_paths_dict = train_dataset.samples[sample_key] if hasattr(train_dataset.samples, 'keys') else None
+        if sample_paths_dict:
+            sample_filename = Path(sample_paths_dict['rgb']).name
+            parts = sample_filename.split('_')
+            sample_number = parts[0]
+            sample_name = Path(sample_paths_dict['rgb']).stem.split('_')[-1]
+            sample_id = f"{sample_number}_{sample_name}"
+        else:
+            sample_id = f"sample_{idx}"
+
+        save_filename = f"sample_{sample_id}.png"
         save_path = output_path / save_filename
 
-        print(f"\nVisualizing sample {idx}: {sample_key}")
+        print(f"\nVisualizing sample {idx}: {sample_id}")
         visualize_sample(train_dataset, idx, str(save_path))
 
     print("\n" + "=" * 70)
