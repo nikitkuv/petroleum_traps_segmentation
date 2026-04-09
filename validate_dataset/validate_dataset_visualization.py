@@ -191,8 +191,8 @@ if __name__ == "__main__":
     if settings.DATA_SOURCE == 'cps_tiles':
         # CPS tiles: PNG файлы из images_cps/
         file_list = [
-            '001_x_structuralNOisoline_H150.png', '001_x_structuralBlackWhite_H150.png', 
-            '001_x_faults_H150.png', '001_y_traps_H150.png'
+            '004_x_structuralNOisoline_U4_42_kolltop1.png', '004_x_structuralBlackWhite_U4_42_kolltop1.png', 
+            '004_y_traps_U4_42_kolltop1.png'
         ]
         data_dir = settings.CPS_TILES_DIR
     else:
