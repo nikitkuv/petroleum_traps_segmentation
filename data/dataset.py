@@ -176,11 +176,11 @@ class GeologyTrapsDataset(Dataset):
             
             if self.use_faults and 'faults' in sample_paths:
                 faults_img = load_grayscale_image(sample_paths['faults'])
-                fault_mask = create_binary_mask(faults_img, invert=False)
+                fault_mask = create_binary_mask(faults_img, invert=False, data_source=self.data_source)
             else:
                 fault_mask = np.zeros_like(depth_img, dtype=np.float32)
             
-            trap_mask = create_binary_mask(traps_img, invert=False)
+            trap_mask = create_binary_mask(traps_img, invert=False, data_source=self.data_source)
             
             metadata = {
                 'source': 'cps_tiles'
@@ -193,18 +193,18 @@ class GeologyTrapsDataset(Dataset):
             
             if self.use_faults and 'faults' in sample_paths:
                 faults_img = load_grayscale_image(sample_paths['faults'])
-                fault_mask = create_binary_mask(faults_img, invert=False)
+                fault_mask = create_binary_mask(faults_img, invert=False, data_source=self.data_source)
             else:
                 fault_mask = np.zeros_like(depth_img, dtype=np.float32)
             
-            trap_mask = create_binary_mask(traps_img, invert=False)
+            trap_mask = create_binary_mask(traps_img, invert=False, data_source=self.data_source)
             
             metadata = {
                 'source': 'png'
             }
         
         # Создание масок
-        map_mask = create_map_mask(rgb_img)
+        map_mask = create_map_mask(rgb_img, data_source=self.data_source)
         
         if self.use_faults:
             depth_mask = map_mask * (1.0 - fault_mask)

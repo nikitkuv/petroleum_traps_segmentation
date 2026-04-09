@@ -29,6 +29,7 @@ data/images_cps/
 data/images_cps_full/
 data/raw/
 data/images_orig/
+data/test_dataset_vizualisation/
 prompts/
 logs/
 .ipynb_checkpoints/
