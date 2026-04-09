@@ -7,10 +7,7 @@ import torch
 class Settings(BaseSettings):
 
     # Источник данных
-    DATA_SOURCE: Literal['png', 'cps_tiles'] = 'png'
-    
-    # CPS настройки
-    CPS_NULL_VALUE: float = -999.0  # Значение null для CPS файлов
+    DATA_SOURCE: Literal['png', 'cps_tiles'] = 'cps_tiles'
 
     # Работаем с разломами или нет
     USE_FAULTS: bool = False
@@ -37,8 +34,9 @@ class Settings(BaseSettings):
     # Аугментации
     AUGMENT_PROB: float = 0.5
 
-    # CPS tiles настройки
+    # CPS настройки
     TILE_OVERLAP_RATIO: float = 0.25
+    CPS_NULL_VALUE: float = -999.0
     CPS_VERTICAL_FLIP: bool = False
 
     # Разделение данных
