@@ -9,6 +9,5 @@ test_metrics = run_full_pipeline(
     overfit_check_mode=True,
     n_epochs=100,
     batch_size=settings.BATCH_SIZE,
-    learning_rate=settings.LEARNING_RATE,
-    augment_train=False
+    learning_rate=settings.LEARNING_RATE
 )

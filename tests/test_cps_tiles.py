@@ -451,8 +451,7 @@ class TestCpsTilesDataLoaderCreation:
             data_dir=sample_cps_data_for_loader,
             batch_size=2,
             use_faults=False,
-            data_source='cps_tiles',
-            augment_train=False
+            data_source='cps_tiles'
         )
         
         assert train_loader is not None
@@ -471,8 +470,7 @@ class TestCpsTilesDataLoaderCreation:
             data_dir=sample_cps_data_for_loader,
             batch_size=2,
             use_faults=False,
-            data_source='cps_tiles',
-            augment_train=False
+            data_source='cps_tiles'
         )
         
         batch = next(iter(train_loader))
