@@ -12,6 +12,7 @@ from training.overfit_check import overfit_check
 from training.train import train_with_wandb
 from evaluation.evaluate import evaluate_on_test, visualize_test_predictions
 from data.check_data_leakage import check_leakage_from_dataloaders, validate_data_source_consistency
+from data.dataset import GeologyTrapsDataset
 
 
 def run_full_pipeline(
@@ -63,6 +64,8 @@ def run_full_pipeline(
     print("=" * 80)
     print("GEOLOGY TRAPS SEGMENTATION PIPELINE")
     print(f"Data source: {data_source}")
+    print(f"TARGET_HEIGHT: {settings.TARGET_HEIGHT}")
+    print(f"TARGET_WIDTH: {settings.TARGET_WIDTH}")
     print(f"Use faults: {use_faults}")
     print(f"Device: {device}")
     print("=" * 80)
@@ -127,8 +130,19 @@ def run_full_pipeline(
     # Если режим overfit check - берем только 1-2 карты из train
     if overfit_check_mode:
         print("\n[OVERFIT CHECK MODE] Using only first batch from train...")
-        # Создаем новый dataloader с одним батчем
-        overfit_dataset = train_loader.dataset
+        if len(train_loader.dataset) > 1:
+            print("Dataset has MORE than 1 sample")
+            overfit_dataset = train_loader.dataset
+        else:
+            print("Dataset has LESS than 1 sample: taking 2 samples from full set of samples")
+            overfit_dataset = GeologyTrapsDataset(
+                file_list=all_files,
+                data_dir=data_dir,
+                cps_tiles_dir=cps_tiles_dir,
+                augment=augment_train,
+                use_faults=use_faults,
+                data_source=data_source
+            )
         overfit_indices = list(range(min(settings.OVERFIT_SIZE, len(overfit_dataset))))  # 2 семпла
         print(f"Selected indices for overfit: {overfit_indices}")
         overfit_subset = Subset(overfit_dataset, overfit_indices)
