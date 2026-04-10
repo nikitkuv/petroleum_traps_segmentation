@@ -406,7 +406,6 @@ class TestDataLoaderCreation:
             batch_size=2,
             use_faults=False,
             data_source='png',
-            augment_train=False
         )
         
         assert train_loader is not None
@@ -426,7 +425,6 @@ class TestDataLoaderCreation:
             batch_size=2,
             use_faults=False,
             data_source='png',
-            augment_train=False
         )
         
         batch = next(iter(train_loader))
@@ -450,7 +448,6 @@ class TestDataLoaderCreation:
             batch_size=1,
             use_faults=False,
             data_source='png',
-            augment_train=False
         )
         
         batch = next(iter(test_loader))

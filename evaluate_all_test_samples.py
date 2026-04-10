@@ -93,8 +93,7 @@ def evaluate_all_test_samples(
         data_dir=data_dir,
         batch_size=batch_size,
         use_faults=use_faults,
-        data_source=data_source,
-        augment_train=False
+        data_source=data_source
     )
 
     print("\n[STEP 2] Loading model from checkpoint...")
