@@ -19,7 +19,6 @@ def run_full_pipeline(
     data_dir: str = None,
     use_faults: bool = False,
     data_source: str = None,
-    augment_train: bool = None,
     overfit_check_mode: bool = False,
     wandb_project: str = 'geology-traps-segmentation',
     wandb_run_name: str = None,
@@ -55,7 +54,6 @@ def run_full_pipeline(
     batch_size = batch_size or settings.BATCH_SIZE
     learning_rate = learning_rate or settings.LEARNING_RATE
     data_source = data_source or settings.DATA_SOURCE
-    augment_train = augment_train or settings.AUGMENT_TRAIN
     n_epochs = n_epochs or settings.NUM_EPOCHS
     early_stopping_patience = early_stopping_patience or settings.ES_PATIANCE
     encoder_lr_multiplier = encoder_lr_multiplier or settings.ENCODER_LR_MULTIPLIER
@@ -123,8 +121,7 @@ def run_full_pipeline(
         cps_tiles_dir=cps_tiles_dir,
         batch_size=batch_size,
         use_faults=use_faults,
-        data_source=data_source,
-        augment_train=augment_train
+        data_source=data_source
     )
     
     # Если режим overfit check - берем только 1-2 карты из train
@@ -139,7 +136,6 @@ def run_full_pipeline(
                 file_list=all_files,
                 data_dir=data_dir,
                 cps_tiles_dir=cps_tiles_dir,
-                augment=augment_train,
                 use_faults=use_faults,
                 data_source=data_source
             )
