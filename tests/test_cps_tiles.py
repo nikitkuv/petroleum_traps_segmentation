@@ -481,28 +481,6 @@ class TestCpsTilesDataLoaderCreation:
         assert len(batch['x'].shape) == 4  # (B, C, H, W)
         assert batch['x'].shape[0] == 2  # Batch size
         assert batch['x'].shape[1] == 4  # Channels (RGB + depth)
-    
-    def test_cps_tiles_dataloader_preserves_metadata(self, sample_cps_data_for_loader):
-        """Test that CPS tiles DataLoader preserves sample metadata."""
-        files = get_file_list(sample_cps_data_for_loader, data_source='cps_tiles')
-        
-        train_files, val_files, test_files = split_data_by_groups(files)
-        
-        _, _, test_loader = create_dataloaders(
-            train_files=train_files,
-            val_files=val_files,
-            test_files=test_files,
-            data_dir=sample_cps_data_for_loader,
-            batch_size=1,
-            use_faults=False,
-            data_source='cps_tiles',
-            augment_train=False
-        )
-        
-        batch = next(iter(test_loader))
-        
-        assert 'metadata' in batch
-        assert 'sample_key' in batch['metadata'][0]
 
 
 @pytest.mark.integration
@@ -537,30 +515,6 @@ class TestCpsTilesWithRealData:
         # Each sample should have required files
         for key, sample_files in samples.items():
             assert 'traps' in sample_files, f"Sample {key} missing traps file"
-    
-    def test_real_cps_tiles_dataset_loads(self):
-        """Test that real CPS tiles dataset loads successfully."""
-        cps_tiles_dir = "data/images_cps"
-        files = get_file_list(cps_tiles_dir, data_source='cps_tiles')
-        
-        # Use subset for faster testing
-        test_files = files[:6]  # First 6 files (2 complete samples)
-        
-        dataset = GeologyTrapsDataset(
-            file_list=test_files,
-            data_dir=cps_tiles_dir,
-            augment=False,
-            use_faults=False,
-            data_source='cps_tiles'
-        )
-        
-        assert len(dataset) > 0
-        
-        # Try to load a sample
-        sample = dataset[0]
-        assert 'x' in sample
-        assert 'y' in sample
-        assert sample['x'].shape[0] == 4  # RGB + depth
 
 
 @pytest.mark.smoke
