@@ -7,7 +7,7 @@ import torch
 class Settings(BaseSettings):
 
     # Источник данных
-    DATA_SOURCE: Literal['png', 'cps_tiles'] = 'png'
+    DATA_SOURCE: Literal['png', 'cps_tiles'] = 'cps_tiles'
 
     # Работаем с разломами или нет
     USE_FAULTS: bool = False
@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     
     # Обучение
     OVERFIT_SIZE: int = 2
-    AUGMENT_TRAIN: bool = True
+    AUGMENT_TRAIN: bool = False
     BATCH_SIZE: int = 4
     NUM_WORKERS: int = 2
     LEARNING_RATE: float = 1e-4
