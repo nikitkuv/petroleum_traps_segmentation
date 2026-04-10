@@ -40,6 +40,8 @@ class GeologyTrapsDataset(Dataset):
         
         # Выбираем трансформации
         self.transforms = get_train_transforms() if augment else get_val_transforms()
+        print(f"Transfomrms: {self.transforms}")
+        print(f"Len transfomrms: {len(self.transforms)}")
         
         # Группируем файлы по семплам
         self.samples = self._parse_files(file_list)
