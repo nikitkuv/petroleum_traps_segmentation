@@ -7,7 +7,7 @@ import torch
 class Settings(BaseSettings):
 
     # Источник данных
-    DATA_SOURCE: Literal['png', 'cps_tiles'] = 'cps_tiles'
+    DATA_SOURCE: Literal['png', 'cps_tiles'] = 'png'
 
     # Работаем с разломами или нет
     USE_FAULTS: bool = False
@@ -25,8 +25,12 @@ class Settings(BaseSettings):
     GRAD_ANOMALIES_DIR: str = './gradient_anomalies/'
 
     # Размеры изображений
-    TARGET_HEIGHT: int = 864
-    TARGET_WIDTH: int = 448
+    if DATA_SOURCE == "cps_tiles":
+        TARGET_HEIGHT: int = 864
+        TARGET_WIDTH: int = 448
+    else:
+        TARGET_HEIGHT: int = 1248
+        TARGET_WIDTH: int = 512
     
     # Порог бинаризации масок
     BINARY_THRESHOLD: int = 128

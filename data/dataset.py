@@ -52,6 +52,7 @@ class GeologyTrapsDataset(Dataset):
         print(f"Samples with fault files: {n_faults} / {len(self.samples)}")
         print(f"Augmentations: {'ON' if augment else 'OFF'}")
         print(f"Target size: {self.target_h}×{self.target_w}")
+        print()
         
         # Информация о требуемых файлах
         if self.data_source == 'cps_tiles':
