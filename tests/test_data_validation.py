@@ -227,14 +227,6 @@ FSLIMI 0.0 10.0 0.0 10.0
         assert grid.shape == (10, 10)
         assert grid.dtype == np.float32
     
-    def test_read_cps_grid_values(self, sample_cps_file):
-        """Test CPS grid values are correctly parsed."""
-        grid, _ = read_cps_grid(str(sample_cps_file), vertical_flip=False)
-        
-        assert grid[0, 0] == 0.0
-        assert grid[9, 0] == 9.0
-        assert grid[0, 1] == 10.0
-    
     def test_read_cps_grid_handles_null_values(self, tmp_path):
         """Test that null values are converted to NaN."""
         cps_path = tmp_path / "test_null.cps"

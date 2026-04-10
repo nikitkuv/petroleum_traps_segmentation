@@ -48,7 +48,7 @@ class GeologyTrapsDataset(Dataset):
         n_faults = sum(1 for s in self.samples if 'faults' in s)
         print(f"Dataset initialized with {len(self.samples)} samples")
         print(f"Mode: use_faults={self.use_faults}")
-        print(f"Data source: {self.data_source.upper()}")
+        print(f"Data source: {self.data_source}")
         print(f"Samples with fault files: {n_faults} / {len(self.samples)}")
         print(f"Augmentations: {'ON' if augment else 'OFF'}")
         print(f"Target size: {self.target_h}×{self.target_w}")
@@ -133,6 +133,8 @@ class GeologyTrapsDataset(Dataset):
                                 clean_paths[k] = v
                             else:
                                 clean_paths[k] = os.path.join(self.cps_tiles_dir, v)
+                    # Добавляем sample_key в metadata для cps_tiles
+                    clean_paths['_sample_key'] = key
                     result.append(clean_paths)
             else:
                 # PNG режим: все 4 файла (или 3 без faults)
@@ -182,8 +184,12 @@ class GeologyTrapsDataset(Dataset):
             
             trap_mask = create_binary_mask(traps_img, invert=False, data_source=self.data_source)
             
+            # Извлекаем sample_key из paths если он есть
+            sample_key = sample_paths.get('_sample_key', f"sample_{idx}")
+
             metadata = {
-                'source': 'cps_tiles'
+                'source': 'cps_tiles',
+                'sample_key': sample_key
             }
         else:
             # PNG режим (обычные PNG файлы из images/)
