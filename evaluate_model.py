@@ -6,8 +6,6 @@ checkpoint_path = "checkpoint/no_faults_epochs-50_lr-0.0001_bs-4.pth"
 
 results = evaluate_all_test_samples(
     checkpoint_path=checkpoint_path,
-    data_dir=settings.DATA_DIR,
-    cps_tiles_dir=settings.CPS_TILES_DIR,
     use_faults=settings.USE_FAULTS,
     data_source=settings.DATA_SOURCE,
     batch_size=settings.BATCH_SIZE,

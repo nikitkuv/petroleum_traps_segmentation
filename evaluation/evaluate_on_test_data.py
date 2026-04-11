@@ -14,8 +14,6 @@ from visualization.visualize import visualize_test_results
 
 def evaluate_all_test_samples(
     checkpoint_path: str,
-    data_dir: str = None,
-    cps_tiles_dir: str = None,
     use_faults: bool = None,
     data_source: str = None,
     batch_size: int = None,
@@ -45,13 +43,14 @@ def evaluate_all_test_samples(
     device = settings.DEVICE
 
     # Настройки по умолчанию
-    data_dir = data_dir or settings.DATA_DIR
-    cps_tiles_dir = cps_tiles_dir or settings.CPS_TILES_DIR
     use_faults = use_faults if use_faults is not None else settings.USE_FAULTS
     data_source = data_source or settings.DATA_SOURCE
     batch_size = batch_size or settings.BATCH_SIZE
     threshold = threshold or settings.TEST_THRESHOLD
     seed = seed or settings.SEED
+
+    data_dir = settings.DATA_DIR
+    cps_tiles_dir = settings.CPS_TILES_DIR
 
     if save_viz_dir is None:
         save_viz_dir = os.path.join(settings.LOGS_DIR, 'test_all_samples_viz')
@@ -65,6 +64,9 @@ def evaluate_all_test_samples(
     print("EVALUATING MODEL ON ALL TEST SAMPLES")
     print("=" * 80)
     print(f"Checkpoint: {checkpoint_path}")
+    print(f"Data source: {data_source}")
+    print(f"TARGET_HEIGHT: {settings.TARGET_HEIGHT}")
+    print(f"TARGET_WIDTH: {settings.TARGET_WIDTH}")
     print(f"Data dir: {data_dir}")
     print(f"CPS tiles dir: {cps_tiles_dir}")
     print(f"Use faults: {use_faults}")
@@ -74,13 +76,15 @@ def evaluate_all_test_samples(
     print("=" * 80)
 
     print("\n[STEP 1] Loading data and reproducing test split...")
-    all_files = get_file_list(data_dir, data_source=data_source)
+    dir_to_load_data_from = data_dir if data_source == "png" else cps_tiles_dir
+    print(f"Directory to load data from: {dir_to_load_data_from}")
+    all_files = get_file_list(dir_to_load_data_from, data_source=data_source)
 
     if len(all_files) == 0:
         raise ValueError("No data files found!")
 
     # Воспроизводим разбиение с тем же seed что и при обучении
-    train_files, val_files, test_files = split_data_by_groups(
+    _, _, test_files = split_data_by_groups(
         file_list=all_files,
         train_ratio=0.8,
         val_ratio=0.1,

@@ -43,7 +43,7 @@ class GeologyTrapsDataset(Dataset):
         # Выбираем трансформации
         self.transforms = get_train_transforms() if augment else get_val_transforms()
         print(f"Transfomrms: {self.transforms}")
-        print(f"Len transfomrms: {len(self.transforms)}")
+        print(f"Len transforms: {len(self.transforms)}")
         
         # Группируем файлы по семплам: список словарей, где каждый словарь - семпл - внутри которого словарь с типом карты: путь до карты
         self.samples = self._parse_files(file_list)
