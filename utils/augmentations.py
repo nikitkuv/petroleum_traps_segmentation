@@ -9,19 +9,19 @@ def get_train_transforms():
     p = settings.AUGMENT_PROB
     
     return A.Compose([
-        # # Геометрические трансформации
-        # A.HorizontalFlip(p=p),
-        # A.VerticalFlip(p=p),
+        # Геометрические трансформации
+        A.HorizontalFlip(p=p),
+        A.VerticalFlip(p=p),
         
-        # # Цветовые трансформации (только для RGB)
-        # A.OneOf([
-        #     A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
-        # ], p=0.3),
+        # Цветовые трансформации (только для RGB)
+        A.OneOf([
+            A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
+        ], p=0.3),
         
-        # # Шум и размытие
-        # A.OneOf([
-        #     A.GaussianBlur(blur_limit=(3, 5), p=0.5),
-        # ], p=0.3),
+        # Шум и размытие
+        A.OneOf([
+            A.GaussianBlur(blur_limit=(3, 5), p=0.5),
+        ], p=0.3),
         
         # Конвертация в тензор
         ToTensorV2(),
