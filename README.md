@@ -42,19 +42,19 @@ pip install -r requirements.txt
 ### Проверка на overfit (быстрый тест)
 
 ```bash
-python training/overfit_check.py
+python run_overfit_check.py
 ```
 
 ### Полное обучение
 
 ```bash
-python training/train.py --config configs/default.yaml
+python run_training.py
 ```
 
 ### Оценка модели
 
 ```bash
-python evaluation/evaluate.py --model_path checkpoints/best_model.pth
+python evaluate_model.py
 ```
 
 ## 📚 Документация
