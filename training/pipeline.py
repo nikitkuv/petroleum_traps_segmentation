@@ -137,7 +137,8 @@ def run_full_pipeline(
                 data_dir=data_dir,
                 cps_tiles_dir=cps_tiles_dir,
                 use_faults=use_faults,
-                data_source=data_source
+                data_source=data_source,
+                augment=False
             )
         overfit_indices = list(range(min(settings.OVERFIT_SIZE, len(overfit_dataset))))  # 2 семпла
         print(f"Selected indices for overfit: {overfit_indices}")

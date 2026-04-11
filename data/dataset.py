@@ -8,13 +8,15 @@ from pathlib import Path
 
 from settings import settings
 from utils.images_utils import (
-    load_image, 
-    load_grayscale_image, 
-    create_binary_mask, 
     create_map_mask, 
     pad_image
 )
 from utils.augmentations import get_train_transforms, get_val_transforms
+from utils.dataset_utils import (
+    load_maps_into_ndarray, 
+    collect_samples,
+    resolve_path
+)
 
 
 class GeologyTrapsDataset(Dataset):
@@ -43,7 +45,7 @@ class GeologyTrapsDataset(Dataset):
         print(f"Transfomrms: {self.transforms}")
         print(f"Len transfomrms: {len(self.transforms)}")
         
-        # Группируем файлы по семплам
+        # Группируем файлы по семплам: список словарей, где каждый словарь - семпл - внутри которого словарь с типом карты: путь до карты
         self.samples = self._parse_files(file_list)
         
         # Статистика
@@ -62,106 +64,74 @@ class GeologyTrapsDataset(Dataset):
             print(f"Required files per sample: {n_files} (rgb, depth_norm, [faults], traps)")
         else:
             print(f"Required files per sample: 4 (rgb, depth_norm, [faults], traps)")
-    
+
     def _parse_files(self, file_list: List[str]) -> List[Dict[str, str]]:
         """
-        Группирует файлы по семплам.
-        
+        Группирует файлы по семплам и формирует список путей к данным.
+
         Формат названий: {number}_{x|y}_{type}_{name}.png
+        
         Примеры:
             - 001_x_structuralNOisoline_H150.png → rgb
             - 001_x_structuralBlackWhite_H150.png → depth_norm
             - 001_x_faults_H150.png → faults
             - 001_y_traps_H150.png → traps
-        
+
         Группировка производится по комбинации {number}_{name}, где:
-        - number: номер карты (например, 001, 002)
-        - name: название горизонта (например, H150, BZ24)
-        
+            - number: номер карты (например, 001, 002)
+            - name: название горизонта (например, H150, BZ24)
+
         Все файлы с одинаковыми number и name объединяются в один семпл.
-        Разные number для одного горизонта (001_H150, 002_H150) 
-        будут РАЗНЫМИ семплами.
+        Разные number для одного горизонта (001_H150, 002_H150) считаются разными семплами.
+
+        Для каждого семпла проверяется наличие обязательных файлов:
+            - rgb
+            - depth_norm
+            - traps
+            - faults (опционально, если use_faults=True)
+
+        Семплы, в которых отсутствуют обязательные файлы, отбрасываются.
+
+        Пути к файлам приводятся к абсолютным (или относительно base_dir), в зависимости от источника данных:
+            - cps_tiles → используется self.cps_tiles_dir
+            - png       → используется self.data_dir
+
+        Для cps_tiles дополнительно сохраняется metadata:
+            - _sample_key: уникальный идентификатор семпла ({number}_{name})
+
+        Returns:
+            List[Dict[str, str]] — список семплов, где каждый семпл представляет
+            собой словарь вида:
+                {
+                    'rgb': путь,
+                    'depth_norm': путь,
+                    'traps': путь,
+                    'faults': путь (если используется),
+                    '_sample_key': str 
+                }
         """
-        samples = {}
-        
-        # Паттерн для парсинга: {number}_{x|y}_{type}_{name}
-        pattern = r'^(\d+)_(x|y)_([^_]+)_(.+)$'
-        
-        for f in file_list:
-            f_clean = Path(f).stem  # убираем расширение .png
-            
-            match = re.match(pattern, f_clean)
-            
-            if match:
-                number = match.group(1)
-                role = match.group(2)  # 'x' или 'y'
-                file_type = match.group(3)
-                name = match.group(4)
-                
-                # Ключ для группировки: number + name
-                key = f"{number}_{name}"
-                
-                if key not in samples:
-                    samples[key] = {}
-                
-                # Определяем тип файла по role и type
-                if role == 'x':
-                    if file_type == 'structuralNOisoline':
-                        samples[key]['rgb'] = f
-                    elif file_type == 'structuralBlackWhite':
-                        samples[key]['depth_norm'] = f
-                    elif file_type == 'faults':
-                        samples[key]['faults'] = f
-                elif role == 'y':
-                    if file_type == 'traps':
-                        samples[key]['traps'] = f
-            else:
-                print(f"Warning: Skipping file with unexpected format: {f}")
-        
+        samples = collect_samples(file_list)
         result = []
+
+        base_dir = self.cps_tiles_dir if self.data_source == 'cps_tiles' else self.data_dir
+
         for key, paths in samples.items():
-            if self.data_source == 'cps_tiles':
-                # CPS tiles режим: используем PNG файлы из images_cps/
-                # Требуемые файлы: rgb, depth_norm, traps (и faults опционально)
-                required_keys = ['rgb', 'depth_norm', 'traps']
-                if self.use_faults:
-                    required_keys.append('faults')
-                
-                if all(k in paths for k in required_keys):
-                    clean_paths = {}
-                    for k, v in paths.items():
-                        if k in required_keys or k == 'faults':
-                            # Проверяем, является ли путь уже полным
-                            if os.path.isabs(v) or v.startswith('./') or v.startswith('../'):
-                                clean_paths[k] = v
-                            else:
-                                clean_paths[k] = os.path.join(self.cps_tiles_dir, v)
-                    # Добавляем sample_key в metadata для cps_tiles
-                    clean_paths['_sample_key'] = key
-                    result.append(clean_paths)
-            else:
-                # PNG режим: все 4 файла (или 3 без faults)
-                if self.use_faults:
-                    if len(paths) == 4 and 'faults' in paths:
-                        # Проверяем, является ли путь уже полным
-                        clean_paths = {}
-                        for k, v in paths.items():
-                            if os.path.isabs(v) or v.startswith('./') or v.startswith('../'):
-                                clean_paths[k] = v
-                            else:
-                                clean_paths[k] = os.path.join(self.data_dir, v)
-                        result.append(clean_paths)
-                else:
-                    required_keys = ['rgb', 'depth_norm', 'traps']
-                    if all(k in paths for k in required_keys):
-                        clean_paths = {}
-                        for k, v in paths.items():
-                            if k in required_keys or k == 'faults':
-                                if os.path.isabs(v) or v.startswith('./') or v.startswith('../'):
-                                    clean_paths[k] = v
-                                else:
-                                    clean_paths[k] = os.path.join(self.data_dir, v)
-                        result.append(clean_paths)
+
+            required_keys = ['rgb', 'depth_norm', 'traps']
+            if self.use_faults:
+                required_keys.append('faults')
+
+            if not all(k in paths for k in required_keys):
+                continue
+
+            clean_paths = {
+                k: resolve_path(paths[k], base_dir)
+                for k in required_keys
+            }
+
+            clean_paths['_sample_key'] = key
+
+            result.append(clean_paths)
 
         return result
     
@@ -175,42 +145,25 @@ class GeologyTrapsDataset(Dataset):
         if self.data_source == 'cps_tiles':
             # CPS tiles режим (PNG файлы из images_cps/)
             # Работаем как с обычными PNG, но используем путь к cps_tiles_dir
-            rgb_img = load_image(sample_paths['rgb'])
-            depth_img = load_grayscale_image(sample_paths['depth_norm'])
-            traps_img = load_grayscale_image(sample_paths['traps'])
-            
-            if self.use_faults and 'faults' in sample_paths:
-                faults_img = load_grayscale_image(sample_paths['faults'])
-                fault_mask = create_binary_mask(faults_img, invert=False, data_source=self.data_source)
-            else:
-                fault_mask = np.zeros_like(depth_img, dtype=np.float32)
-            
-            trap_mask = create_binary_mask(traps_img, invert=False, data_source=self.data_source)
-            
-            # Извлекаем sample_key из paths если он есть
-            sample_key = sample_paths.get('_sample_key', f"sample_{idx}")
-
-            metadata = {
-                'source': 'cps_tiles',
-                'sample_key': sample_key
-            }
+            rgb_img, depth_img, trap_mask, fault_mask = load_maps_into_ndarray(
+                sample_paths=sample_paths, 
+                use_faults=self.use_faults, 
+                data_source=self.data_source
+            )
         else:
             # PNG режим (обычные PNG файлы из images/)
-            rgb_img = load_image(sample_paths['rgb'])
-            depth_img = load_grayscale_image(sample_paths['depth_norm'])
-            traps_img = load_grayscale_image(sample_paths['traps'])
-            
-            if self.use_faults and 'faults' in sample_paths:
-                faults_img = load_grayscale_image(sample_paths['faults'])
-                fault_mask = create_binary_mask(faults_img, invert=False, data_source=self.data_source)
-            else:
-                fault_mask = np.zeros_like(depth_img, dtype=np.float32)
-            
-            trap_mask = create_binary_mask(traps_img, invert=False, data_source=self.data_source)
-            
-            metadata = {
-                'source': 'png'
-            }
+            rgb_img, depth_img, trap_mask, fault_mask = load_maps_into_ndarray(
+                sample_paths=sample_paths, 
+                use_faults=self.use_faults, 
+                data_source=self.data_source
+            )
+
+        sample_key = sample_paths.get('_sample_key', f"sample_{idx}")
+        
+        metadata = {
+            'source': 'png',
+            'sample_key': sample_key
+        }
         
         # Создание масок
         map_mask = create_map_mask(rgb_img, data_source=self.data_source)
@@ -279,3 +232,4 @@ class GeologyTrapsDataset(Dataset):
             'data_source': self.data_source,
             'metadata': metadata
         }
+    
