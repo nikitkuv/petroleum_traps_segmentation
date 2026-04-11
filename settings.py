@@ -1,10 +1,15 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
 from typing import Literal
 import torch
 
 
 class Settings(BaseSettings):
+
+    model_config = SettingsConfigDict(
+        env_file='.env',
+        env_file_encoding='utf-8'
+    )
 
     # Источник данных
     DATA_SOURCE: Literal['png', 'cps_tiles'] = 'cps_tiles'
@@ -77,10 +82,6 @@ class Settings(BaseSettings):
     
     # Устройство
     DEVICE: str = 'cuda' if torch.cuda.is_available() else 'cpu'
-    
-    class Config:
-        env_file = '.env'
-        env_file_encoding = 'utf-8'
     
     @property
     def data_path(self) -> Path:
