@@ -310,7 +310,7 @@ class TestFileNamingValidation:
     
     def test_parse_valid_filename(self):
         """Test parsing of valid filename."""
-        from data.dataloaders import parse_filename
+        from utils.dataset_utils import parse_filename
         
         result = parse_filename("001_x_structuralNOisoline_H150.png")
         
@@ -322,7 +322,7 @@ class TestFileNamingValidation:
     
     def test_parse_traps_filename(self):
         """Test parsing of traps filename."""
-        from data.dataloaders import parse_filename
+        from utils.dataset_utils import parse_filename
         
         result = parse_filename("002_y_traps_BZ24.png")
         
@@ -334,7 +334,7 @@ class TestFileNamingValidation:
     
     def test_parse_faults_filename(self):
         """Test parsing of faults filename."""
-        from data.dataloaders import parse_filename
+        from utils.dataset_utils import parse_filename
         
         result = parse_filename("003_x_faults_H150.png")
         
@@ -346,7 +346,7 @@ class TestFileNamingValidation:
     
     def test_parse_invalid_filename_returns_none(self):
         """Test that invalid filenames return None."""
-        from data.dataloaders import parse_filename
+        from utils.dataset_utils import parse_filename
         
         invalid_names = [
             "invalid.png",
@@ -361,7 +361,7 @@ class TestFileNamingValidation:
     
     def test_parse_complex_horizon_name(self):
         """Test parsing filenames with complex horizon names."""
-        from data.dataloaders import parse_filename
+        from utils.dataset_utils import parse_filename
         
         result = parse_filename("001_x_structuralNOisoline_Ach322_top_1.png")
         

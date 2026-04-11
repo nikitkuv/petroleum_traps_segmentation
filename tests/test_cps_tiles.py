@@ -9,10 +9,10 @@ from pathlib import Path
 from data.dataset import GeologyTrapsDataset
 from data.dataloaders import (
     get_file_list,
-    collect_samples,
     split_data_by_groups,
     create_dataloaders
 )
+from utils.dataset_utils import collect_samples
 from settings import settings
 
 

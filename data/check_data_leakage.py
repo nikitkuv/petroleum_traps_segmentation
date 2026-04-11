@@ -5,7 +5,8 @@ import sys
 
 sys.path.append(str(Path(__file__).parent.parent))
 
-from data.dataloaders import parse_filename, get_sample_key, get_file_list, split_data_by_groups
+from data.dataloaders import get_file_list, split_data_by_groups
+from utils.dataset_utils import parse_filename, get_sample_key
 
 
 def extract_horizon_name(parsed: dict) -> str:

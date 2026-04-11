@@ -1,12 +1,11 @@
 import os
-import re
-from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple
 from torch.utils.data import DataLoader
 import random
 import torch
 
 from data.dataset import GeologyTrapsDataset
+from utils.dataset_utils import parse_filename, collect_samples
 from settings import settings
 
 
@@ -52,84 +51,6 @@ def get_file_list(data_dir: str, data_source: str = 'png') -> List[str]:
     
     else:
         raise ValueError(f"Unknown data_source: {data_source}")
-
-
-def parse_filename(filename: str) -> Optional[Dict[str, str]]:
-    """
-    Парсит имя файла формата: {number}_{x|y}_{type}_{name}.png
-    
-    Примеры:
-        001_x_structuralNOisoline_H150.png -> {'number': '001', 'role': 'x', 'type': 'structuralNOisoline', 'name': 'H150'}
-        001_y_traps_H150.png             -> {'number': '001', 'role': 'y', 'type': 'traps', 'name': 'H150'}
-    
-    Returns:
-        Словарь с компонентами или None, если формат не совпадает.
-    """
-    # Удаляем расширение
-    name_no_ext = Path(filename).stem
-    
-    # Регулярное выражение: число_роль_тип_имя
-    pattern = r'^(\d+)_(x|y)_([^_]+)_(.+)$'
-    
-    match = re.match(pattern, name_no_ext)
-    
-    if match:
-        return {
-            'number': match.group(1),
-            'role': match.group(2),
-            'type': match.group(3),
-            'name': match.group(4)
-        }
-    return None
-
-
-def get_sample_key(parsed: Dict[str, str]) -> str:
-    """Формирует уникальный ключ семпла: {number}_{name}"""
-    return f"{parsed['number']}_{parsed['name']}"
-
-
-def collect_samples(file_list: List[str]) -> Dict[str, Dict[str, str]]:
-    """
-    Группирует файлы по семплам.
-    
-    Семпл определяется парой (number, name).
-    Ожидаемые файлы для полного семпла:
-        - {number}_x_structuralNOisoline_{name}.png (rgb)
-        - {number}_x_structuralBlackWhite_{name}.png (depth)
-        - {number}_x_faults_{name}.png (faults)
-        - {number}_y_traps_{name}.png (traps)
-        
-    Returns:
-        Dict[key_sempla] -> { 'rgb': filename, 'depth': filename, 'faults': filename, 'traps': filename }
-    """
-    samples = {}
-    
-    for filename in file_list:
-        parsed = parse_filename(filename)
-        if not parsed:
-            continue
-            
-        key = get_sample_key(parsed)
-        
-        if key not in samples:
-            samples[key] = {}
-            
-        # Маппинг типа файла из имени в внутреннее имя канала
-        file_type = parsed['type']
-        role = parsed['role']
-        
-        if role == 'x':
-            if file_type == 'structuralNOisoline':
-                samples[key]['rgb'] = filename
-            elif file_type == 'structuralBlackWhite':
-                samples[key]['depth'] = filename
-            elif file_type == 'faults':
-                samples[key]['faults'] = filename
-        elif role == 'y':
-            if file_type == 'traps':
-                samples[key]['traps'] = filename
-                
-    return samples
 
 
 def split_data_by_groups(
