@@ -2,7 +2,7 @@ from evaluation.evaluate_on_test_data import evaluate_all_test_samples
 from settings import settings
 
 
-checkpoint_path = "checkpoint/no_faults_epochs-50_lr-0.0001_bs-4.pth"
+checkpoint_path = "checkpoints/no_faults_epochs-50_lr-0.0001_bs-4.pth"
 
 results = evaluate_all_test_samples(
     checkpoint_path=checkpoint_path,

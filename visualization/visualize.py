@@ -195,7 +195,8 @@ def visualize_test_results(
     sample_indices: List[int],
     dataset=None,
     save_path: str = settings.LOGS_TEST_VIZ_DIR,
-    alpha: float = 0.4
+    alpha: float = 0.4,
+    metrics_by_sample: Dict = None
 ) -> None:
     """
     Визуализирует результаты на тестовых данных: RGB карту, ground truth,
@@ -208,6 +209,7 @@ def visualize_test_results(
         dataset: Объект GeologyTrapsDataset для получения имен семплов
         save_path: Путь для сохранения
         alpha: Прозрачность наложения (не используется, оставлен для совместимости)
+        metrics_by_sample: Словарь с метриками по имени семпла для отображения в title
     """
     os.makedirs(save_path, exist_ok=True)
 
@@ -216,20 +218,17 @@ def visualize_test_results(
     mask_map = batch.get('mask_map', None)
     preds_prob = torch.sigmoid(predictions)
 
-    for idx in sample_indices:
-        if idx >= x_rgb.shape[0]:
-            continue
+    # Проходим по каждому индексу в батче (от 0 до batch_size-1)
+    for batch_idx in range(x_rgb.shape[0]):
+        # Получаем реальный индекс семпла из переданного списка
+        real_idx = sample_indices[batch_idx]
 
-        # Получаем имя семпла из датасета если доступен
+        # Получаем имя семпла из датасета используя реальный индекс
         if dataset is not None and hasattr(dataset, 'samples') and isinstance(dataset.samples, list):
-            # samples - это список словарей путей, ключи имеют формат {number}_{name}
-            sample_paths = dataset.samples[idx]
-            # Берем первый ключ (например, 'rgb') и извлекаем имя из пути
+            sample_paths = dataset.samples[real_idx]
             first_path = list(sample_paths.values())[0]
-            # Извлекаем basename без расширения
             from pathlib import Path
             filename = Path(first_path).stem
-            # Паттерн: {number}_{x|y}_{type}_{name}, извлекаем number и name
             import re
             match = re.match(r'^(\d+)_[xy]_[^_]+_(.+)$', filename)
             if match:
@@ -237,20 +236,25 @@ def visualize_test_results(
                 name = match.group(2)
                 sample_name = f"{number}_{name}"
             else:
-                sample_name = f"sample_{idx}"
+                sample_name = f"sample_{real_idx}"
         else:
-            sample_name = f"Test Sample {idx}"
+            sample_name = f"Test Sample {real_idx}"
 
-        rgb_img = x_rgb[idx].cpu().permute(1, 2, 0).numpy()
+        rgb_img = x_rgb[batch_idx].cpu().permute(1, 2, 0).numpy()
         rgb_img = np.clip(rgb_img, 0, 1)
 
-        gt_traps = y_traps[idx, 0, :, :].cpu().numpy() if y_traps.dim() == 4 else y_traps[idx].cpu().numpy()
-        pred_traps = preds_prob[idx, 0, :, :].cpu().detach().numpy()
+        gt_traps = y_traps[batch_idx, 0, :, :].cpu().numpy() if y_traps.dim() == 4 else y_traps[batch_idx].cpu().numpy()
+        pred_traps = preds_prob[batch_idx, 0, :, :].cpu().detach().numpy()
+
+        # Получаем метрики для этого семпла если доступны
+        metrics = None
+        if metrics_by_sample is not None:
+            metrics = metrics_by_sample.get(sample_name, None)
 
         # Карта ошибок (с учетом mask_map если есть)
         map_mask_np = None
         if mask_map is not None:
-            map_mask_np = mask_map[idx, 0, :, :].cpu().numpy() if mask_map.dim() == 4 else mask_map[idx].cpu().numpy()
+            map_mask_np = mask_map[batch_idx, 0, :, :].cpu().numpy() if mask_map.dim() == 4 else mask_map[batch_idx].cpu().numpy()
         error_map = create_error_map(gt_traps, pred_traps, map_mask=map_mask_np)
 
         # Prediction overlay с серым цветом
@@ -258,30 +262,44 @@ def visualize_test_results(
 
         fig, axes = plt.subplots(1, 5, figsize=(20, 5))
 
+        # Формируем title с метриками если они есть
+        if metrics is not None:
+            rgb_title = f"RGB Map (No Isolines)\n{sample_name}\nDice={metrics['dice']:.3f}, IoU={metrics['iou']:.3f}"
+            gt_title = f"Ground Truth Traps\nDice={metrics['dice']:.3f}, IoU={metrics['iou']:.3f}"
+            pred_title = f"Predicted Traps\nDice={metrics['dice']:.3f}, IoU={metrics['iou']:.3f}"
+            overlay_title = f"Prediction Overlay (Gray)\nDice={metrics['dice']:.3f}, IoU={metrics['iou']:.3f}"
+            error_title = f"Error Map (|GT - Pred)|\nDice={metrics['dice']:.3f}, IoU={metrics['iou']:.3f}"
+        else:
+            rgb_title = f'RGB Map (No Isolines)\n{sample_name}'
+            gt_title = f'Ground Truth Traps\n({sample_name})'
+            pred_title = f'Predicted Traps\n({sample_name})'
+            overlay_title = f'Prediction Overlay (Gray)\n({sample_name})'
+            error_title = f'Error Map (|GT - Pred)|\n({sample_name})'
+
         axes[0].imshow(rgb_img)
-        axes[0].set_title(f'RGB Map (No Isolines)\n{sample_name}')
+        axes[0].set_title(rgb_title)
         axes[0].axis('off')
 
         axes[1].imshow(gt_traps, cmap='gray')
-        axes[1].set_title(f'Ground Truth Traps\n({sample_name})')
+        axes[1].set_title(gt_title)
         axes[1].axis('off')
 
         axes[2].imshow(pred_traps, cmap='gray')
-        axes[2].set_title(f'Predicted Traps\n({sample_name})')
+        axes[2].set_title(pred_title)
         axes[2].axis('off')
 
         axes[3].imshow(overlay)
-        axes[3].set_title(f'Prediction Overlay (Gray)\n({sample_name})')
+        axes[3].set_title(overlay_title)
         axes[3].axis('off')
 
         im_error = axes[4].imshow(error_map, cmap='RdYlBu_r', vmin=0, vmax=1)
-        axes[4].set_title(f'Error Map (|GT - Pred)|\n({sample_name})')
+        axes[4].set_title(error_title)
         axes[4].axis('off')
         plt.colorbar(im_error, ax=axes[4], fraction=0.046, pad=0.04)
 
         plt.tight_layout()
 
-        filename = f'test_sample_{idx:03d}_results.png'
+        filename = f'{sample_name}_results.png'
         filepath = os.path.join(save_path, filename)
         plt.savefig(filepath, dpi=150, bbox_inches='tight')
         plt.close()
@@ -290,7 +308,7 @@ def visualize_test_results(
 
         if wandb.run is not None:
             wandb.log({
-                f'test_visualization_sample_{idx}': wandb.Image(filepath)
+                f'test_visualization_{sample_name}': wandb.Image(filepath)
             })
 
 

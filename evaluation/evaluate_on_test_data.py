@@ -93,16 +93,33 @@ def evaluate_all_test_samples(
 
     print(f"Test files: {len(test_files)} files")
 
-    # Создаем dataloader только для теста
-    _, _, test_loader = create_dataloaders(
-        train_files=[],
-        val_files=[],
-        test_files=test_files,
+    # Создаем dataloader только для теста (напрямую, без create_dataloaders)
+    from data.dataset import GeologyTrapsDataset
+    from torch.utils.data import DataLoader
+
+    test_dataset = GeologyTrapsDataset(
+        file_list=test_files,
         data_dir=data_dir,
         cps_tiles_dir=cps_tiles_dir,
-        batch_size=batch_size,
+        augment=False,
         use_faults=use_faults,
-        data_source=data_source,
+        data_source=data_source
+    )
+
+    print(f"Test dataset initialized with {len(test_dataset)} samples")
+
+    if len(test_dataset) == 0:
+        raise ValueError("Test dataset is empty! Check that test files have all required components (rgb, depth_norm, traps).")
+
+    pin_memory_flag = torch.cuda.is_available()
+
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=0,
+        pin_memory=pin_memory_flag,
+        drop_last=False
     )
 
     print("\n[STEP 2] Loading model from checkpoint...")
@@ -196,24 +213,26 @@ def evaluate_all_test_samples(
 
     test_loader.dataset.augment = False
 
+    metrics_by_sample = {r['sample_name']: r for r in per_sample_results}
+
     with torch.no_grad():
         pbar = tqdm(test_loader, desc='Saving visualizations')
         for batch in pbar:
             x = batch['x'].to(device)
             predictions = model(x)
 
-            # Передаем все индексы семплов из текущего батча
-            sample_indices = list(range(x.shape[0]))
+            # Получаем реальные индексы семплов из батча
+            real_sample_indices = batch['sample_idx'].tolist()
 
-            # Визуализируем каждый семпл в батче
-            # Функция сама сохранит изображения в save_viz_dir
+            # Визуализируем каждый семпл в батче, передавая реальные индексы
             visualize_test_results(
                 batch=batch,
                 predictions=predictions.cpu(),
-                sample_indices=sample_indices,
+                sample_indices=real_sample_indices,
                 dataset=test_loader.dataset,
                 save_path=save_viz_dir,
-                alpha=0.4
+                alpha=0.4,
+                metrics_by_sample=metrics_by_sample
             )
 
     print("\n[STEP 6] Saving metrics to JSON...")
@@ -236,7 +255,7 @@ def evaluate_all_test_samples(
         'sample_names': sample_names
     }
 
-    with open(save_metrics_path, 'w', encoding='utf-8') as f:
+    with open(f"{save_metrics_path}/test_metrics.json", 'w', encoding='utf-8') as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
 
     print("\n" + "=" * 80)
