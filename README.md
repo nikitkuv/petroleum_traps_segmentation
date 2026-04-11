@@ -42,19 +42,19 @@ pip install -r requirements.txt
 ### Проверка на overfit (быстрый тест)
 
 ```bash
-python training/overfit_check.py
+python run_overfit_check.py
 ```
 
 ### Полное обучение
 
 ```bash
-python training/train.py --config configs/default.yaml
+python run_training.py
 ```
 
 ### Оценка модели
 
 ```bash
-python evaluation/evaluate.py --model_path checkpoints/best_model.pth
+python evaluate_model.py
 ```
 
 ## 📚 Документация
@@ -118,6 +118,11 @@ pytest tests/ --cov=. --cov-report=html
 Поддерживаются два формата входных данных:
 1. **png** — изображения карт в формате .png
 2. **cps** — 2D гриды карт в формате cps
+
+## ⚠️ Условия использования
+Использование кода проекта требует обязательного согласования с автором.
+
+Если вы хотите применить этот код в своем проекте или исследовании, пожалуйста, свяжитесь со мной для обсуждения условий.
 
 ---
 
