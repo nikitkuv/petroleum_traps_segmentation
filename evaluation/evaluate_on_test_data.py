@@ -84,7 +84,7 @@ def evaluate_all_test_samples(
         raise ValueError("No data files found!")
 
     # Воспроизводим разбиение с тем же seed что и при обучении
-    _, _, test_files = split_data_by_groups(
+    _, test_files, _ = split_data_by_groups(
         file_list=all_files,
         train_ratio=0.8,
         val_ratio=0.1,

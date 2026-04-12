@@ -80,6 +80,13 @@ def run_full_pipeline(
         train_ratio=0.8,
         val_ratio=0.1,
     )
+    print()
+    print(f"Train files: {train_files}")
+    print()
+    print(f"Val files: {val_files}")
+    print()
+    print(f"Test files: {test_files}")
+    print()
 
     print("\n[STEP 2.5] Checking data leakage and source consistency...")
 
