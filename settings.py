@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     LOGS_TEST_VIZ_DIR: str = './logs/test_visualizations/'
     LOGS_OVERFIT_CHECK_DIR: str = './logs/overfit_check/'
     GRAD_ANOMALIES_DIR: str = './gradient_anomalies/'
+    CUSTOM_TEST_FILES_DIR: str = './logs/custom_test_files.json'
 
     # Размеры изображений
     if DATA_SOURCE == "cps_tiles":
@@ -55,7 +56,7 @@ class Settings(BaseSettings):
     
     # Обучение
     OVERFIT_SIZE: int = 2
-    AUGMENT_TRAIN: bool = False
+    AUGMENT_TRAIN: bool = True
     BATCH_SIZE: int = 4
     NUM_WORKERS: int = 2
     LEARNING_RATE: float = 1e-4
