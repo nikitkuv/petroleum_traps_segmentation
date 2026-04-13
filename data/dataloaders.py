@@ -3,10 +3,24 @@ from typing import Dict, List, Tuple
 from torch.utils.data import DataLoader
 import random
 import torch
+import json
 
 from data.dataset import GeologyTrapsDataset
 from utils.dataset_utils import parse_filename, collect_samples
 from settings import settings
+
+
+def save_list(paths, filepath=settings.CUSTOM_TEST_FILES_DIR):
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    png_files = [os.path.basename(p) for p in paths if p.endswith('.png')]
+
+    with open(filepath, 'w', encoding='utf-8') as f:
+        json.dump(png_files, f, indent=2, ensure_ascii=False)
+
+
+def load_list(filepath=settings.CUSTOM_TEST_FILES_DIR):
+    with open(filepath, 'r', encoding='utf-8') as f:
+        return json.load(f)
 
 
 def get_file_list(data_dir: str, data_source: str = 'png') -> List[str]:

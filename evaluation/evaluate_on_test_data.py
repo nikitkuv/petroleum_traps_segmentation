@@ -4,13 +4,15 @@ from pathlib import Path
 from typing import Dict
 import torch
 from tqdm import tqdm
+from torch.utils.data import DataLoader
 
 from settings import settings
 from data.dataloaders import get_file_list, split_data_by_groups, create_dataloaders
 from models.unetplusplus import load_unetplusplus, load_model_checkpoint
 from metrics.metrics import MetricsCalculator
 from visualization.visualize import visualize_test_results
-
+from data.dataset import GeologyTrapsDataset
+    
 
 def evaluate_all_test_samples(
     checkpoint_path: str,
@@ -20,7 +22,8 @@ def evaluate_all_test_samples(
     threshold: float = None,
     save_viz_dir: str = None,
     save_metrics_path: str = None,
-    seed: int = None
+    seed: int = None,
+    custom_test_files: list = None
 ) -> Dict:
     """
     Загружает модель и оценивает её на всех тестовых семплах.
@@ -84,19 +87,22 @@ def evaluate_all_test_samples(
         raise ValueError("No data files found!")
 
     # Воспроизводим разбиение с тем же seed что и при обучении
-    _, _, test_files = split_data_by_groups(
-        file_list=all_files,
-        train_ratio=0.8,
-        val_ratio=0.1,
-        seed=seed
-    )
+    if not custom_test_files:
+        print("Using data split")
+        _, _, test_files = split_data_by_groups(
+            file_list=all_files,
+            train_ratio=0.8,
+            val_ratio=0.1,
+            seed=seed
+        )
+    else:
+        print("Using custom test_files")
+        test_files = custom_test_files
+    
 
     print(f"Test files: {len(test_files)} files")
 
     # Создаем dataloader только для теста (напрямую, без create_dataloaders)
-    from data.dataset import GeologyTrapsDataset
-    from torch.utils.data import DataLoader
-
     test_dataset = GeologyTrapsDataset(
         file_list=test_files,
         data_dir=data_dir,

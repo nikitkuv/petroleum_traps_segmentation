@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import Subset
 
 from settings import settings
-from data.dataloaders import get_file_list, split_data_by_groups, create_dataloaders
+from data.dataloaders import get_file_list, split_data_by_groups, create_dataloaders, save_list
 from models.unetplusplus import load_unetplusplus, load_model_checkpoint
 from losses.losses import CombinedLoss
 from optimizers.optimizers import create_optimizer_and_scheduler
@@ -80,13 +80,9 @@ def run_full_pipeline(
         train_ratio=0.8,
         val_ratio=0.1,
     )
-    print()
-    print(f"Train files: {train_files}")
-    print()
-    print(f"Val files: {val_files}")
-    print()
-    print(f"Test files: {test_files}")
-    print()
+
+    save_list(test_files)
+    print(f"Custom test files are saved: {settings.CUSTOM_TEST_FILES_DIR}")
 
     print("\n[STEP 2.5] Checking data leakage and source consistency...")
 
