@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import computed_field
 from pathlib import Path
 from typing import Literal
 import torch
@@ -16,6 +17,16 @@ class Settings(BaseSettings):
 
     # Работаем с разломами или нет
     USE_FAULTS: bool = False
+
+    @computed_field
+    @property
+    def IN_CHANNELS(self) -> int:
+        channels = 4 # Базовые: RGB (3) + Depth (1)
+        if self.DATA_SOURCE == "cps_tiles":
+            channels += 1 # + Изолинии (1)
+        if self.USE_FAULTS:
+            channels += 1 # + Разломы (1)
+        return channels
     
     # Пути
     DATA_DIR: str = './data/images/'
@@ -31,12 +42,19 @@ class Settings(BaseSettings):
     CUSTOM_TEST_FILES_DIR: str = './logs/custom_test_files.json'
 
     # Размеры изображений
-    if DATA_SOURCE == "cps_tiles":
-        TARGET_HEIGHT: int = 864
-        TARGET_WIDTH: int = 448
-    else:
-        TARGET_HEIGHT: int = 1248
-        TARGET_WIDTH: int = 512
+    @computed_field
+    @property
+    def TARGET_HEIGHT(self) -> int:
+        if self.DATA_SOURCE == "cps_tiles":
+            return 864
+        return 1248
+
+    @computed_field
+    @property
+    def TARGET_WIDTH(self) -> int:
+        if self.DATA_SOURCE == "cps_tiles":
+            return 448
+        return 512
     
     # Порог бинаризации масок
     BINARY_THRESHOLD: int = 128
@@ -127,10 +145,6 @@ class Settings(BaseSettings):
     @property
     def is_cps_tiles(self) -> bool:
         return self.DATA_SOURCE.lower() == 'cps_tiles'
-    
-    @property
-    def in_channels(self) -> int:
-        return 5 if self.USE_FAULTS else 4
     
     def create_dirs(self):
         self.checkpoint_path.mkdir(parents=True, exist_ok=True)

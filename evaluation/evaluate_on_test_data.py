@@ -129,7 +129,7 @@ def evaluate_all_test_samples(
     )
 
     print("\n[STEP 2] Loading model from checkpoint...")
-    in_channels = 5 if use_faults else 4
+    in_channels = settings.IN_CHANNELS
     model = load_unetplusplus(
         in_channels=in_channels,
         classes=1,

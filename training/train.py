@@ -81,7 +81,7 @@ def train_with_wandb(
                 'criterion': 'BCE+Dice',
                 'model': 'U-Net++',
                 'encoder': 'ResNet34',
-                'in_channels': settings.in_channels,
+                'in_channels': settings.IN_CHANNELS,
                 'gradient_accumulation_steps': gradient_accumulation_steps
             }
         )
@@ -302,7 +302,7 @@ def train_with_wandb(
                 'val_dice': avg_val_dice,
                 'val_iou': avg_val_iou,
                 'config': {
-                    'in_channels': settings.in_channels,
+                    'in_channels': settings.IN_CHANNELS,
                     'encoder': 'resnet34',
                     'classes': 1
                 }
