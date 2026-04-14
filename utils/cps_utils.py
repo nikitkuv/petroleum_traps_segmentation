@@ -4,6 +4,7 @@ from typing import Tuple, Dict, List
 import os
 import re
 from pathlib import Path
+import cv2
 
 from settings import settings
 from utils.images_utils import pad_image
@@ -181,6 +182,53 @@ def cps_to_grayscale(grid: np.ndarray, invert: bool = False) -> np.ndarray:
     return gray
 
 
+def cps_to_isolines(grid: np.ndarray, step: float = 5.0) -> np.ndarray:
+    """
+    Генерирует изображение с изолиниями из CPS грида с помощью OpenCV.
+    
+    Args:
+        grid: 2D numpy array (с NaN в качестве пустот)
+        step: Шаг изолиний в метрах (по умолчанию 5)
+    
+    Returns:
+        isolines: (H, W) uint8 array (белый фон=255, черные линии=0)
+    """
+    valid_mask = ~np.isnan(grid)
+    if valid_mask.sum() == 0:
+        return np.full(grid.shape, 255, dtype=np.uint8) # Белый фон
+    
+    vmin, vmax = np.nanmin(grid), np.nanmax(grid)
+    
+    # Вычисляем уровни изолиний (например: -3000, -2995, -2990...)
+    start_bound = np.floor(vmin / step) * step
+    end_bound = np.ceil(vmax / step) * step
+    levels = np.arange(start_bound, end_bound + step, step)
+    
+    # Создаем белое полотно
+    isolines_img = np.full(grid.shape, 255, dtype=np.uint8)
+    
+    # Временно заменяем NaN на значение ниже минимума, 
+    # чтобы cv2.findContours не упал, но контуры там не рисовались
+    grid_filled = np.copy(grid)
+    grid_filled[~valid_mask] = vmin - 1000 
+    
+    # Проходим по каждому уровню
+    for level in levels:
+        # 1. Создаем бинарную маску: 1 там, где глубина >= level, 0 там, где меньше
+        binary_mask = (grid_filled >= level).astype(np.uint8)
+        
+        # 2. Убираем из маски области, где были NaN (пустоты/разломы)
+        binary_mask[~valid_mask] = 0
+        
+        # 3. Находим контуры этой бинарной маски
+        contours, _ = cv2.findContours(binary_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # 4. Рисуем найденные контуры черным цветом (0) толщиной 1 пиксель
+        cv2.drawContours(isolines_img, contours, -1, 0, thickness=1)
+        
+    return isolines_img
+
+
 def cps_to_binary_mask(grid: np.ndarray, threshold: float = None) -> np.ndarray:
     """
     Конвертирует CPS грид в бинарную маску (для fault/trap).
@@ -230,7 +278,7 @@ def save_png(img_array: np.ndarray, path: str):
     img.save(path)
 
 
-def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str) -> Dict[str, Dict[str, np.ndarray]]:
+def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str, isoline_step: float = 5.0) -> Dict[str, Dict[str, np.ndarray]]:
     """
     Конвертирует CPS файлы в PNG и сохраняет большие изображения.
 
@@ -238,6 +286,7 @@ def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str) -> D
         Dict[horizon_name] -> {
             'rgb': RGB image array,
             'grayscale': grayscale image array,
+            'isolines': isolines image array,
             'traps': traps image array
         }
     """
@@ -271,6 +320,15 @@ def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str) -> D
             save_png(gray_img, gray_path)
             print(f"  Saved Grayscale: {gray_path} (shape={gray_img.shape})")
             images_data[horizon_name]['grayscale'] = gray_img
+
+            # Конвертируем в изолинии
+            isolines_img = cps_to_isolines(grid, step=isoline_step)
+            # Поворачиваем на 180 градусов
+            isolines_img = np.rot90(isolines_img, k=2)
+            isolines_path = os.path.join(output_dir, f'x_isolines_{horizon_name}.png')
+            save_png(isolines_img, isolines_path)
+            print(f"  Saved Isolines: {isolines_path} (shape={isolines_img.shape})")
+            images_data[horizon_name]['isolines'] = isolines_img
 
         # Загружаем traps
         if 'traps' in files:
@@ -345,7 +403,7 @@ def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
     Разбивает большие изображения на тайлы с перекрытием.
 
     Для каждого горизонта создаются тайлы с одинаковыми координатами
-    для всех трех типов изображений (rgb, grayscale, traps).
+    для всех типов изображений (rgb, grayscale, isolines, traps).
 
     Args:
         images_data: Данные изображений по горизонтам
@@ -379,6 +437,7 @@ def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
         # Получаем размеры изображений (все должны быть одинаковыми)
         rgb_img = images.get('rgb')
         grayscale_img = images.get('grayscale')
+        isolines_img = images.get('isolines') # НОВОЕ
         traps_img = images.get('traps')
 
         # Используем rgb для определения размеров
@@ -386,6 +445,8 @@ def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
             h, w = rgb_img.shape[:2]
         elif grayscale_img is not None:
             h, w = grayscale_img.shape[:2]
+        elif isolines_img is not None:
+            h, w = isolines_img.shape[:2]
         elif traps_img is not None:
             h, w = traps_img.shape[:2]
         else:
@@ -414,7 +475,13 @@ def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
                 save_png(tile_gray, gray_tile_path)
                 saved_files.append(gray_tile_path)
 
-            # Сохраняем traps тайл
+            # Сохраняем isolines тайл
+            if isolines_img is not None:
+                tile_iso = pad_image(isolines_img, tile_height, tile_width)
+                iso_tile_path = os.path.join(output_dir, f'{tile_prefix}x_isolines_{horizon_name}.png')
+                save_png(tile_iso, iso_tile_path)
+                saved_files.append(iso_tile_path)
+
             if traps_img is not None:
                 tile_traps = pad_image(traps_img, tile_height, tile_width)
                 traps_tile_path = os.path.join(output_dir, f'{tile_prefix}y_traps_{horizon_name}.png')
@@ -476,7 +543,14 @@ def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
                     save_png(tile_gray, gray_tile_path)
                     saved_files.append(gray_tile_path)
 
-                # Сохраняем traps тайл
+                # НОВОЕ: Сохраняем isolines тайл
+                if isolines_img is not None:
+                    tile_iso = isolines_img[y_start:y_end, x_start:x_end]
+                    tile_iso = pad_image(tile_iso, tile_height, tile_width)
+                    iso_tile_path = os.path.join(output_dir, f'{tile_prefix}x_isolines_{horizon_name}.png')
+                    save_png(tile_iso, iso_tile_path)
+                    saved_files.append(iso_tile_path)
+
                 if traps_img is not None:
                     tile_traps = traps_img[y_start:y_end, x_start:x_end]
                     tile_traps = pad_image(tile_traps, tile_height, tile_width)
