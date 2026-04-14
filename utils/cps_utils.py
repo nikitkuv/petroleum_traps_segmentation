@@ -191,11 +191,11 @@ def cps_to_isolines(grid: np.ndarray, step: float = 5.0) -> np.ndarray:
         step: Шаг изолиний в метрах (по умолчанию 5)
     
     Returns:
-        isolines: (H, W) uint8 array (белый фон=255, черные линии=0)
+        isolines: (H, W) uint8 array (черный фон=0, белые линии=255, вне карты=0)
     """
     valid_mask = ~np.isnan(grid)
     if valid_mask.sum() == 0:
-        return np.full(grid.shape, 255, dtype=np.uint8) # Белый фон
+        return np.zeros(grid.shape, dtype=np.uint8) # Черный фон
     
     vmin, vmax = np.nanmin(grid), np.nanmax(grid)
     
@@ -204,8 +204,8 @@ def cps_to_isolines(grid: np.ndarray, step: float = 5.0) -> np.ndarray:
     end_bound = np.ceil(vmax / step) * step
     levels = np.arange(start_bound, end_bound + step, step)
     
-    # Создаем белое полотно
-    isolines_img = np.full(grid.shape, 255, dtype=np.uint8)
+    # Создаем черное полотно (фон = 0)
+    isolines_img = np.zeros(grid.shape, dtype=np.uint8)
     
     # Временно заменяем NaN на значение ниже минимума, 
     # чтобы cv2.findContours не упал, но контуры там не рисовались
@@ -214,17 +214,17 @@ def cps_to_isolines(grid: np.ndarray, step: float = 5.0) -> np.ndarray:
     
     # Проходим по каждому уровню
     for level in levels:
-        # 1. Создаем бинарную маску: 1 там, где глубина >= level, 0 там, где меньше
+        # Создаем бинарную маску: 1 там, где глубина >= level, 0 там, где меньше
         binary_mask = (grid_filled >= level).astype(np.uint8)
         
-        # 2. Убираем из маски области, где были NaN (пустоты/разломы)
+        # Убираем из маски области, где были NaN (пустоты/разломы)
         binary_mask[~valid_mask] = 0
         
-        # 3. Находим контуры этой бинарной маски
+        # Находим контуры этой бинарной маски
         contours, _ = cv2.findContours(binary_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         
-        # 4. Рисуем найденные контуры черным цветом (0) толщиной 1 пиксель
-        cv2.drawContours(isolines_img, contours, -1, 0, thickness=1)
+        # Рисуем найденные контуры белым цветом (255) толщиной 1 пиксель
+        cv2.drawContours(isolines_img, contours, -1, 255, thickness=1)
         
     return isolines_img
 

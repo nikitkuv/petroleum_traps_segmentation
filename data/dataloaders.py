@@ -107,6 +107,7 @@ def split_data_by_groups(
             "  001_x_structuralNOisoline_H150.png\n"
             "  001_y_traps_H150.png\n"
             "  001_x_structuralBlackWhite_H150.png\n"
+            "  001_x_isolines_H150.png (для cps_tiles)\n"
             f"\nChecked {len(file_list)} files."
         )
 

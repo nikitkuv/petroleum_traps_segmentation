@@ -157,7 +157,14 @@ class DatasetValidator:
         print("\n VALIDATING EACH SAMPLE:")
         print("-" * 70)
         
-        expected_channels = 5 if use_faults else 4
+        # Определяем ожидаемое количество каналов в зависимости от источника данных и use_faults
+        if settings.DATA_SOURCE == 'cps_tiles':
+            # Для cps_tiles: RGB (3) + depth (1) + isolines (1) + faults (1 если use_faults) = 5 или 6
+            expected_channels = 6 if use_faults else 5
+        else:
+            # Для png: RGB (3) + depth (1) + faults (1 если use_faults) = 4 или 5
+            expected_channels = 5 if use_faults else 4
+
         successful_samples = 0
         failed_samples = 0
         channel_mismatches = 0
@@ -232,11 +239,12 @@ class DatasetValidator:
         
         try:
             pin_memory_flag = torch.cuda.is_available()
+            num_workers = min(settings.NUM_WORKERS, 0) if not torch.cuda.is_available() else settings.NUM_WORKERS
             loader = DataLoader(
                 dataset,
                 batch_size=settings.BATCH_SIZE,
                 shuffle=False,
-                num_workers=settings.NUM_WORKERS,
+                num_workers=num_workers,
                 pin_memory=pin_memory_flag
             )
             
