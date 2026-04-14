@@ -19,7 +19,9 @@ def load_unetplusplus(
     Загружает предобученную модель U-Net++.
     
     Args:
-        in_channels: Количество входных каналов (4 для rgb+depth, 5 для rgb+depth+faults)
+        in_channels: Количество входных каналов:
+            - Для data_source='png': 4 (RGB+depth) или 5 (RGB+depth+faults)
+            - Для data_source='cps_tiles': 5 (RGB+depth+isolines) или 6 (RGB+depth+isolines+faults)
         classes: Количество классов сегментации
         encoder_name: Название энкодера
         encoder_weights: Веса энкодера

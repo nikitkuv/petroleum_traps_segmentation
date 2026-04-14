@@ -287,37 +287,6 @@ def print_leakage_report(
     print("=" * 80)
 
 
-def validate_data_source_consistency(file_list, data_source: str) -> bool:
-    """
-    Проверяет, что все файлы соответствуют указанному источнику данных.
-
-    PNG и CPS tiles режимы не могут быть использованы вместе.
-
-    Args:
-        file_list: Список файлов для проверки
-        data_source: Ожидаемый источник данных ('png' или 'cps_tiles')
-
-    Returns:
-        True если все файлы соответствуют, False иначе
-
-    Raises:
-        ValueError: Если обнаружены файлы обоих типов
-    """
-    if not file_list:
-        return True
-
-    png_files = [f for f in file_list if f.lower().endswith('.png')]
-
-    if data_source == 'png':
-        return True
-
-    elif data_source == 'cps_tiles':
-        return True
-
-    else:
-        raise ValueError(f"Unknown data_source: {data_source}. Must be 'png' or 'cps_tiles'.")
-
-
 def check_leakage_from_dataloaders(
     train_files: List[str],
     val_files: List[str],
