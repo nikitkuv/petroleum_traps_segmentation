@@ -29,7 +29,7 @@ def load_unetplusplus(
     Returns:
         Модель U-Net++
     """
-    in_channels = in_channels or settings.in_channels
+    in_channels = in_channels or settings.IN_CHANNELS
     device = device or settings.DEVICE
     
     model = smp.UnetPlusPlus(

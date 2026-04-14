@@ -49,11 +49,12 @@ def run_full_pipeline(
     Returns:
         Метрики на тестовой выборке
     """
+    data_source = data_source or settings.DATA_SOURCE
+    in_channels = settings.IN_CHANNELS
     device = settings.DEVICE
     data_dir = data_dir or settings.DATA_DIR
     batch_size = batch_size or settings.BATCH_SIZE
     learning_rate = learning_rate or settings.LEARNING_RATE
-    data_source = data_source or settings.DATA_SOURCE
     n_epochs = n_epochs or settings.NUM_EPOCHS
     early_stopping_patience = early_stopping_patience or settings.ES_PATIANCE
     encoder_lr_multiplier = encoder_lr_multiplier or settings.ENCODER_LR_MULTIPLIER
@@ -62,6 +63,7 @@ def run_full_pipeline(
     print("=" * 80)
     print("GEOLOGY TRAPS SEGMENTATION PIPELINE")
     print(f"Data source: {data_source}")
+    print(f"Input channels: {in_channels}")
     print(f"TARGET_HEIGHT: {settings.TARGET_HEIGHT}")
     print(f"TARGET_WIDTH: {settings.TARGET_WIDTH}")
     print(f"Use faults: {use_faults}")
@@ -81,8 +83,11 @@ def run_full_pipeline(
         val_ratio=0.1,
     )
 
-    save_list(test_files)
-    print(f"Custom test files are saved: {settings.CUSTOM_TEST_FILES_DIR}")
+    if not overfit_check_mode:
+        save_list(test_files)
+        print(f"Custom test files are saved: {settings.CUSTOM_TEST_FILES_DIR}")
+    else:
+        print(f"Overfit check mode: no saving custom test files")
 
     print("\n[STEP 2.5] Checking data leakage and source consistency...")
 
@@ -158,7 +163,6 @@ def run_full_pipeline(
         print(f"Size of train_loader: {len(train_loader.dataset)}")
     
     print("\n[STEP 4] Loading U-Net++ model...")
-    in_channels = settings.in_channels
     model = load_unetplusplus(
         in_channels=in_channels,
         classes=1,

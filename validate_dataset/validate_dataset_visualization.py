@@ -264,7 +264,7 @@ def main():
     print("=" * 70)
     print(f"DATA_SOURCE:  {settings.DATA_SOURCE}")
     print(f"USE_FAULTS:   {settings.USE_FAULTS}")
-    print(f"IN_CHANNELS:  {settings.in_channels}")
+    print(f"IN_CHANNELS:  {settings.IN_CHANNELS}")
     print(f"SEED:         {args.seed}")
     print(f"OUTPUT DIR:   {output_path}")
     print("=" * 70)
