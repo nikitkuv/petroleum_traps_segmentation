@@ -28,6 +28,7 @@ def get_train_transforms():
     ], additional_targets={
         'image': 'image',
         'depth': 'image',
+        'isolines': 'mask',
         'faults': 'mask',
         'traps': 'mask',
         'mask_depth': 'mask',
@@ -42,6 +43,7 @@ def get_val_transforms():
     ], additional_targets={
         'image': 'image',
         'depth': 'image',
+        'isolines': 'mask',
         'faults': 'mask',
         'traps': 'mask',
         'mask_depth': 'mask',

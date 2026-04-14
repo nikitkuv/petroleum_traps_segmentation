@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     )
 
     # Источник данных
-    DATA_SOURCE: Literal['png', 'cps_tiles'] = 'png'
+    DATA_SOURCE: Literal['png', 'cps_tiles'] = 'cps_tiles'
 
     # Работаем с разломами или нет
     USE_FAULTS: bool = False

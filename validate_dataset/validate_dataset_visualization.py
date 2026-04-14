@@ -40,20 +40,23 @@ def visualize_sample(
     orig_depth = load_grayscale_image(sample_paths['depth_norm'])
     orig_traps = load_grayscale_image(sample_paths['traps'])
     orig_faults = load_grayscale_image(sample_paths['faults']) if 'faults' in sample_paths else None
+    orig_isolines = load_grayscale_image(sample_paths['isolines']) if 'isolines' in sample_paths else None
 
     # Получаем имена файлов для заголовков
     rgb_filename = Path(sample_paths['rgb']).name
     depth_filename = Path(sample_paths['depth_norm']).name
     traps_filename = Path(sample_paths['traps']).name
     faults_filename = Path(sample_paths['faults']).name if 'faults' in sample_paths else "N/A"
+    isolines_filename = Path(sample_paths['isolines']).name if 'isolines' in sample_paths else "N/A"
 
     # Извлекаем тензоры из dataset и конвертируем в numpy
     x_rgb = sample_data['x'][:3].permute(1, 2, 0).numpy()      # (H, W, 3)
     x_depth = sample_data['x'][3].numpy()                       # (H, W)
+    x_isolines = sample_data['x'][4].numpy()                    # (H, W)
 
     # Faults канал только если use_faults=True
     if sample_data['use_faults']:
-        x_faults = sample_data['x'][4].numpy()                  # (H, W)
+        x_faults = sample_data['x'][5].numpy()                  # (H, W)
     else:
         x_faults = np.zeros_like(x_depth)
 
@@ -75,13 +78,14 @@ def visualize_sample(
     sample_name = Path(sample_paths['rgb']).stem.split('_')[-1]  # например, "kolltop1" или "H150"
     sample_id = f"{sample_number}_{sample_name}"
 
-    # Структура: 3 ряда x 4 колонки (GridSpec: 3x4)
+    # Структура: 4 ряда x 4 колонки (GridSpec: 4x4)
     # Row 0: RGB orig | RGB proc | Depth orig | Depth proc
-    # Row 1: Faults orig | Faults proc | Traps orig | Traps proc (target Y)
-    # Row 2: Map mask | Depth mask | Statistics (spans cols 2-3)
-    fig = plt.figure(figsize=(24, 14))
-    gs = gridspec.GridSpec(3, 4, figure=fig,
-                           height_ratios=[1, 1, 1],
+    # Row 1: Isolines orig | Isolines proc | Faults orig | Faults proc
+    # Row 2: Traps orig | Traps proc (target Y) | Map mask | Depth mask
+    # Row 3: Statistics (spans cols 0-3)
+    fig = plt.figure(figsize=(24, 18))
+    gs = gridspec.GridSpec(4, 4, figure=fig,
+                           height_ratios=[1, 1, 1, 1],
                            width_ratios=[1, 1, 1, 1],
                            hspace=0.15, wspace=0.1,
                            top=0.94, bottom=0.05, left=0.04, right=0.97)
@@ -110,49 +114,65 @@ def visualize_sample(
     ax4.set_title('Processed Depth\nBlack=High, White=Low', fontsize=11, pad=6)
     ax4.axis('off')
 
-    # 5. Original Faults
+    # 5. Original Isolines
     ax5 = fig.add_subplot(gs[1, 0])
-    if orig_faults is not None:
-        ax5.imshow(orig_faults, cmap='gray')
-        ax5.set_title(f'Original Fault Mask\n{faults_filename}', fontsize=11, pad=6)
+    if orig_isolines is not None:
+        ax5.imshow(orig_isolines, cmap='gray')
+        ax5.set_title(f'Original Isolines\n{isolines_filename}', fontsize=11, pad=6)
     else:
-        ax5.imshow(np.zeros_like(x_depth), cmap='gray')
-        ax5.set_title('Original Fault Mask\nN/A', fontsize=11, pad=6)
+        ax5.imshow(np.ones_like(x_depth) * 255, cmap='gray')
+        ax5.set_title('Original Isolines\nN/A', fontsize=11, pad=6)
     ax5.axis('off')
 
-    # 6. Processed Faults
+    # 6. Processed Isolines
     ax6 = fig.add_subplot(gs[1, 1])
-    ax6.imshow(x_faults, cmap='gray')
-    ax6.set_title('Processed Fault Mask\n1=Faults (White)', fontsize=11, pad=6)
+    ax6.imshow(x_isolines, cmap='gray')
+    ax6.set_title('Processed Isolines\nWhite=Isolines, Black=Background', fontsize=11, pad=6)
     ax6.axis('off')
 
-    # 7. Original Traps
+    # 7. Original Faults
     ax7 = fig.add_subplot(gs[1, 2])
-    ax7.imshow(orig_traps, cmap='gray')
-    ax7.set_title(f'Original Trap Mask\n{traps_filename}', fontsize=11, pad=6)
+    if orig_faults is not None:
+        ax7.imshow(orig_faults, cmap='gray')
+        ax7.set_title(f'Original Fault Mask\n{faults_filename}', fontsize=11, pad=6)
+    else:
+        ax7.imshow(np.zeros_like(x_depth), cmap='gray')
+        ax7.set_title('Original Fault Mask\nN/A', fontsize=11, pad=6)
     ax7.axis('off')
 
-    # 8. Processed Traps / Target Y
+    # 8. Processed Faults
     ax8 = fig.add_subplot(gs[1, 3])
-    ax8.imshow(y_traps, cmap='gray')
-    ax8.set_title('Target Y (Traps)\n1=Traps (White)', fontsize=11, pad=6)
+    ax8.imshow(x_faults, cmap='gray')
+    ax8.set_title('Processed Fault Mask\n1=Faults (White)', fontsize=11, pad=6)
     ax8.axis('off')
 
-    # 9. Map Mask
+    # 9. Original Traps
     ax9 = fig.add_subplot(gs[2, 0])
-    ax9.imshow(mask_map, cmap='gray')
-    ax9.set_title('Map Mask\n1=Map Area (White)', fontsize=11, pad=6)
+    ax9.imshow(orig_traps, cmap='gray')
+    ax9.set_title(f'Original Trap Mask\n{traps_filename}', fontsize=11, pad=6)
     ax9.axis('off')
 
-    # 10. Depth Mask
+    # 10. Processed Traps / Target Y
     ax10 = fig.add_subplot(gs[2, 1])
-    ax10.imshow(mask_depth, cmap='gray')
-    ax10.set_title('Depth Mask\n1=Valid (White), 0=Faults/Pad (Black)', fontsize=11, pad=6)
+    ax10.imshow(y_traps, cmap='gray')
+    ax10.set_title('Target Y (Traps)\n1=Traps (White)', fontsize=11, pad=6)
     ax10.axis('off')
 
-    # 11. Statistics Info Box — справа внизу, занимает cols 2-3
-    ax11 = fig.add_subplot(gs[2, 2:])
+    # 11. Map Mask
+    ax11 = fig.add_subplot(gs[2, 2])
+    ax11.imshow(mask_map, cmap='gray')
+    ax11.set_title('Map Mask\n1=Map Area (White)', fontsize=11, pad=6)
     ax11.axis('off')
+
+    # 12. Depth Mask
+    ax12 = fig.add_subplot(gs[2, 3])
+    ax12.imshow(mask_depth, cmap='gray')
+    ax12.set_title('Depth Mask\n1=Valid (White), 0=Faults/Pad (Black)', fontsize=11, pad=6)
+    ax12.axis('off')
+
+    # 13. Statistics Info Box — снизу, занимает все 4 колонки
+    ax13 = fig.add_subplot(gs[3, :])
+    ax13.axis('off')
 
     info_text = (
         f"Sample: {sample_id}\n\n"
@@ -162,10 +182,11 @@ def visualize_sample(
         f"Target Shape: {sample_data['y'].shape}\n\n"
         f"Map Valid: {mask_map.sum():.0f} px ({mask_map.mean()*100:.1f}%)\n"
         f"Depth Valid: {mask_depth.sum():.0f} px ({mask_depth.mean()*100:.1f}%)\n"
+        f"Isolines: {(x_isolines < 128).sum():.0f} line px ({(x_isolines < 128).mean()*100:.2f}%)\n"
         f"Faults: {x_faults.sum():.0f} px ({x_faults.mean()*100:.2f}%)\n"
         f"Traps (Y): {y_traps.sum():.0f} px ({y_traps.mean()*100:.2f}%)"
     )
-    ax11.text(0.5, 0.5, info_text, ha='center', va='center', fontsize=10,
+    ax13.text(0.5, 0.5, info_text, ha='center', va='center', fontsize=10,
               bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.5, pad=1.2))
 
     plt.suptitle(f'Sample {idx}: {sample_id}', fontsize=16, fontweight='bold', y=0.99)
@@ -198,15 +219,14 @@ def get_all_files_from_source(data_source: str) -> List[str]:
     # Get all PNG files
     all_files = [f.name for f in data_path.glob('*.png')]
 
-    # Filter to only include relevant files (x_structuralNOisoline, x_structuralBlackWhite,
-    # x_faults, y_traps)
+    # Filter to only include relevant files (x_structuralNOisoline, x_structuralBlackWhite, x_faults, y_traps, x_isolines)
     relevant_files = []
     for f in all_files:
         stem = Path(f).stem
         parts = stem.split('_')
         if len(parts) >= 3:
             file_type = parts[2] if len(parts) > 2 else ''
-            if file_type in ['structuralNOisoline', 'structuralBlackWhite', 'faults', 'traps']:
+            if file_type in ['structuralNOisoline', 'structuralBlackWhite', 'isolines', 'faults', 'traps']:
                 relevant_files.append(f)
 
     print(f"Found {len(relevant_files)} relevant files in {data_dir}")
@@ -259,15 +279,19 @@ def main():
             file_list = [
                 '001_x_structuralNOisoline_U4_42_kolltop1.png',
                 '001_x_structuralBlackWhite_U4_42_kolltop1.png',
+                '001_x_isolines_U4_42_kolltop1.png',
                 '001_y_traps_U4_42_kolltop1.png',
                 '002_x_structuralNOisoline_U4_42_kolltop1.png',
                 '002_x_structuralBlackWhite_U4_42_kolltop1.png',
+                '002_x_isolines_U4_42_kolltop1.png',
                 '002_y_traps_U4_42_kolltop1.png',
                 '003_x_structuralNOisoline_U4_42_kolltop1.png',
                 '003_x_structuralBlackWhite_U4_42_kolltop1.png',
+                '003_x_isolines_U4_42_kolltop1.png',
                 '003_y_traps_U4_42_kolltop1.png',
                 '004_x_structuralNOisoline_U4_42_kolltop1.png',
                 '004_x_structuralBlackWhite_U4_42_kolltop1.png',
+                '004_x_isolines_U4_42_kolltop1.png',
                 '004_y_traps_U4_42_kolltop1.png',
             ]
             data_dir = settings.CPS_TILES_DIR
