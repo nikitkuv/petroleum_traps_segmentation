@@ -29,6 +29,7 @@ class Settings(BaseSettings):
         return channels
     
     # Пути
+    CPS_SOURCE_DIR: str = './data/cps/'
     DATA_DIR: str = './data/images/'
     CPS_TILES_DIR: str = './data/images_cps/'
     CPS_FULL_DIR: str = './data/images_cps_full/'

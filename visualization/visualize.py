@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
@@ -7,6 +7,123 @@ import torch
 import wandb
 
 from settings import settings
+
+
+def overlay_isolines_on_rgb(
+    rgb_path: str,
+    isolines_path: str,
+    alpha: float = 0.5,
+    save_path: Optional[str] = None,
+    show: bool = True
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Накладывает карту изолиний на RGB карту с прозрачностью.
+
+    Функция загружает RGB карту и карту изолиний (черный фон, белые линии),
+    инвертирует изолинии (фон → белый, линии → черные) и накладывает их
+    на RGB изображение с указанной прозрачностью.
+
+    Args:
+        rgb_path: Путь к файлу RGB карты (например, x_structuralBlackWhite_*.png)
+        isolines_path: Путь к файлу карты изолиний (например, x_isolines_*.png)
+        alpha: Прозрачность наложения изолиний (0.0 - полностью прозрачные, 1.0 - полностью видимые)
+        save_path: Путь для сохранения результата (опционально)
+        show: Если True, отображает результат визуализации
+
+    Returns:
+        Tuple из трех numpy массивов:
+            - rgb_img: Оригинальное RGB изображение (H, W, 3), значения [0, 1]
+            - isolines_img: Инвертированная карта изолиний (H, W), значения [0, 1]
+            - overlay: Результат наложения (H, W, 3), значения [0, 1]
+    """
+    # Загружаем изображения
+    rgb_img = cv2.imread(rgb_path, cv2.IMREAD_COLOR)
+    if rgb_img is None:
+        raise FileNotFoundError(f"Не удалось загрузить RGB изображение: {rgb_path}")
+    rgb_img = cv2.cvtColor(rgb_img, cv2.COLOR_BGR2RGB)
+
+    isolines_img = cv2.imread(isolines_path, cv2.IMREAD_GRAYSCALE)
+    if isolines_img is None:
+        raise FileNotFoundError(f"Не удалось загрузить карту изолиний: {isolines_path}")
+
+    # Проверяем, что изображения имеют одинаковые размеры
+    if rgb_img.shape[:2] != isolines_img.shape:
+        raise ValueError(f"Размеры изображений не совпадают: RGB={rgb_img.shape[:2]}, Isolines={isolines_img.shape}")
+
+    # Нормализуем RGB к [0, 1]
+    rgb_float = rgb_img.astype(np.float32) / 255.0
+
+    # Инвертируем изолинии: черный фон (0) → белый (1), белые линии (255) → черные (0)
+    # Для этого просто инвертируем и нормализуем к [0, 1]
+    isolines_inverted = 1.0 - (isolines_img.astype(np.float32) / 255.0)
+
+    # Создаем маску для линий (где изолинии черные после инверсии, т.е. близки к 0)
+    # isolines_inverted: 1.0 = фон, 0.0 = линии
+    line_mask = 1.0 - isolines_inverted  # Теперь: 1.0 = линии, 0.0 = фон
+
+    # Создаем overlay копию RGB
+    overlay = rgb_float.copy()
+
+    # Затемняем области с линиями
+    # Используем alpha для контроля интенсивности затемнения
+    dark_factor = 0.3  # Коэффициент затемнения для линий
+    for c in range(3):
+        overlay[:, :, c] = rgb_float[:, :, c] * (1.0 - line_mask * alpha * (1.0 - dark_factor))
+
+    # Альтернативный подход: используем cv2.addWeighted для более плавного наложения
+    # Создаем трехканальную версию изолиний
+    isolines_3ch = np.stack([isolines_inverted] * 3, axis=-1)
+
+    # Смешиваем: где линии (темные), там добавляем темный цвет
+    # weighted = img1 * alpha + img2 * (1-alpha) + beta
+    # Мы хотим, чтобы линии были видны как черные поверх RGB
+    blend_mask = line_mask[:, :, np.newaxis]  # (H, W, 1)
+    overlay = rgb_float * (1.0 - blend_mask * alpha) + np.zeros_like(rgb_float) * (blend_mask * alpha)
+
+    # Восстанавливаем фон (белые области изолиний не влияют на RGB)
+    background_mask = isolines_inverted[:, :, np.newaxis]  # (H, W, 1), 1.0 = фон
+    overlay = overlay * (1.0 - background_mask * alpha) + rgb_float * (background_mask * alpha)
+
+    # Упрощенный подход: просто затемняем линии
+    overlay = rgb_float.copy()
+    # Где есть линии (line_mask > 0), затемняем RGB
+    overlay = overlay * (1.0 - line_mask[:, :, np.newaxis] * alpha * 0.7)
+
+    # Ограничиваем значения к [0, 1]
+    overlay = np.clip(overlay, 0, 1)
+
+    # Визуализация
+    if show or save_path:
+        fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+
+        # RGB изображение
+        axes[0].imshow(rgb_float)
+        axes[0].set_title('RGB Map')
+        axes[0].axis('off')
+
+        # Инвертированные изолинии
+        axes[1].imshow(isolines_inverted, cmap='gray')
+        axes[1].set_title('Isolines (Inverted)\n(white background, black lines)')
+        axes[1].axis('off')
+
+        # Результат наложения
+        axes[2].imshow(overlay)
+        axes[2].set_title(f'Overlay\n(alpha={alpha})')
+        axes[2].axis('off')
+
+        plt.tight_layout()
+
+        if save_path:
+            os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else '.', exist_ok=True)
+            plt.savefig(save_path, dpi=150, bbox_inches='tight')
+            print(f"Saved overlay visualization to {save_path}")
+
+        if show:
+            plt.show()
+        else:
+            plt.close()
+
+    return rgb_float, isolines_inverted, overlay
 
 
 def create_prediction_overlay(rgb_img: np.ndarray, pred_traps: np.ndarray, alpha: float = 0.4) -> np.ndarray:

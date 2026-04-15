@@ -11,11 +11,13 @@ from utils.cps_utils import (
 from settings import settings
 
 
+CREATE_TILES: bool = True
+
+
 def main():
-    """Основная функция."""
-    cps_dir = './data/cps/'
-    full_images_dir = './data/images_cps_full/'
-    tiles_dir = './data/images_cps/'
+    cps_dir = settings.CPS_SOURCE_DIR
+    full_images_dir = settings.CPS_FULL_DIR
+    tiles_dir = settings.CPS_TILES_DIR
 
     print("=" * 60)
     print("CPS to PNG Converter and Tile Splitter")
@@ -47,15 +49,19 @@ def main():
     print("Step 2: Converting CPS to PNG and saving large images...")
     images_data = save_large_images(horizons, full_images_dir)
 
-    # Разбиваем на тайлы
-    print("\n" + "=" * 60)
-    print("Step 3: Splitting large images into tiles...")
-    saved_files = split_into_tiles(images_data, tiles_dir)
+    if CREATE_TILES:
+        # Разбиваем на тайлы
+        print("\n" + "=" * 60)
+        print("Step 3: Splitting large images into tiles...")
+        saved_files = split_into_tiles(images_data, tiles_dir)
 
-    print("\n" + "=" * 60)
-    print("Done!")
-    print(f"Saved {len(saved_files)} tile files to {tiles_dir}")
-    print("=" * 60)
+        print("\n" + "=" * 60)
+        print("Done!")
+        print(f"Saved {len(saved_files)} tile files to {tiles_dir}")
+        print("=" * 60)
+    else:
+        print("\n" + "=" * 60)
+        print("Step 3: Skip tiles")
 
 
 if __name__ == '__main__':
