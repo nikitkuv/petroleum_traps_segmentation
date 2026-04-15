@@ -437,7 +437,7 @@ def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
         # Получаем размеры изображений (все должны быть одинаковыми)
         rgb_img = images.get('rgb')
         grayscale_img = images.get('grayscale')
-        isolines_img = images.get('isolines') # НОВОЕ
+        isolines_img = images.get('isolines')
         traps_img = images.get('traps')
 
         # Используем rgb для определения размеров
