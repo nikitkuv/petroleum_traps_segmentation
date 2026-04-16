@@ -10,7 +10,7 @@ from settings import settings
 def load_unetplusplus(
     in_channels: int = None,
     classes: int = 1,
-    encoder_name: str = 'resnet34',
+    encoder_name: str = settings.ENCODER_NAME,
     encoder_weights: str = 'imagenet',
     activation: str = None,
     device: str = None
@@ -41,7 +41,8 @@ def load_unetplusplus(
         classes=classes,
         activation=activation,
         decoder_channels=(256, 128, 64, 32, 16),
-        decoder_attention_type=None
+        decoder_attention_type=None,
+        decoder_dropout=settings.DECODER_DROPOUT
     )
     
     # Модифицируем первый слой энкодера если количество каналов не стандартное

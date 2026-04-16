@@ -37,7 +37,7 @@ def analyze_batch_grad_norms(
     # Загружаем модель
     checkpoint = torch.load(model_path, map_location=device)
     model = UNetPlusPlus(
-        encoder_name='resnet34',
+        encoder_name=settings.ENCODER_NAME,
         in_channels=settings.IN_CHANNELS,
         classes=1
     ).to(device)

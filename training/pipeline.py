@@ -162,7 +162,7 @@ def run_full_pipeline(
     model = load_unetplusplus(
         in_channels=in_channels,
         classes=1,
-        encoder_name='resnet34',
+        encoder_name=settings.ENCODER_NAME,
         encoder_weights='imagenet',
         device=device
     )
@@ -181,7 +181,7 @@ def run_full_pipeline(
         model=model,
         learning_rate=learning_rate,
         weight_decay=settings.WEIGHT_DECAY,
-        scheduler_type='reduce_lr_plateau',
+        scheduler_type=settings.SCHEDULER_NAME,
         encoder_lr_multiplier=encoder_lr_multiplier
     )
     print(f"Optimizer: AdamW, LR={learning_rate}, Encoder LR multiplier={encoder_lr_multiplier}")

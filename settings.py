@@ -70,19 +70,22 @@ class Settings(BaseSettings):
 
     # Разделение данных
     SEED: int = 24
-    TRAIN_RATIO: float = 0.8
-    VAL_RATIO: float = 0.1    
+    TRAIN_RATIO: float = 0.7
+    VAL_RATIO: float = 0.15    
     
     # Обучение
     OVERFIT_SIZE: int = 2
     AUGMENT_TRAIN: bool = True
+    ENCODER_NAME: str = "resnet34"
+    SCHEDULER_NAME: str = "cosine_annealing"
     BATCH_SIZE: int = 4
     NUM_WORKERS: int = 2
-    LEARNING_RATE: float = 1e-4
+    LEARNING_RATE: float = 3e-4
     ENCODER_LR_MULTIPLIER: float = 0.1
-    WEIGHT_DECAY: float = 1e-4
+    WEIGHT_DECAY: float = 5e-4
+    DECODER_DROPOUT: float = 0.2
     NUM_EPOCHS: int = 50
-    ES_PATIANCE: int = 15
+    ES_PATIANCE: int = 10
     GRADIENT_ACC_STEPS: int = 1
 
     # Трекинг градиентов
