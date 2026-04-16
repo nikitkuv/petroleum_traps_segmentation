@@ -1,4 +1,5 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import computed_field
 from pathlib import Path
 from typing import Literal
 import torch
@@ -6,15 +7,32 @@ import torch
 
 class Settings(BaseSettings):
 
+    model_config = SettingsConfigDict(
+        env_file='.env',
+        env_file_encoding='utf-8'
+    )
+
     # Источник данных
-    DATA_SOURCE: Literal['png', 'cps'] = 'png'
+    DATA_SOURCE: Literal['png', 'cps_tiles'] = 'cps_tiles'
 
     # Работаем с разломами или нет
     USE_FAULTS: bool = False
+
+    @computed_field
+    @property
+    def IN_CHANNELS(self) -> int:
+        channels = 4 # Базовые: RGB (3) + Depth (1)
+        if self.DATA_SOURCE == "cps_tiles":
+            channels += 1 # + Изолинии (1)
+        if self.USE_FAULTS:
+            channels += 1 # + Разломы (1)
+        return channels
     
     # Пути
+    CPS_SOURCE_DIR: str = './data/cps/'
     DATA_DIR: str = './data/images/'
-    CPS_DIR: str = './data/cps/'
+    CPS_TILES_DIR: str = './data/images_cps/'
+    CPS_FULL_DIR: str = './data/images_cps_full/'
     CHECKPOINT_DIR: str = './checkpoints/'
     LOGS_DIR: str = './logs/'
     LOGS_TRAIN_VIZ_DIR: str = './logs/visualizations/'
@@ -22,10 +40,22 @@ class Settings(BaseSettings):
     LOGS_TEST_VIZ_DIR: str = './logs/test_visualizations/'
     LOGS_OVERFIT_CHECK_DIR: str = './logs/overfit_check/'
     GRAD_ANOMALIES_DIR: str = './gradient_anomalies/'
+    CUSTOM_TEST_FILES_DIR: str = './logs/custom_test_files.json'
 
     # Размеры изображений
-    TARGET_HEIGHT: int = 1248
-    TARGET_WIDTH: int = 512
+    @computed_field
+    @property
+    def TARGET_HEIGHT(self) -> int:
+        if self.DATA_SOURCE == "cps_tiles":
+            return 864
+        return 1248
+
+    @computed_field
+    @property
+    def TARGET_WIDTH(self) -> int:
+        if self.DATA_SOURCE == "cps_tiles":
+            return 448
+        return 512
     
     # Порог бинаризации масок
     BINARY_THRESHOLD: int = 128
@@ -34,24 +64,28 @@ class Settings(BaseSettings):
     AUGMENT_PROB: float = 0.5
 
     # CPS настройки
-    CPS_NULL_VALUE: float = -99999.0  
-    CPS_VERTICAL_FLIP: bool = True
+    TILE_OVERLAP_RATIO: float = 0.25
+    CPS_NULL_VALUE: float = -999.0
+    CPS_VERTICAL_FLIP: bool = False
 
     # Разделение данных
     SEED: int = 24
-    TRAIN_RATIO: float = 0.8
-    VAL_RATIO: float = 0.1    
+    TRAIN_RATIO: float = 0.7
+    VAL_RATIO: float = 0.15    
     
     # Обучение
     OVERFIT_SIZE: int = 2
     AUGMENT_TRAIN: bool = True
+    ENCODER_NAME: str = "resnet34"
+    SCHEDULER_NAME: str = "cosine_annealing"
     BATCH_SIZE: int = 4
     NUM_WORKERS: int = 2
-    LEARNING_RATE: float = 1e-4
+    LEARNING_RATE: float = 3e-4
     ENCODER_LR_MULTIPLIER: float = 0.1
-    WEIGHT_DECAY: float = 1e-4
+    WEIGHT_DECAY: float = 5e-4
+    DECODER_DROPOUT: float = 0.2
     NUM_EPOCHS: int = 50
-    ES_PATIANCE: int = 15
+    ES_PATIANCE: int = 10
     GRADIENT_ACC_STEPS: int = 1
 
     # Трекинг градиентов
@@ -72,17 +106,17 @@ class Settings(BaseSettings):
     # Устройство
     DEVICE: str = 'cuda' if torch.cuda.is_available() else 'cpu'
     
-    class Config:
-        env_file = '.env'
-        env_file_encoding = 'utf-8'
-    
     @property
     def data_path(self) -> Path:
         return Path(self.DATA_DIR)
 
     @property
-    def cps_path(self) -> Path:
-        return Path(self.CPS_DIR)
+    def cps_tiles_path(self) -> Path:
+        return Path(self.CPS_TILES_DIR)
+    
+    @property
+    def cps_full_path(self) -> Path:
+        return Path(self.CPS_FULL_DIR)
     
     @property
     def checkpoint_path(self) -> Path:
@@ -113,12 +147,8 @@ class Settings(BaseSettings):
         return Path(self.GRAD_ANOMALIES_DIR)
 
     @property
-    def is_cps(self) -> bool:
-        return self.DATA_SOURCE.lower() == 'cps'
-    
-    @property
-    def in_channels(self) -> int:
-        return 5 if self.USE_FAULTS else 4
+    def is_cps_tiles(self) -> bool:
+        return self.DATA_SOURCE.lower() == 'cps_tiles'
     
     def create_dirs(self):
         self.checkpoint_path.mkdir(parents=True, exist_ok=True)

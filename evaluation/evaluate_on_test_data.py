@@ -4,33 +4,36 @@ from pathlib import Path
 from typing import Dict
 import torch
 from tqdm import tqdm
+from torch.utils.data import DataLoader
 
 from settings import settings
 from data.dataloaders import get_file_list, split_data_by_groups, create_dataloaders
 from models.unetplusplus import load_unetplusplus, load_model_checkpoint
 from metrics.metrics import MetricsCalculator
 from visualization.visualize import visualize_test_results
-
+from data.dataset import GeologyTrapsDataset
+    
 
 def evaluate_all_test_samples(
     checkpoint_path: str,
-    data_dir: str = None,
     use_faults: bool = None,
     data_source: str = None,
     batch_size: int = None,
     threshold: float = None,
     save_viz_dir: str = None,
     save_metrics_path: str = None,
-    seed: int = None
+    seed: int = None,
+    custom_test_files: list = None
 ) -> Dict:
     """
     Загружает модель и оценивает её на всех тестовых семплах.
 
     Args:
         checkpoint_path: Путь к чекпоинту модели
-        data_dir: Путь к данным
+        data_dir: Путь к данным (для data_source='png')
+        cps_tiles_dir: Путь к CPS tiles данным (для data_source='cps_tiles')
         use_faults: Использовать ли разломы (должно совпадать с обучением)
-        data_source: Источник данных ('png' или 'cps')
+        data_source: Источник данных ('png' или 'cps_tiles')
         batch_size: Размер батча
         threshold: Порог бинаризации
         save_viz_dir: Директория для сохранения визуализаций
@@ -43,12 +46,14 @@ def evaluate_all_test_samples(
     device = settings.DEVICE
 
     # Настройки по умолчанию
-    data_dir = data_dir or settings.DATA_DIR
     use_faults = use_faults if use_faults is not None else settings.USE_FAULTS
     data_source = data_source or settings.DATA_SOURCE
     batch_size = batch_size or settings.BATCH_SIZE
     threshold = threshold or settings.TEST_THRESHOLD
     seed = seed or settings.SEED
+
+    data_dir = settings.DATA_DIR
+    cps_tiles_dir = settings.CPS_TILES_DIR
 
     if save_viz_dir is None:
         save_viz_dir = os.path.join(settings.LOGS_DIR, 'test_all_samples_viz')
@@ -62,7 +67,11 @@ def evaluate_all_test_samples(
     print("EVALUATING MODEL ON ALL TEST SAMPLES")
     print("=" * 80)
     print(f"Checkpoint: {checkpoint_path}")
+    print(f"Data source: {data_source}")
+    print(f"TARGET_HEIGHT: {settings.TARGET_HEIGHT}")
+    print(f"TARGET_WIDTH: {settings.TARGET_WIDTH}")
     print(f"Data dir: {data_dir}")
+    print(f"CPS tiles dir: {cps_tiles_dir}")
     print(f"Use faults: {use_faults}")
     print(f"Device: {device}")
     print(f"Threshold: {threshold}")
@@ -70,39 +79,61 @@ def evaluate_all_test_samples(
     print("=" * 80)
 
     print("\n[STEP 1] Loading data and reproducing test split...")
-    all_files = get_file_list(data_dir, data_source=data_source)
+    dir_to_load_data_from = data_dir if data_source == "png" else cps_tiles_dir
+    print(f"Directory to load data from: {dir_to_load_data_from}")
+    all_files = get_file_list(dir_to_load_data_from, data_source=data_source)
 
     if len(all_files) == 0:
         raise ValueError("No data files found!")
 
     # Воспроизводим разбиение с тем же seed что и при обучении
-    train_files, val_files, test_files = split_data_by_groups(
-        file_list=all_files,
-        train_ratio=0.8,
-        val_ratio=0.1,
-        seed=seed
-    )
+    if not custom_test_files:
+        print("Using data split")
+        _, _, test_files = split_data_by_groups(
+            file_list=all_files,
+            train_ratio=0.8,
+            val_ratio=0.1,
+            seed=seed
+        )
+    else:
+        print("Using custom test_files")
+        test_files = custom_test_files
+    
 
     print(f"Test files: {len(test_files)} files")
 
-    # Создаем dataloader только для теста
-    _, _, test_loader = create_dataloaders(
-        train_files=[],
-        val_files=[],
-        test_files=test_files,
+    # Создаем dataloader только для теста (напрямую, без create_dataloaders)
+    test_dataset = GeologyTrapsDataset(
+        file_list=test_files,
         data_dir=data_dir,
-        batch_size=batch_size,
+        cps_tiles_dir=cps_tiles_dir,
+        augment=False,
         use_faults=use_faults,
-        data_source=data_source,
-        augment_train=False
+        data_source=data_source
+    )
+
+    print(f"Test dataset initialized with {len(test_dataset)} samples")
+
+    if len(test_dataset) == 0:
+        raise ValueError("Test dataset is empty! Check that test files have all required components (rgb, depth_norm, traps).")
+
+    pin_memory_flag = torch.cuda.is_available()
+
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=0,
+        pin_memory=pin_memory_flag,
+        drop_last=False
     )
 
     print("\n[STEP 2] Loading model from checkpoint...")
-    in_channels = 5 if use_faults else 4
+    in_channels = settings.IN_CHANNELS
     model = load_unetplusplus(
         in_channels=in_channels,
         classes=1,
-        encoder_name='resnet34',
+        encoder_name=settings.ENCODER_NAME,
         encoder_weights=None,  # Не загружаем веса энкодера
         device=device
     )
@@ -182,11 +213,13 @@ def evaluate_all_test_samples(
     all_masks = torch.cat(all_masks, dim=0) if all_masks else None
 
     aggregated_metrics = metrics_calc.compute_all(all_preds, all_targets, all_masks)
-    aggregated_metrics['loss'] = None 
+    aggregated_metrics['loss'] = None
 
     print("\n[STEP 5] Saving visualizations for each test sample...")
 
     test_loader.dataset.augment = False
+
+    metrics_by_sample = {r['sample_name']: r for r in per_sample_results}
 
     with torch.no_grad():
         pbar = tqdm(test_loader, desc='Saving visualizations')
@@ -194,18 +227,18 @@ def evaluate_all_test_samples(
             x = batch['x'].to(device)
             predictions = model(x)
 
-            # Передаем все индексы семплов из текущего батча
-            sample_indices = list(range(x.shape[0]))
+            # Получаем реальные индексы семплов из батча
+            real_sample_indices = batch['sample_idx'].tolist()
 
-            # Визуализируем каждый семпл в батче
-            # Функция сама сохранит изображения в save_viz_dir
+            # Визуализируем каждый семпл в батче, передавая реальные индексы
             visualize_test_results(
                 batch=batch,
                 predictions=predictions.cpu(),
-                sample_indices=sample_indices,
+                sample_indices=real_sample_indices,
                 dataset=test_loader.dataset,
                 save_path=save_viz_dir,
-                alpha=0.4
+                alpha=0.4,
+                metrics_by_sample=metrics_by_sample
             )
 
     print("\n[STEP 6] Saving metrics to JSON...")
@@ -228,7 +261,7 @@ def evaluate_all_test_samples(
         'sample_names': sample_names
     }
 
-    with open(save_metrics_path, 'w', encoding='utf-8') as f:
+    with open(f"{save_metrics_path}/test_metrics.json", 'w', encoding='utf-8') as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
 
     print("\n" + "=" * 80)
@@ -261,39 +294,3 @@ def evaluate_all_test_samples(
     print("=" * 80)
 
     return results
-
-
-if __name__ == '__main__':
-    import argparse
-
-    parser = argparse.ArgumentParser(description='Evaluate trained model on all test samples')
-    parser.add_argument('--checkpoint', type=str, required=True, help='Path to model checkpoint')
-    parser.add_argument('--data-dir', type=str, default=None, help='Path to data directory')
-    parser.add_argument('--use-faults', action='store_true', default=None, help='Use faults as input')
-    parser.add_argument('--data-source', type=str, default=None, choices=['png', 'cps'], help='Data source')
-    parser.add_argument('--batch-size', type=int, default=None, help='Batch size')
-    parser.add_argument('--threshold', type=float, default=None, help='Binary threshold')
-    parser.add_argument('--save-viz-dir', type=str, default=None, help='Directory to save visualizations')
-    parser.add_argument('--save-metrics', type=str, default=None, help='Path to save metrics JSON')
-    parser.add_argument('--seed', type=int, default=None, help='Random seed for data split')
-
-    args = parser.parse_args()
-
-    # Определяем use_faults из названия чекпоинта если не указано
-    use_faults = args.use_faults
-    if use_faults is None:
-        checkpoint_name = os.path.basename(args.checkpoint).lower()
-        use_faults = 'faults' in checkpoint_name and 'no_faults' not in checkpoint_name
-        print(f"Auto-detected use_faults={use_faults} from checkpoint name")
-
-    results = evaluate_all_test_samples(
-        checkpoint_path=args.checkpoint,
-        data_dir=args.data_dir,
-        use_faults=use_faults,
-        data_source=args.data_source,
-        batch_size=args.batch_size,
-        threshold=args.threshold,
-        save_viz_dir=args.save_viz_dir,
-        save_metrics_path=args.save_metrics,
-        seed=args.seed
-    )

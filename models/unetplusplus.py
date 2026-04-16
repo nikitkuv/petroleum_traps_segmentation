@@ -10,7 +10,7 @@ from settings import settings
 def load_unetplusplus(
     in_channels: int = None,
     classes: int = 1,
-    encoder_name: str = 'resnet34',
+    encoder_name: str = settings.ENCODER_NAME,
     encoder_weights: str = 'imagenet',
     activation: str = None,
     device: str = None
@@ -19,7 +19,9 @@ def load_unetplusplus(
     Загружает предобученную модель U-Net++.
     
     Args:
-        in_channels: Количество входных каналов (4 для rgb+depth, 5 для rgb+depth+faults)
+        in_channels: Количество входных каналов:
+            - Для data_source='png': 4 (RGB+depth) или 5 (RGB+depth+faults)
+            - Для data_source='cps_tiles': 5 (RGB+depth+isolines) или 6 (RGB+depth+isolines+faults)
         classes: Количество классов сегментации
         encoder_name: Название энкодера
         encoder_weights: Веса энкодера
@@ -29,7 +31,7 @@ def load_unetplusplus(
     Returns:
         Модель U-Net++
     """
-    in_channels = in_channels or settings.in_channels
+    in_channels = in_channels or settings.IN_CHANNELS
     device = device or settings.DEVICE
     
     model = smp.UnetPlusPlus(
@@ -39,7 +41,8 @@ def load_unetplusplus(
         classes=classes,
         activation=activation,
         decoder_channels=(256, 128, 64, 32, 16),
-        decoder_attention_type=None
+        decoder_attention_type=None,
+        decoder_dropout=settings.DECODER_DROPOUT
     )
     
     # Модифицируем первый слой энкодера если количество каналов не стандартное

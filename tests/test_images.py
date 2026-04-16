@@ -7,10 +7,10 @@ import cv2
 from data.dataset import GeologyTrapsDataset
 from data.dataloaders import (
     get_file_list,
-    collect_samples,
     split_data_by_groups,
     create_dataloaders
 )
+from utils.dataset_utils import collect_samples
 from settings import settings
 
 
@@ -405,8 +405,7 @@ class TestDataLoaderCreation:
             data_dir=sample_data_for_loader,
             batch_size=2,
             use_faults=False,
-            data_source='png',
-            augment_train=False
+            data_source='png'
         )
         
         assert train_loader is not None
@@ -425,8 +424,7 @@ class TestDataLoaderCreation:
             data_dir=sample_data_for_loader,
             batch_size=2,
             use_faults=False,
-            data_source='png',
-            augment_train=False
+            data_source='png'
         )
         
         batch = next(iter(train_loader))
@@ -449,8 +447,7 @@ class TestDataLoaderCreation:
             data_dir=sample_data_for_loader,
             batch_size=1,
             use_faults=False,
-            data_source='png',
-            augment_train=False
+            data_source='png'
         )
         
         batch = next(iter(test_loader))

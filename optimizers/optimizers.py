@@ -60,7 +60,7 @@ def create_optimizer_and_scheduler(
             optimizer,
             T_0=10,
             T_mult=2,
-            eta_min=1e-7
+            eta_min=1e-6
         )
     else:
         scheduler = None

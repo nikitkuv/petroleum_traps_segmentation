@@ -25,10 +25,14 @@ htmlcov/
 .mypy_cache/
 .pytest_cache/
 
-#data/images/
-data/cps/
 data/raw/
-data/images_orig/
+data/cps/
+data/test_cps/
+data/test_cps_visualization/
+data/test_images_cps/
+data/test_images_cps_full/
+
+data/test_dataset_vizualisation/
 prompts/
 logs/
 .ipynb_checkpoints/
