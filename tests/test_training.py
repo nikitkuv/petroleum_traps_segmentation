@@ -18,7 +18,7 @@ class TestModelLoading:
         model = load_unetplusplus(
             in_channels=4,
             classes=1,
-            encoder_name='resnet34',
+            encoder_name=settings.ENCODER_NAME,
             encoder_weights=None,  # Skip imagenet for faster tests
             device='cpu'
         )
@@ -64,7 +64,7 @@ class TestModelLoading:
         model = load_unetplusplus(
             in_channels=4,
             classes=1,
-            encoder_name='resnet34',
+            encoder_name=settings.ENCODER_NAME,
             encoder_weights='imagenet',
             device='cpu'
         )
@@ -268,7 +268,7 @@ class TestOptimizerAndScheduler:
             model=model,
             learning_rate=1e-3,
             weight_decay=1e-4,
-            scheduler_type='reduce_lr_plateau',
+            scheduler_type=settings.SCHEDULER_NAME,
             encoder_lr_multiplier=0.1
         )
         

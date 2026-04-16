@@ -133,7 +133,7 @@ def evaluate_all_test_samples(
     model = load_unetplusplus(
         in_channels=in_channels,
         classes=1,
-        encoder_name='resnet34',
+        encoder_name=settings.ENCODER_NAME,
         encoder_weights=None,  # Не загружаем веса энкодера
         device=device
     )

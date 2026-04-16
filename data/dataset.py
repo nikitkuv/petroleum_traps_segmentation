@@ -3,8 +3,6 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from typing import List, Dict
-import re
-from pathlib import Path
 
 from settings import settings
 from utils.images_utils import (
