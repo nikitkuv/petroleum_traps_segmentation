@@ -81,7 +81,7 @@ def train_with_wandb(
                 'criterion': 'BCE+Dice',
                 'model': 'U-Net++',
                 'encoder': 'ResNet34',
-                'in_channels': settings.in_channels,
+                'in_channels': settings.IN_CHANNELS,
                 'gradient_accumulation_steps': gradient_accumulation_steps
             }
         )
@@ -110,10 +110,12 @@ def train_with_wandb(
         grad_tracker = GradientNormTracker(
             abs_threshold=grad_abs_threshold,
             std_multiplier=grad_std_multiplier,
-            save_dir='./gradient_anomalies/'
+            save_dir=settings.GRAD_ANOMALIES_DIR
         )
         print(f"Gradient anomaly tracking enabled: abs_threshold={grad_abs_threshold}, std_multiplier={grad_std_multiplier}")
     
+    global_step = 0
+
     for epoch in range(n_epochs):
         start_time = time.time()
         
@@ -153,7 +155,7 @@ def train_with_wandb(
                     grad_norm_value = grad_norm.item()
                     
                     # Логгируем в wandb
-                    wandb.log({'grad_norm': grad_norm_value})
+                    wandb.log({'grad_norm': grad_norm_value}, step=global_step)
                     
                     # Проверяем на аномалии
                     if grad_tracker is not None:
@@ -164,7 +166,7 @@ def train_with_wandb(
                             'grad_norm_running_mean': stats['running_mean'],
                             'grad_norm_running_std': stats['running_std'],
                             'grad_norm_threshold': stats['threshold']
-                        })
+                        }, step=global_step)
                         
                         # Если аномалия - сохраняем батч
                         if is_anomaly and save_anomaly_batches and len(grad_tracker.anomalies) <= max_anomalies_to_save:
@@ -183,7 +185,7 @@ def train_with_wandb(
                                 'gradient_anomaly_grad_norm': grad_norm_value,
                                 'gradient_anomaly_batch_idx': batch_idx,
                                 'gradient_anomaly_epoch': epoch
-                            })
+                            }, step=global_step)
                 
                 optimizer.step()
                 optimizer.zero_grad()
@@ -201,6 +203,8 @@ def train_with_wandb(
                 'loss': f'{loss.item() * gradient_accumulation_steps:.4f}',
                 'dice': f'{metrics["dice"]:.4f}'
             })
+
+            global_step += 1
         
         # Средние метрики за эпоху (train)
         avg_train_loss = epoch_train_loss / n_train_batches
@@ -267,7 +271,7 @@ def train_with_wandb(
                 'val_iou': avg_val_iou,
                 'learning_rate': current_lr,
                 'epoch_time': time.time() - start_time
-            })
+            }, step=epoch)
         
         print(f"\nEpoch {epoch+1}/{n_epochs}:")
         print(f" Train: Loss={avg_train_loss:.4f}, Dice={avg_train_dice:.4f}, IoU={avg_train_iou:.4f}")
@@ -302,7 +306,7 @@ def train_with_wandb(
                 'val_dice': avg_val_dice,
                 'val_iou': avg_val_iou,
                 'config': {
-                    'in_channels': settings.in_channels,
+                    'in_channels': settings.IN_CHANNELS,
                     'encoder': 'resnet34',
                     'classes': 1
                 }

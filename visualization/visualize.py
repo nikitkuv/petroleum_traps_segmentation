@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
@@ -9,11 +9,129 @@ import wandb
 from settings import settings
 
 
+def overlay_isolines_on_rgb(
+    rgb_path: str,
+    isolines_path: str,
+    alpha: float = 0.5,
+    save_path: Optional[str] = None,
+    show: bool = True
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Накладывает карту изолиний на RGB карту с прозрачностью.
+
+    Функция загружает RGB карту и карту изолиний (черный фон, белые линии),
+    инвертирует изолинии (фон → белый, линии → черные) и накладывает их
+    на RGB изображение с указанной прозрачностью.
+
+    Args:
+        rgb_path: Путь к файлу RGB карты (например, x_structuralBlackWhite_*.png)
+        isolines_path: Путь к файлу карты изолиний (например, x_isolines_*.png)
+        alpha: Прозрачность наложения изолиний (0.0 - полностью прозрачные, 1.0 - полностью видимые)
+        save_path: Путь для сохранения результата (опционально)
+        show: Если True, отображает результат визуализации
+
+    Returns:
+        Tuple из трех numpy массивов:
+            - rgb_img: Оригинальное RGB изображение (H, W, 3), значения [0, 1]
+            - isolines_img: Инвертированная карта изолиний (H, W), значения [0, 1]
+            - overlay: Результат наложения (H, W, 3), значения [0, 1]
+    """
+    # Загружаем изображения
+    rgb_img = cv2.imread(rgb_path, cv2.IMREAD_COLOR)
+    if rgb_img is None:
+        raise FileNotFoundError(f"Не удалось загрузить RGB изображение: {rgb_path}")
+    rgb_img = cv2.cvtColor(rgb_img, cv2.COLOR_BGR2RGB)
+
+    isolines_img = cv2.imread(isolines_path, cv2.IMREAD_GRAYSCALE)
+    if isolines_img is None:
+        raise FileNotFoundError(f"Не удалось загрузить карту изолиний: {isolines_path}")
+
+    # Проверяем, что изображения имеют одинаковые размеры
+    if rgb_img.shape[:2] != isolines_img.shape:
+        raise ValueError(f"Размеры изображений не совпадают: RGB={rgb_img.shape[:2]}, Isolines={isolines_img.shape}")
+
+    # Нормализуем RGB к [0, 1]
+    rgb_float = rgb_img.astype(np.float32) / 255.0
+
+    # Инвертируем изолинии: черный фон (0) → белый (1), белые линии (255) → черные (0)
+    # Для этого просто инвертируем и нормализуем к [0, 1]
+    isolines_inverted = 1.0 - (isolines_img.astype(np.float32) / 255.0)
+
+    # Создаем маску для линий (где изолинии черные после инверсии, т.е. близки к 0)
+    # isolines_inverted: 1.0 = фон, 0.0 = линии
+    line_mask = 1.0 - isolines_inverted  # Теперь: 1.0 = линии, 0.0 = фон
+
+    # Создаем overlay копию RGB
+    overlay = rgb_float.copy()
+
+    # Затемняем области с линиями
+    # Используем alpha для контроля интенсивности затемнения
+    dark_factor = 0.3  # Коэффициент затемнения для линий
+    for c in range(3):
+        overlay[:, :, c] = rgb_float[:, :, c] * (1.0 - line_mask * alpha * (1.0 - dark_factor))
+
+    # Альтернативный подход: используем cv2.addWeighted для более плавного наложения
+    # Создаем трехканальную версию изолиний
+    isolines_3ch = np.stack([isolines_inverted] * 3, axis=-1)
+
+    # Смешиваем: где линии (темные), там добавляем темный цвет
+    # weighted = img1 * alpha + img2 * (1-alpha) + beta
+    # Мы хотим, чтобы линии были видны как черные поверх RGB
+    blend_mask = line_mask[:, :, np.newaxis]  # (H, W, 1)
+    overlay = rgb_float * (1.0 - blend_mask * alpha) + np.zeros_like(rgb_float) * (blend_mask * alpha)
+
+    # Восстанавливаем фон (белые области изолиний не влияют на RGB)
+    background_mask = isolines_inverted[:, :, np.newaxis]  # (H, W, 1), 1.0 = фон
+    overlay = overlay * (1.0 - background_mask * alpha) + rgb_float * (background_mask * alpha)
+
+    # Упрощенный подход: просто затемняем линии
+    overlay = rgb_float.copy()
+    # Где есть линии (line_mask > 0), затемняем RGB
+    overlay = overlay * (1.0 - line_mask[:, :, np.newaxis] * alpha * 0.7)
+
+    # Ограничиваем значения к [0, 1]
+    overlay = np.clip(overlay, 0, 1)
+
+    # Визуализация
+    if show or save_path:
+        fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+
+        # RGB изображение
+        axes[0].imshow(rgb_float)
+        axes[0].set_title('RGB Map')
+        axes[0].axis('off')
+
+        # Инвертированные изолинии
+        axes[1].imshow(isolines_inverted, cmap='gray')
+        axes[1].set_title('Isolines (Inverted)\n(white background, black lines)')
+        axes[1].axis('off')
+
+        # Результат наложения
+        axes[2].imshow(overlay)
+        axes[2].set_title(f'Overlay\n(alpha={alpha})')
+        axes[2].axis('off')
+
+        plt.tight_layout()
+
+        if save_path:
+            os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else '.', exist_ok=True)
+            plt.savefig(save_path, dpi=150, bbox_inches='tight')
+            print(f"Saved overlay visualization to {save_path}")
+
+        if show:
+            plt.show()
+        else:
+            plt.close()
+
+    return rgb_float, isolines_inverted, overlay
+
+
 def create_prediction_overlay(rgb_img: np.ndarray, pred_traps: np.ndarray, alpha: float = 0.4) -> np.ndarray:
     """
     Создает overlay предсказания на RGB изображение с прозрачностью.
     Черные области (где нет предсказания) не отображаются.
-    Используется серый цвет для наложения.
+    Используется инвертированная карта ловушек (черные ловушки на прозрачном фоне),
+    которые при наложении становятся темно-серыми на RGB изображении.
 
     Args:
         rgb_img: RGB изображение (H, W, 3), значения [0, 1]
@@ -21,13 +139,17 @@ def create_prediction_overlay(rgb_img: np.ndarray, pred_traps: np.ndarray, alpha
         alpha: Прозрачность наложения предсказания
 
     Returns:
-        overlay: Изображение с наложенным предсказанием
+        overlay: Изображение с наложенным предсказанием (ловушки отображаются темно-серым)
     """
     overlay = rgb_img.copy()
 
-    # Создаем серую маску для областей с предсказаниями
-    # Серый цвет: одинаковые значения по всем каналам
-    gray_overlay = np.stack([pred_traps] * 3, axis=-1)
+    # Инвертируем карту ловушек: ловушки становятся черными (0), фон белым (1)
+    # Затем используем это как маску для создания темного overlay
+    inverted_pred = 1.0 - pred_traps
+
+    # Создаем темную маску для областей с предсказаниями
+    # Используем инвертированные значения: где были ловушки (близко к 1), теперь близко к 0 (темный)
+    dark_overlay = np.stack([inverted_pred] * 3, axis=-1)
 
     # Создаем маску для областей с ненулевыми предсказаниями
     mask = pred_traps > 0.01  # Порог для отсечения фона
@@ -37,7 +159,7 @@ def create_prediction_overlay(rgb_img: np.ndarray, pred_traps: np.ndarray, alpha
         overlay[mask] = cv2.addWeighted(
             rgb_img[mask],
             1.0 - alpha,
-            gray_overlay[mask],
+            dark_overlay[mask],
             alpha,
             0
         )
@@ -76,7 +198,7 @@ def visualize_training_results(
     n_samples: int = 4
 ) -> None:
     """
-    Визуализирует результаты обучения: оригинальную RGB карту, y_traps,
+    Визуализирует результаты обучения: оригинальную RGB карту, карту изолиний, y_traps,
     результат модели и карту ошибок.
 
     Args:
@@ -91,16 +213,18 @@ def visualize_training_results(
 
     # Извлекаем данные из батча
     x_rgb = batch['x'][:, :3, :, :]  # Первые 3 канала - RGB
+    x_isolines = batch['x'][:, 4:5, :, :] if batch['x'].shape[1] >= 5 else None  # Канал 4 - изолинии (для cps_tiles)
     y_traps = batch['y']
     mask_map = batch.get('mask_map', None)
+    data_source = batch.get('data_source', 'png')
 
     # Применяем сигмоиду к предсказаниям
     preds_prob = torch.sigmoid(predictions)
 
     n_samples = min(n_samples, x_rgb.shape[0])
 
-    # 5 колонок: RGB, GT, Pred, Overlay, Error Map
-    fig, axes = plt.subplots(n_samples, 5, figsize=(20, 5 * n_samples))
+    # 6 колонок: RGB, Isolines, GT, Pred, Overlay, Error Map
+    fig, axes = plt.subplots(n_samples, 6, figsize=(24, 5 * n_samples))
     if n_samples == 1:
         axes = axes.reshape(1, -1)
 
@@ -133,6 +257,11 @@ def visualize_training_results(
         rgb_img = x_rgb[i].cpu().permute(1, 2, 0).numpy()
         rgb_img = np.clip(rgb_img, 0, 1)
 
+        # Карта изолиний (если доступна)
+        isolines_img = None
+        if x_isolines is not None:
+            isolines_img = x_isolines[i, 0, :, :].cpu().numpy()
+
         # Ground truth traps
         gt_traps = y_traps[i, 0, :, :].cpu().numpy() if y_traps.dim() == 4 else y_traps[i].cpu().numpy()
 
@@ -150,26 +279,35 @@ def visualize_training_results(
 
         # Отображаем
         axes[i, 0].imshow(rgb_img)
-        axes[i, 0].set_title(f'RGB Map (No Isolines)\n{sample_name}')
+        axes[i, 0].set_title(f'RGB Input\n{sample_name}')
         axes[i, 0].axis('off')
 
-        axes[i, 1].imshow(gt_traps, cmap='gray')
-        axes[i, 1].set_title(f'Ground Truth Traps\n({sample_name})')
+        # Карта изолиний
+        if isolines_img is not None:
+            axes[i, 1].imshow(isolines_img, cmap='gray')
+            axes[i, 1].set_title(f'Isolines\n({sample_name})')
+        else:
+            axes[i, 1].text(0.5, 0.5, 'No isolines', ha='center', va='center', transform=axes[i, 1].transAxes)
+            axes[i, 1].set_title(f'Isolines\n({sample_name})')
         axes[i, 1].axis('off')
 
-        axes[i, 2].imshow(pred_traps, cmap='gray')
-        axes[i, 2].set_title(f'Predicted Traps\n({sample_name})')
+        axes[i, 2].imshow(gt_traps, cmap='gray')
+        axes[i, 2].set_title(f'Ground Truth Traps\n({sample_name})')
         axes[i, 2].axis('off')
 
-        axes[i, 3].imshow(overlay)
-        axes[i, 3].set_title(f'Prediction Overlay (Gray)\n({sample_name})')
+        axes[i, 3].imshow(pred_traps, cmap='gray')
+        axes[i, 3].set_title(f'Predicted Traps\n({sample_name})')
         axes[i, 3].axis('off')
 
-        # Визуализация карты ошибок с colormap
-        im_error = axes[i, 4].imshow(error_map, cmap='RdYlBu_r', vmin=0, vmax=1)
-        axes[i, 4].set_title(f'Error Map (|GT - Pred)|\n({sample_name})')
+        axes[i, 4].imshow(overlay)
+        axes[i, 4].set_title(f'Prediction Overlay (Inverted Traps)\n({sample_name})')
         axes[i, 4].axis('off')
-        plt.colorbar(im_error, ax=axes[i, 4], fraction=0.046, pad=0.04)
+
+        # Визуализация карты ошибок с colormap
+        im_error = axes[i, 5].imshow(error_map, cmap='RdYlBu_r', vmin=0, vmax=1)
+        axes[i, 5].set_title(f'Error Map (|GT - Pred)|\n({sample_name})')
+        axes[i, 5].axis('off')
+        plt.colorbar(im_error, ax=axes[i, 5], fraction=0.046, pad=0.04)
 
     plt.tight_layout()
 
@@ -195,10 +333,11 @@ def visualize_test_results(
     sample_indices: List[int],
     dataset=None,
     save_path: str = settings.LOGS_TEST_VIZ_DIR,
-    alpha: float = 0.4
+    alpha: float = 0.4,
+    metrics_by_sample: Dict = None
 ) -> None:
     """
-    Визуализирует результаты на тестовых данных: RGB карту, ground truth,
+    Визуализирует результаты на тестовых данных: RGB карту, карту изолиний, ground truth,
     предсказание модели и карту ошибок (с учетом mask_map).
 
     Args:
@@ -208,28 +347,27 @@ def visualize_test_results(
         dataset: Объект GeologyTrapsDataset для получения имен семплов
         save_path: Путь для сохранения
         alpha: Прозрачность наложения (не используется, оставлен для совместимости)
+        metrics_by_sample: Словарь с метриками по имени семпла для отображения в title
     """
     os.makedirs(save_path, exist_ok=True)
 
     x_rgb = batch['x'][:, :3, :, :]
+    x_isolines = batch['x'][:, 4:5, :, :] if batch['x'].shape[1] >= 5 else None
     y_traps = batch['y']
     mask_map = batch.get('mask_map', None)
     preds_prob = torch.sigmoid(predictions)
 
-    for idx in sample_indices:
-        if idx >= x_rgb.shape[0]:
-            continue
+    # Проходим по каждому индексу в батче (от 0 до batch_size-1)
+    for batch_idx in range(x_rgb.shape[0]):
+        # Получаем реальный индекс семпла из переданного списка
+        real_idx = sample_indices[batch_idx]
 
-        # Получаем имя семпла из датасета если доступен
+        # Получаем имя семпла из датасета используя реальный индекс
         if dataset is not None and hasattr(dataset, 'samples') and isinstance(dataset.samples, list):
-            # samples - это список словарей путей, ключи имеют формат {number}_{name}
-            sample_paths = dataset.samples[idx]
-            # Берем первый ключ (например, 'rgb') и извлекаем имя из пути
+            sample_paths = dataset.samples[real_idx]
             first_path = list(sample_paths.values())[0]
-            # Извлекаем basename без расширения
             from pathlib import Path
             filename = Path(first_path).stem
-            # Паттерн: {number}_{x|y}_{type}_{name}, извлекаем number и name
             import re
             match = re.match(r'^(\d+)_[xy]_[^_]+_(.+)$', filename)
             if match:
@@ -237,51 +375,86 @@ def visualize_test_results(
                 name = match.group(2)
                 sample_name = f"{number}_{name}"
             else:
-                sample_name = f"sample_{idx}"
+                sample_name = f"sample_{real_idx}"
         else:
-            sample_name = f"Test Sample {idx}"
+            sample_name = f"Test Sample {real_idx}"
 
-        rgb_img = x_rgb[idx].cpu().permute(1, 2, 0).numpy()
+        rgb_img = x_rgb[batch_idx].cpu().permute(1, 2, 0).numpy()
         rgb_img = np.clip(rgb_img, 0, 1)
 
-        gt_traps = y_traps[idx, 0, :, :].cpu().numpy() if y_traps.dim() == 4 else y_traps[idx].cpu().numpy()
-        pred_traps = preds_prob[idx, 0, :, :].cpu().detach().numpy()
+        # Карта изолиний (если доступна)
+        isolines_img = None
+        if x_isolines is not None:
+            isolines_img = x_isolines[batch_idx, 0, :, :].cpu().numpy()
+
+        gt_traps = y_traps[batch_idx, 0, :, :].cpu().numpy() if y_traps.dim() == 4 else y_traps[batch_idx].cpu().numpy()
+        pred_traps = preds_prob[batch_idx, 0, :, :].cpu().detach().numpy()
+
+        # Получаем метрики для этого семпла если доступны
+        metrics = None
+        if metrics_by_sample is not None:
+            metrics = metrics_by_sample.get(sample_name, None)
 
         # Карта ошибок (с учетом mask_map если есть)
         map_mask_np = None
         if mask_map is not None:
-            map_mask_np = mask_map[idx, 0, :, :].cpu().numpy() if mask_map.dim() == 4 else mask_map[idx].cpu().numpy()
+            map_mask_np = mask_map[batch_idx, 0, :, :].cpu().numpy() if mask_map.dim() == 4 else mask_map[batch_idx].cpu().numpy()
         error_map = create_error_map(gt_traps, pred_traps, map_mask=map_mask_np)
 
         # Prediction overlay с серым цветом
         overlay = create_prediction_overlay(rgb_img, pred_traps, alpha=0.4)
 
-        fig, axes = plt.subplots(1, 5, figsize=(20, 5))
+        fig, axes = plt.subplots(1, 6, figsize=(24, 5))
+
+        # Формируем title с метриками если они есть
+        if metrics is not None:
+            rgb_title = f"RGB Input\n{sample_name}\nDice={metrics['dice']:.3f}, IoU={metrics['iou']:.3f}"
+            isolines_title = f"Isolines\nDice={metrics['dice']:.3f}, IoU={metrics['iou']:.3f}"
+            gt_title = f"Ground Truth Traps\nDice={metrics['dice']:.3f}, IoU={metrics['iou']:.3f}"
+            pred_title = f"Predicted Traps\nDice={metrics['dice']:.3f}, IoU={metrics['iou']:.3f}"
+            overlay_title = f"Prediction Overlay\nDice={metrics['dice']:.3f}, IoU={metrics['iou']:.3f}"
+            error_title = f"Error Map (|GT - Pred)|\nDice={metrics['dice']:.3f}, IoU={metrics['iou']:.3f}"
+        else:
+            rgb_title = f'RGB Input\n{sample_name}'
+            isolines_title = f'Isolines\n({sample_name})'
+            gt_title = f'Ground Truth Traps\n({sample_name})'
+            pred_title = f'Predicted Traps\n({sample_name})'
+            overlay_title = f'Prediction Overlay (Inverted Traps)\n({sample_name})'
+            error_title = f'Error Map (|GT - Pred)|\n({sample_name})'
 
         axes[0].imshow(rgb_img)
-        axes[0].set_title(f'RGB Map (No Isolines)\n{sample_name}')
+        axes[0].set_title(rgb_title)
         axes[0].axis('off')
 
-        axes[1].imshow(gt_traps, cmap='gray')
-        axes[1].set_title(f'Ground Truth Traps\n({sample_name})')
+        # Карта изолиний
+        if isolines_img is not None:
+            axes[1].imshow(isolines_img, cmap='gray')
+            axes[1].set_title(isolines_title)
+        else:
+            axes[1].text(0.5, 0.5, 'No isolines', ha='center', va='center', transform=axes[1].transAxes)
+            axes[1].set_title(isolines_title)
         axes[1].axis('off')
 
-        axes[2].imshow(pred_traps, cmap='gray')
-        axes[2].set_title(f'Predicted Traps\n({sample_name})')
+        axes[2].imshow(gt_traps, cmap='gray')
+        axes[2].set_title(gt_title)
         axes[2].axis('off')
 
-        axes[3].imshow(overlay)
-        axes[3].set_title(f'Prediction Overlay (Gray)\n({sample_name})')
+        axes[3].imshow(pred_traps, cmap='gray')
+        axes[3].set_title(pred_title)
         axes[3].axis('off')
 
-        im_error = axes[4].imshow(error_map, cmap='RdYlBu_r', vmin=0, vmax=1)
-        axes[4].set_title(f'Error Map (|GT - Pred)|\n({sample_name})')
+        axes[4].imshow(overlay)
+        axes[4].set_title(overlay_title)
         axes[4].axis('off')
-        plt.colorbar(im_error, ax=axes[4], fraction=0.046, pad=0.04)
+
+        im_error = axes[5].imshow(error_map, cmap='RdYlBu_r', vmin=0, vmax=1)
+        axes[5].set_title(error_title)
+        axes[5].axis('off')
+        plt.colorbar(im_error, ax=axes[5], fraction=0.046, pad=0.04)
 
         plt.tight_layout()
 
-        filename = f'test_sample_{idx:03d}_results.png'
+        filename = f'{sample_name}_results.png'
         filepath = os.path.join(save_path, filename)
         plt.savefig(filepath, dpi=150, bbox_inches='tight')
         plt.close()
@@ -290,111 +463,5 @@ def visualize_test_results(
 
         if wandb.run is not None:
             wandb.log({
-                f'test_visualization_sample_{idx}': wandb.Image(filepath)
+                f'test_visualization_{sample_name}': wandb.Image(filepath)
             })
-
-
-def visualize_comparison_grid(
-    batches: List[Dict[str, torch.Tensor]],
-    all_predictions: List[torch.Tensor],
-    epochs: List[int],
-    dataset=None,
-    save_path: str = './logs/comparison_grid/',
-    n_samples: int = 2
-) -> None:
-    """
-    Визуализирует сравнение предсказаний модели на разных эпохах обучения.
-    Полезно для отслеживания прогресса обучения.
-
-    Args:
-        batches: Список батчей с разных эпох
-        all_predictions: Список предсказаний с разных эпох
-        epochs: Список номеров эпох
-        dataset: Объект GeologyTrapsDataset для получения имен семплов
-        save_path: Путь для сохранения
-        n_samples: Количество семплов для визуализации
-    """
-    os.makedirs(save_path, exist_ok=True)
-
-    n_epochs = len(epochs)
-    n_cols = n_epochs + 2  # RGB, GT, + predictions для каждой эпохи
-
-    fig, axes = plt.subplots(n_samples, n_cols, figsize=(5 * n_cols, 5 * n_samples))
-    if n_samples == 1:
-        axes = axes.reshape(1, -1)
-
-    for i in range(n_samples):
-        # Получаем имя семпла из датасета если доступен
-        if dataset is not None and hasattr(dataset, 'samples') and isinstance(dataset.samples, list):
-            sample_idx = batches[0]['sample_idx'][i].item() if 'sample_idx' in batches[0] else i
-            # samples - это список словарей путей, ключи имеют формат {number}_{name}
-            sample_paths = dataset.samples[sample_idx]
-            # Берем первый ключ (например, 'rgb') и извлекаем имя из пути
-            first_path = list(sample_paths.values())[0]
-            # Извлекаем basename без расширения
-            from pathlib import Path
-            filename = Path(first_path).stem
-            # Паттерн: {number}_{x|y}_{type}_{name}, извлекаем number и name
-            import re
-            match = re.match(r'^(\d+)_[xy]_[^_]+_(.+)$', filename)
-            if match:
-                number = match.group(1)
-                name = match.group(2)
-                sample_name = f"{number}_{name}"
-            else:
-                sample_name = f"sample_{sample_idx}"
-        else:
-            sample_name = f"Sample {i}"
-
-        # Берем первый батч для RGB и GT (предполагаем одинаковые данные)
-        x_rgb = batches[0]['x'][:, :3, :, :]
-        y_traps = batches[0]['y']
-
-        rgb_img = x_rgb[i].cpu().permute(1, 2, 0).numpy()
-        rgb_img = np.clip(rgb_img, 0, 1)
-
-        gt_traps = y_traps[i, 0, :, :].cpu().numpy() if y_traps.dim() == 4 else y_traps[i].cpu().numpy()
-
-        # RGB
-        axes[i, 0].imshow(rgb_img)
-        axes[i, 0].set_title(f'RGB Map\n{sample_name}')
-        axes[i, 0].axis('off')
-
-        # GT
-        axes[i, 1].imshow(gt_traps, cmap='gray')
-        axes[i, 1].set_title(f'Ground Truth\n({sample_name})')
-        axes[i, 1].axis('off')
-
-        # Predictions для каждой эпохи
-        for j, (pred, epoch) in enumerate(zip(all_predictions, epochs)):
-            preds_prob = torch.sigmoid(pred)
-            pred_traps = preds_prob[i, 0, :, :].cpu().detach().numpy()
-
-            axes[i, j + 2].imshow(pred_traps, cmap='gray')
-
-            # Вычисляем IoU для этой эпохи
-            pred_binary = (pred_traps >= 0.5).astype(np.float32)
-            gt_binary = (gt_traps >= 0.5).astype(np.float32)
-            tp = np.sum((gt_binary == 1) & (pred_binary == 1))
-            fp = np.sum((gt_binary == 0) & (pred_binary == 1))
-            fn = np.sum((gt_binary == 1) & (pred_binary == 0))
-            iou = tp / (tp + fp + fn) if (tp + fp + fn) > 0 else 0
-
-            axes[i, j + 2].set_title(f'Epoch {epoch}\nIoU={iou:.3f}\n({sample_name})')
-            axes[i, j + 2].axis('off')
-
-    plt.tight_layout()
-
-    filename = f'comparison_epochs_{"_".join(map(str, epochs))}.png'
-    filepath = os.path.join(save_path, filename)
-    plt.savefig(filepath, dpi=150, bbox_inches='tight')
-    plt.close()
-
-    print(f"Saved comparison grid to {filepath}")
-
-    if wandb.run is not None:
-        wandb.log({
-            'comparison_grid': wandb.Image(filepath),
-            'epochs_compared': epochs
-        })
-        

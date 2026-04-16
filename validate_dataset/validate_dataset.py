@@ -25,18 +25,9 @@ class DatasetValidator:
     def scan_directory(self) -> List[str]:
         """Сканирует директорию и находит все файлы."""
         
-        if self.data_source == 'cps':
-            # CPS: ищем файлы без расширения или .cps
-            data_path = Path(self.data_dir)
-            files = []
-            for ext in ['*.cps', '*.grd', '*']:
-                files.extend([f.name.replace('.cps', '').replace('.grd', '') 
-                            for f in data_path.glob(ext) if f.is_file()])
-            files = sorted(list(set(files)))
-        else:
-            # PNG: ищем только .png
-            data_path = Path(self.data_dir)
-            files = sorted([f.name for f in data_path.glob("*.png")])
+        # PNG: ищем только .png
+        data_path = Path(self.data_dir)
+        files = sorted([f.name for f in data_path.glob("*.png")])
         
         print(f"Found {len(files)} files in {self.data_dir}")
         
@@ -166,7 +157,14 @@ class DatasetValidator:
         print("\n VALIDATING EACH SAMPLE:")
         print("-" * 70)
         
-        expected_channels = 5 if use_faults else 4
+        # Определяем ожидаемое количество каналов в зависимости от источника данных и use_faults
+        if settings.DATA_SOURCE == 'cps_tiles':
+            # Для cps_tiles: RGB (3) + depth (1) + isolines (1) + faults (1 если use_faults) = 5 или 6
+            expected_channels = 6 if use_faults else 5
+        else:
+            # Для png: RGB (3) + depth (1) + faults (1 если use_faults) = 4 или 5
+            expected_channels = 5 if use_faults else 4
+
         successful_samples = 0
         failed_samples = 0
         channel_mismatches = 0
@@ -241,11 +239,12 @@ class DatasetValidator:
         
         try:
             pin_memory_flag = torch.cuda.is_available()
+            num_workers = min(settings.NUM_WORKERS, 0) if not torch.cuda.is_available() else settings.NUM_WORKERS
             loader = DataLoader(
                 dataset,
                 batch_size=settings.BATCH_SIZE,
                 shuffle=False,
-                num_workers=settings.NUM_WORKERS,
+                num_workers=num_workers,
                 pin_memory=pin_memory_flag
             )
             
@@ -340,8 +339,16 @@ def main():
     # Создание директорий
     settings.create_dirs()
     
+    # Выбор директории и списка файлов в зависимости от источника данных
+    if settings.DATA_SOURCE == 'cps_tiles':
+        data_dir = settings.CPS_TILES_DIR
+        print(f"Using CPS tiles data directory: {data_dir}")
+    else:
+        data_dir = settings.DATA_DIR
+        print(f"Using PNG data directory: {data_dir}")
+    
     # Сканирование директории
-    validator = DatasetValidator(file_list=[], data_dir=settings.DATA_DIR)
+    validator = DatasetValidator(file_list=[], data_dir=data_dir)
     all_files = validator.scan_directory()
     
     if len(all_files) == 0:
@@ -371,7 +378,7 @@ def main():
         print("MODE 2: VALIDATION WITH FAULTS (use_faults=True)")
         print("=" * 70)
         settings.USE_FAULTS = True
-        validator_with_faults = DatasetValidator(file_list=all_files, data_dir=settings.DATA_DIR)
+        validator_with_faults = DatasetValidator(file_list=all_files, data_dir=data_dir)
         result_with_faults = validator_with_faults.validate_dataset(use_faults=True)
     else:
         result_with_faults = None
