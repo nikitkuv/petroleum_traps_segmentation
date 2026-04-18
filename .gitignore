@@ -27,6 +27,7 @@ htmlcov/
 
 data/raw/
 data/cps/
+data/cps_test/
 data/test_cps/
 data/test_cps_visualization/
 data/test_images_cps/

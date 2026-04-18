@@ -11,9 +11,6 @@ from utils.cps_utils import (
 from settings import settings
 
 
-CREATE_TILES: bool = True
-
-
 def main():
     cps_dir = settings.CPS_SOURCE_DIR
     full_images_dir = settings.CPS_FULL_DIR
@@ -49,19 +46,15 @@ def main():
     print("Step 2: Converting CPS to PNG and saving large images...")
     images_data = save_large_images(horizons, full_images_dir)
 
-    if CREATE_TILES:
-        # Разбиваем на тайлы
-        print("\n" + "=" * 60)
-        print("Step 3: Splitting large images into tiles...")
-        saved_files = split_into_tiles(images_data, tiles_dir)
+    # Разбиваем на тайлы
+    print("\n" + "=" * 60)
+    print("Step 3: Splitting large images into tiles...")
+    saved_files = split_into_tiles(images_data, tiles_dir)
 
-        print("\n" + "=" * 60)
-        print("Done!")
-        print(f"Saved {len(saved_files)} tile files to {tiles_dir}")
-        print("=" * 60)
-    else:
-        print("\n" + "=" * 60)
-        print("Step 3: Skip tiles")
+    print("\n" + "=" * 60)
+    print("Done!")
+    print(f"Saved {len(saved_files)} tile files to {tiles_dir}")
+    print("=" * 60)
 
 
 if __name__ == '__main__':
