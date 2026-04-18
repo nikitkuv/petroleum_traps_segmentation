@@ -398,7 +398,9 @@ def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
                      output_dir: str,
                      tile_width: int = None,
                      tile_height: int = None,
-                     overlap_ratio: float = None) -> List[str]:
+                     overlap_ratio: float = None,
+                     min_traps_pixels: int = None,
+) -> List[str]:
     """
     Разбивает большие изображения на тайлы с перекрытием.
 
@@ -418,6 +420,7 @@ def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
     tile_width = tile_width or settings.TARGET_WIDTH
     tile_height = tile_height or settings.TARGET_HEIGHT
     overlap_ratio = overlap_ratio if overlap_ratio is not None else settings.TILE_OVERLAP_RATIO
+    min_traps_pixels = min_traps_pixels if min_traps_pixels is not None else settings.MIN_NUM_PIXS_OF_TRAPS_IN_TILES
 
     # Вычисляем stride (шаг) с учетом перекрытия
     stride_h = int(tile_height * (1 - overlap_ratio))
@@ -430,6 +433,7 @@ def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     saved_files = []
+    skipped_tiles = 0 # Счетчик пропущенных пустых тайлов
 
     for horizon_name, images in images_data.items():
         print(f"\nSplitting horizon {horizon_name} into tiles ({tile_width}x{tile_height}, overlap={overlap_ratio*100:.0f}%)...")
@@ -456,8 +460,13 @@ def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
         print(f"  Image size: {h}x{w}")
         print(f"  Stride: {stride_h}x{stride_w}")
 
-        # Если изображение меньше или равно размеру тайла, сохраняем его как один тайл с паддингом
         if h <= tile_height and w <= tile_width:
+            # Проверяем, есть ли достаточное количество ловушек на ВСЕЙ карте
+            if traps_img is not None and np.sum(traps_img > 128) < min_traps_pixels:
+                print(f"  Skipping horizon {horizon_name}: not enough trap pixels ({np.sum(traps_img > 128)} < {min_traps_pixels})")
+                skipped_tiles += 1
+                continue # Пропускаем ВЕСЬ горизонт (все его каналы)
+
             tile_index = 1
             tile_prefix = f"{tile_index:03d}_"
 
@@ -482,6 +491,7 @@ def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
                 save_png(tile_iso, iso_tile_path)
                 saved_files.append(iso_tile_path)
 
+            # Сохраняем traps тайл
             if traps_img is not None:
                 tile_traps = pad_image(traps_img, tile_height, tile_width)
                 traps_tile_path = os.path.join(output_dir, f'{tile_prefix}y_traps_{horizon_name}.png')
@@ -502,14 +512,12 @@ def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
         if (n_tiles_w - 1) * stride_w + tile_width < w:
             n_tiles_w += 1
 
-        print(f"  Number of tiles: {n_tiles_h} x {n_tiles_w} = {n_tiles_h * n_tiles_w}")
+        print(f"  Number of potential tiles: {n_tiles_h} x {n_tiles_w} = {n_tiles_h * n_tiles_w}")
 
-        tile_index = 0
+        saved_tile_count = 0
 
         for row in range(n_tiles_h):
             for col in range(n_tiles_w):
-                tile_index += 1
-
                 # Вычисляем координаты с учетом stride
                 y_start = row * stride_h
                 x_start = col * stride_w
@@ -524,12 +532,22 @@ def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
                 if x_end == w:
                     x_start = max(0, x_end - tile_width)
 
-                tile_prefix = f"{tile_index:03d}_"
+                # ВАЖНО: Сначала проверяем ловушки, и только потом решаем сохранять ли тайл
+                if traps_img is not None:
+                    tile_traps_raw = traps_img[y_start:y_end, x_start:x_end]
+                    
+                    # Если ловушек в тайле меньше порога - пропускаем ВЕСЬ тайл (все каналы)
+                    if np.sum(tile_traps_raw > 128) < min_traps_pixels:
+                        skipped_tiles += 1
+                        continue
+
+                # Генерируем префикс только если тайл прошел проверку
+                saved_tile_count += 1
+                tile_prefix = f"{saved_tile_count:03d}_"
 
                 # Сохраняем rgb тайл
                 if rgb_img is not None:
                     tile_rgb = rgb_img[y_start:y_end, x_start:x_end]
-                    # Паддинг если нужно (для краевых тайлов)
                     tile_rgb = pad_image(tile_rgb, tile_height, tile_width)
                     rgb_tile_path = os.path.join(output_dir, f'{tile_prefix}x_structuralNOisoline_{horizon_name}.png')
                     save_png(tile_rgb, rgb_tile_path)
@@ -543,7 +561,7 @@ def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
                     save_png(tile_gray, gray_tile_path)
                     saved_files.append(gray_tile_path)
 
-                # НОВОЕ: Сохраняем isolines тайл
+                # Сохраняем isolines тайл
                 if isolines_img is not None:
                     tile_iso = isolines_img[y_start:y_end, x_start:x_end]
                     tile_iso = pad_image(tile_iso, tile_height, tile_width)
@@ -551,13 +569,14 @@ def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
                     save_png(tile_iso, iso_tile_path)
                     saved_files.append(iso_tile_path)
 
+                # Сохраняем traps тайл
                 if traps_img is not None:
-                    tile_traps = traps_img[y_start:y_end, x_start:x_end]
-                    tile_traps = pad_image(tile_traps, tile_height, tile_width)
+                    tile_traps = pad_image(tile_traps_raw, tile_height, tile_width) # Используем уже нарезанный кусок
                     traps_tile_path = os.path.join(output_dir, f'{tile_prefix}y_traps_{horizon_name}.png')
                     save_png(tile_traps, traps_tile_path)
                     saved_files.append(traps_tile_path)
 
-        print(f"  Created {tile_index} tile sets for horizon {horizon_name}")
+        print(f"  Created {saved_tile_count} tile sets for horizon {horizon_name} (skipped {n_tiles_h * n_tiles_w - saved_tile_count} empty tiles)")
 
+    print(f"\nTotal skipped empty tiles across all horizons: {skipped_tiles}")
     return saved_files
