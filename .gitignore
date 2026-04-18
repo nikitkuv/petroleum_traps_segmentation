@@ -27,11 +27,10 @@ htmlcov/
 
 data/raw/
 data/cps/
-data/cps_test/
-data/test_cps/
+data/Tcps/
 data/test_cps_visualization/
-data/test_images_cps/
-data/test_images_cps_full/
+data/Timages_cps/
+data/Timages_cps_full/
 
 data/test_dataset_vizualisation/
 prompts/
