@@ -313,7 +313,7 @@ def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str, isol
             images_data[horizon_name]['rgb'] = rgb_img
 
             # Конвертируем в grayscale (для depth_norm)
-            gray_img = cps_to_grayscale(grid, invert=True)
+            gray_img = cps_to_grayscale(grid, invert=False)
             # Поворачиваем на 180 градусов
             gray_img = np.rot90(gray_img, k=2)
             gray_path = os.path.join(output_dir, f'x_structuralBlackWhite_{horizon_name}.png')
