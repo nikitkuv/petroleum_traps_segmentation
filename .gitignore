@@ -27,12 +27,20 @@ htmlcov/
 
 data/raw/
 data/cps/
-data/Tcps/
+
 data/test_cps_visualization/
+data/test_dataset_vizualisation/
+
+data/Tcps/
 data/Timages_cps/
 data/Timages_cps_full/
+data/Tcps1/
+data/Timages_cps1/
+data/Timages_cps_full1/
+data/cps1/
+data/images_cps1/
+data/images_cps_full1/
 
-data/test_dataset_vizualisation/
 prompts/
 logs/
 .ipynb_checkpoints/
