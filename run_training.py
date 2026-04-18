@@ -2,7 +2,7 @@ from training.pipeline import run_full_pipeline
 from settings import settings
 
 
-model_name = f'{settings.DATA_SOURCE}_{"faults" if settings.USE_FAULTS else "no_faults"}_epochs-{settings.NUM_EPOCHS}_lr-{settings.LEARNING_RATE}_bs-{settings.BATCH_SIZE}'
+model_name = f'{settings.DATA_SOURCE}_{settings.TARGET_HEIGHT}x{settings.TARGET_WIDTH}_{"faults" if settings.USE_FAULTS else "no_faults"}_e-{settings.NUM_EPOCHS}_bs-{settings.BATCH_SIZE}_lr-{settings.LEARNING_RATE}({settings.ENCODER_LR_MULTIPLIER})_wd-{settings.WEIGHT_DECAY}'
 
 test_metrics = run_full_pipeline(
     data_dir=settings.DATA_DIR,

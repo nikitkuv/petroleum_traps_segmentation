@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     @property
     def TARGET_HEIGHT(self) -> int:
         if self.DATA_SOURCE == "cps_tiles":
-            return 864
+            return 640
         return 1248
 
     @computed_field
@@ -65,6 +65,7 @@ class Settings(BaseSettings):
 
     # CPS настройки
     TILE_OVERLAP_RATIO: float = 0.25
+    MIN_NUM_PIXS_OF_TRAPS_IN_TILES: int = 100
     CPS_NULL_VALUE: float = -999.0
     CPS_VERTICAL_FLIP: bool = False
 
