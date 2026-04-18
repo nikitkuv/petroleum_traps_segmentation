@@ -580,3 +580,60 @@ def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
 
     print(f"\nTotal skipped empty tiles across all horizons: {skipped_tiles}")
     return saved_files
+
+
+def load_existing_images(horizons: Dict[str, Dict[str, str]], full_images_dir: str) -> Dict[str, Dict[str, np.ndarray]]:
+    """
+    Загружает существующие полные изображения из директории.
+
+    Используется для режима --only-split, когда большие изображения уже были сохранены ранее.
+
+    Args:
+        horizons: Словарь горизонтов от find_cps_files
+        full_images_dir: Директория с полными изображениями
+
+    Returns:
+        Dict[horizon_name] -> {
+            'rgb': RGB image array,
+            'grayscale': grayscale image array,
+            'isolines': isolines image array,
+            'traps': traps image array
+        }
+    """
+    from PIL import Image
+
+    images_data = {}
+
+    for horizon_name, files in horizons.items():
+        print(f"  Loading existing images for horizon: {horizon_name}")
+        images_data[horizon_name] = {}
+
+        # Загружаем structural/RGB изображение
+        rgb_path = os.path.join(full_images_dir, f'x_structuralNOisoline_{horizon_name}.png')
+        if os.path.exists(rgb_path):
+            img = np.array(Image.open(rgb_path))
+            images_data[horizon_name]['rgb'] = img
+            print(f"    Loaded RGB: {rgb_path} (shape={img.shape})")
+
+        # Загружаем grayscale изображение
+        gray_path = os.path.join(full_images_dir, f'x_structuralBlackWhite_{horizon_name}.png')
+        if os.path.exists(gray_path):
+            img = np.array(Image.open(gray_path))
+            images_data[horizon_name]['grayscale'] = img
+            print(f"    Loaded Grayscale: {gray_path} (shape={img.shape})")
+
+        # Загружаем isolines изображение
+        isolines_path = os.path.join(full_images_dir, f'x_isolines_{horizon_name}.png')
+        if os.path.exists(isolines_path):
+            img = np.array(Image.open(isolines_path))
+            images_data[horizon_name]['isolines'] = img
+            print(f"    Loaded Isolines: {isolines_path} (shape={img.shape})")
+
+        # Загружаем traps изображение
+        traps_path = os.path.join(full_images_dir, f'y_traps_{horizon_name}.png')
+        if os.path.exists(traps_path):
+            img = np.array(Image.open(traps_path))
+            images_data[horizon_name]['traps'] = img
+            print(f"    Loaded Traps: {traps_path} (shape={img.shape})")
+
+    return images_data
