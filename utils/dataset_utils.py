@@ -83,6 +83,8 @@ def collect_samples(file_list: List[str]) -> Dict[str, Dict[str, str]]:
                 samples[key]['depth_norm'] = filename
             elif file_type == 'isolines':
                 samples[key]['isolines'] = filename
+            elif file_type == 'closedIsolines': 
+                samples[key]['closed_isolines'] = filename
             elif file_type == 'faults':
                 samples[key]['faults'] = filename
         elif role == 'y':
@@ -114,6 +116,12 @@ def load_maps_into_ndarray(
         # Создаем пустую маску (все черное = 0) если изолиний нет (нет сигнала)
         isolines_img = np.zeros_like(depth_img, dtype=np.uint8)
     
+    # Загружаем замкнутые изолинины
+    if data_source == 'cps_tiles' and 'closed_isolines' in sample_paths:
+        closed_isolines_img = load_grayscale_image(sample_paths['closed_isolines'])
+    else:
+        closed_isolines_img = np.zeros_like(depth_img, dtype=np.uint8)
+    
     if use_faults and 'faults' in sample_paths:
         faults_img = load_grayscale_image(sample_paths['faults'])
         fault_mask = create_binary_mask(faults_img, invert=False, data_source=data_source)
@@ -122,4 +130,4 @@ def load_maps_into_ndarray(
     
     trap_mask = create_binary_mask(traps_img, invert=False, data_source=data_source)
 
-    return rgb_img, depth_img, isolines_img, trap_mask, fault_mask
+    return rgb_img, depth_img, isolines_img, closed_isolines_img, trap_mask, fault_mask

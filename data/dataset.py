@@ -58,8 +58,8 @@ class GeologyTrapsDataset(Dataset):
         
         # Информация о требуемых файлах
         if self.data_source == 'cps_tiles':
-            n_files = 5 if self.use_faults else 4
-            print(f"Required files per sample: {n_files} (rgb, depth_norm, isolines, [faults], traps)")
+            n_files = 6 if self.use_faults else 5
+            print(f"Required files per sample: {n_files} (rgb, depth_norm, isolines, closedIsolines, [faults], traps)")
         else:
             print(f"Required files per sample: 4 (rgb, depth_norm, [faults], traps)")
 
@@ -119,6 +119,7 @@ class GeologyTrapsDataset(Dataset):
 
             if self.data_source == 'cps_tiles':
                 required_keys.append('isolines')
+                required_keys.append('closed_isolines')
 
             if self.use_faults:
                 required_keys.append('faults')
@@ -147,7 +148,7 @@ class GeologyTrapsDataset(Dataset):
         if self.data_source == 'cps_tiles':
             # CPS tiles режим (PNG файлы из images_cps/)
             # Работаем как с обычными PNG, но используем путь к cps_tiles_dir
-            rgb_img, depth_img, isolines_img, trap_mask, fault_mask = load_maps_into_ndarray(
+            rgb_img, depth_img, isolines_img, closed_isolines_img, trap_mask, fault_mask = load_maps_into_ndarray(
                 sample_paths=sample_paths, 
                 use_faults=self.use_faults, 
                 data_source=self.data_source
@@ -179,11 +180,13 @@ class GeologyTrapsDataset(Dataset):
         rgb_norm = rgb_img.astype(np.float32) / 255.0
         depth_norm = depth_img.astype(np.float32) / 255.0
         isolines_norm = isolines_img.astype(np.float32) / 255.0
+        closed_isolines_norm = closed_isolines_img.astype(np.float32) / 255.0
         
         # Паддинг
         rgb_padded = pad_image(rgb_norm, self.target_h, self.target_w)
         depth_padded = pad_image(depth_norm, self.target_h, self.target_w)
         isolines_padded = pad_image(isolines_norm, self.target_h, self.target_w)
+        closed_isolines_padded = pad_image(closed_isolines_norm, self.target_h, self.target_w)
         fault_mask_padded = pad_image(fault_mask, self.target_h, self.target_w)
         trap_mask_padded = pad_image(trap_mask, self.target_h, self.target_w)
         depth_mask_padded = pad_image(depth_mask, self.target_h, self.target_w)
@@ -194,6 +197,7 @@ class GeologyTrapsDataset(Dataset):
             image=rgb_padded,
             depth=depth_padded,
             isolines=isolines_padded,
+            closed_isolines=closed_isolines_padded,
             faults=fault_mask_padded,
             traps=trap_mask_padded,
             mask_depth=depth_mask_padded,
@@ -204,6 +208,7 @@ class GeologyTrapsDataset(Dataset):
         x_rgb = augmented['image']           # (3, H, W)
         x_depth = augmented['depth']         # (H, W) или (1, H, W)
         x_isolines = augmented['isolines']   # (H, W) или (1, H, W)
+        x_closed_isolines = augmented['closed_isolines']
         x_faults = augmented['faults']       # (H, W)
         
         y_traps = augmented['traps']         # (H, W)
@@ -215,6 +220,8 @@ class GeologyTrapsDataset(Dataset):
             x_depth = x_depth.unsqueeze(0)
         if x_isolines.dim() == 2:
             x_isolines = x_isolines.unsqueeze(0)
+        if x_closed_isolines.dim() == 2:              
+            x_closed_isolines = x_closed_isolines.unsqueeze(0) 
         if x_faults.dim() == 2:
             x_faults = x_faults.unsqueeze(0)
         if y_traps.dim() == 2:
@@ -229,9 +236,11 @@ class GeologyTrapsDataset(Dataset):
         # Для png: RGB (3) + depth (1) + faults (опционально 1), isolines не используется (белая маска)
         if self.data_source == 'cps_tiles':
             if self.use_faults:
-                x_in = torch.cat([x_rgb, x_depth, x_isolines, x_faults], dim=0)  # (6, H, W)
+                # 7 каналов: RGB(3) + Depth(1) + Isolines(1) + ClosedIso(1) + Faults(1)
+                x_in = torch.cat([x_rgb, x_depth, x_isolines, x_closed_isolines, x_faults], dim=0)  # (7, H, W)
             else:
-                x_in = torch.cat([x_rgb, x_depth, x_isolines], dim=0)            # (5, H, W)
+                # 6 каналов: RGB(3) + Depth(1) + Isolines(1) + ClosedIso(1)
+                x_in = torch.cat([x_rgb, x_depth, x_isolines, x_closed_isolines], dim=0)            # (6, H, W)
         else:
             # Для png isolines не добавляем (используется белая маска, которая не несёт информации)
             if self.use_faults:

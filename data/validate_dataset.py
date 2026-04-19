@@ -61,6 +61,10 @@ class DatasetValidator:
                     analysis['file_types']['depth_norm'] += 1
                 elif 'structuralNOisoline' in subtype:
                     analysis['file_types']['rgb'] += 1
+                elif 'closedIsolines' in subtype:
+                    analysis['file_types']['closedIsolines'] += 1
+                elif 'isolines' in subtype:
+                    analysis['file_types']['isolines'] += 1
                 elif 'traps' in subtype:
                     analysis['file_types']['traps'] += 1
         
@@ -159,8 +163,8 @@ class DatasetValidator:
         
         # Определяем ожидаемое количество каналов в зависимости от источника данных и use_faults
         if settings.DATA_SOURCE == 'cps_tiles':
-            # Для cps_tiles: RGB (3) + depth (1) + isolines (1) + faults (1 если use_faults) = 5 или 6
-            expected_channels = 6 if use_faults else 5
+            # Для cps_tiles: RGB (3) + depth (1) + isolines (1) + closedIsolines (1) + faults (1 если use_faults) = 6 или 7
+            expected_channels = 7 if use_faults else 6
         else:
             # Для png: RGB (3) + depth (1) + faults (1 если use_faults) = 4 или 5
             expected_channels = 5 if use_faults else 4
@@ -415,3 +419,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
