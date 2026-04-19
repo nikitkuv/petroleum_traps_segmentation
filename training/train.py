@@ -155,7 +155,7 @@ def train_with_wandb(
                     grad_norm_value = grad_norm.item()
                     
                     # Логгируем в wandb
-                    wandb.log({'grad_norm': grad_norm_value}, step=global_step)
+                    wandb.log({'grad_norm': grad_norm_value}, commit=False)
                     
                     # Проверяем на аномалии
                     if grad_tracker is not None:
@@ -166,7 +166,7 @@ def train_with_wandb(
                             'grad_norm_running_mean': stats['running_mean'],
                             'grad_norm_running_std': stats['running_std'],
                             'grad_norm_threshold': stats['threshold']
-                        }, step=global_step)
+                        }, commit=False)
                         
                         # Если аномалия - сохраняем батч
                         if is_anomaly and save_anomaly_batches and len(grad_tracker.anomalies) <= max_anomalies_to_save:
@@ -185,7 +185,7 @@ def train_with_wandb(
                                 'gradient_anomaly_grad_norm': grad_norm_value,
                                 'gradient_anomaly_batch_idx': batch_idx,
                                 'gradient_anomaly_epoch': epoch
-                            }, step=global_step)
+                            }, commit=False)
                 
                 optimizer.step()
                 optimizer.zero_grad()
@@ -271,7 +271,7 @@ def train_with_wandb(
                 'val_iou': avg_val_iou,
                 'learning_rate': current_lr,
                 'epoch_time': time.time() - start_time
-            }, step=epoch)
+            })
         
         print(f"\nEpoch {epoch+1}/{n_epochs}:")
         print(f" Train: Loss={avg_train_loss:.4f}, Dice={avg_train_dice:.4f}, IoU={avg_train_iou:.4f}")

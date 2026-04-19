@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     def IN_CHANNELS(self) -> int:
         channels = 4 # Базовые: RGB (3) + Depth (1)
         if self.DATA_SOURCE == "cps_tiles":
-            channels += 1 # + Изолинии (1)
+            channels += 2 # + Изолинии (1) + Замкнутые изолинии (1)
         if self.USE_FAULTS:
             channels += 1 # + Разломы (1)
         return channels
@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     AUGMENT_PROB: float = 0.5
 
     # CPS настройки
+    CLOSED_ISO_MIN_AREA: int = 25
     TILE_OVERLAP_RATIO: float = 0.25
     MIN_NUM_PIXS_OF_TRAPS_IN_TILES: int = 100
     CPS_NULL_VALUE: float = -999.0
@@ -76,14 +77,14 @@ class Settings(BaseSettings):
     
     # Обучение
     OVERFIT_SIZE: int = 2
-    AUGMENT_TRAIN: bool = True
+    AUGMENT_TRAIN: bool = False
     ENCODER_NAME: str = "resnet34"
-    SCHEDULER_NAME: str = "cosine_annealing"
+    SCHEDULER_NAME: str = "reduce_lr_plateau"
     BATCH_SIZE: int = 4
     NUM_WORKERS: int = 2
     LEARNING_RATE: float = 3e-4
     ENCODER_LR_MULTIPLIER: float = 0.1
-    WEIGHT_DECAY: float = 5e-4
+    WEIGHT_DECAY: float = 5e-3
     DECODER_DROPOUT: float = 0.2
     NUM_EPOCHS: int = 50
     ES_PATIANCE: int = 10

@@ -5,6 +5,7 @@ import os
 import re
 from pathlib import Path
 import cv2
+import scipy.ndimage as ndimage
 
 from settings import settings
 from utils.images_utils import pad_image
@@ -229,6 +230,72 @@ def cps_to_isolines(grid: np.ndarray, step: float = 5.0) -> np.ndarray:
     return isolines_img
 
 
+def cps_to_closed_mask(grid: np.ndarray, step: float = 5.0, min_area: int = settings.CLOSED_ISO_MIN_AREA) -> np.ndarray:
+    """
+    Генерирует маску замкнутых контуров (ловушек) напрямую из CPS грида.
+    
+    В отличие от поиска по картинке изолиний, этот метод математически точен:
+    он не страдает от артефактов пикселизации (толстых линий на крутых склонах) 
+    и сразу выдает сплошные белые пятна без внутренних "царапин" изолиний.
+    
+    Args:
+        grid: 2D numpy array (с NaN в качестве пустот)
+        step: Шаг изолиний в метрах (по умолчанию 5, должен совпадать с шагом генерации изолиний)
+        min_area: Минимальная площадь замкнутого контура в пикселях (меньше считаются шумом)
+    
+    Returns:
+        mask: (H, W) float32 array (1.0 - замкнутая область/ловушка, 0.0 - остальное)
+    """
+    valid_mask = ~np.isnan(grid)
+    if valid_mask.sum() == 0:
+        return np.zeros(grid.shape, dtype=np.float32)
+    
+    # Находим границу валидной области (1 пиксель по краю карты)
+    eroded_mask = ndimage.binary_erosion(valid_mask)
+    boundary_mask = valid_mask & ~eroded_mask
+    
+    vmin, vmax = np.nanmin(grid), np.nanmax(grid)
+    
+    # Вычисляем уровни изолиний (точно так же, как в cps_to_isolines)
+    start_bound = np.floor(vmin / step) * step
+    end_bound = np.ceil(vmax / step) * step
+    levels = np.arange(start_bound, end_bound + step, step)
+    
+    # Итоговая маска замкнутых областей
+    closed_mask = np.zeros(grid.shape, dtype=bool)
+    
+    # Временно заменяем NaN для корректной работы условия >= level
+    grid_filled = np.copy(grid)
+    grid_filled[~valid_mask] = vmin - 1000 
+    
+    for level in levels:
+        # Бинарная маска: 1 там, где поверхность выше или равна уровню
+        binary_mask = (grid_filled >= level) & valid_mask
+        
+        # Находим связные компоненты (4-связность, чтобы диагонали не считались за проход)
+        labeled_array, num_features = ndimage.label(binary_mask)
+        
+        # Проверяем каждый компонент
+        for i in range(1, num_features + 1):
+            component_mask = (labeled_array == i)
+            
+            # Если компонент слишком мелкий (точечный шум), пропускаем его
+            if component_mask.sum() < min_area:
+                continue
+            
+            # Если компонент касается границы карты -> он разомкнут, пропускаем
+            if np.any(component_mask & boundary_mask):
+                continue
+            
+            # Если не касается -> замкнут, добавляем к итоговой маске
+            closed_mask |= component_mask
+
+    # Убираем черные точки (микро-впадины или NaN) внутри замкнутых белых областей
+    closed_mask = ndimage.binary_fill_holes(closed_mask)
+
+    return closed_mask.astype(np.float32)
+
+
 def cps_to_binary_mask(grid: np.ndarray, threshold: float = None) -> np.ndarray:
     """
     Конвертирует CPS грид в бинарную маску (для fault/trap).
@@ -287,6 +354,7 @@ def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str, isol
             'rgb': RGB image array,
             'grayscale': grayscale image array,
             'isolines': isolines image array,
+            'closed_isolines': closed_isolines image array,
             'traps': traps image array
         }
     """
@@ -329,6 +397,15 @@ def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str, isol
             save_png(isolines_img, isolines_path)
             print(f"  Saved Isolines: {isolines_path} (shape={isolines_img.shape})")
             images_data[horizon_name]['isolines'] = isolines_img
+
+            # Конвертируем в маску замкнутых изолиний
+            closed_mask = cps_to_closed_mask(grid, step=isoline_step)
+            closed_mask = np.rot90(closed_mask, k=2)
+            closed_img = (closed_mask * 255).astype(np.uint8) # В uint8 для PNG
+            closed_path = os.path.join(output_dir, f'x_closedIsolines_{horizon_name}.png')
+            save_png(closed_img, closed_path)
+            print(f"  Saved Closed Isolines: {closed_path} (shape={closed_img.shape})")
+            images_data[horizon_name]['closed_isolines'] = closed_img
 
         # Загружаем traps
         if 'traps' in files:
@@ -442,6 +519,7 @@ def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
         rgb_img = images.get('rgb')
         grayscale_img = images.get('grayscale')
         isolines_img = images.get('isolines')
+        closed_isolines_img = images.get('closed_isolines')
         traps_img = images.get('traps')
 
         # Используем rgb для определения размеров
@@ -490,6 +568,13 @@ def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
                 iso_tile_path = os.path.join(output_dir, f'{tile_prefix}x_isolines_{horizon_name}.png')
                 save_png(tile_iso, iso_tile_path)
                 saved_files.append(iso_tile_path)
+
+            # Сохраняем closed_isolines тайл
+            if closed_isolines_img is not None:
+                tile_closed = pad_image(closed_isolines_img, tile_height, tile_width)
+                closed_tile_path = os.path.join(output_dir, f'{tile_prefix}x_closedIsolines_{horizon_name}.png')
+                save_png(tile_closed, closed_tile_path)
+                saved_files.append(closed_tile_path)
 
             # Сохраняем traps тайл
             if traps_img is not None:
@@ -568,6 +653,14 @@ def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
                     iso_tile_path = os.path.join(output_dir, f'{tile_prefix}x_isolines_{horizon_name}.png')
                     save_png(tile_iso, iso_tile_path)
                     saved_files.append(iso_tile_path)
+                
+                # Сохраняем closed_isolines тайл
+                if closed_isolines_img is not None:
+                    tile_closed = closed_isolines_img[y_start:y_end, x_start:x_end]
+                    tile_closed = pad_image(tile_closed, tile_height, tile_width)
+                    closed_tile_path = os.path.join(output_dir, f'{tile_prefix}x_closedIsolines_{horizon_name}.png')
+                    save_png(tile_closed, closed_tile_path)
+                    saved_files.append(closed_tile_path)
 
                 # Сохраняем traps тайл
                 if traps_img is not None:
@@ -628,6 +721,13 @@ def load_existing_images(horizons: Dict[str, Dict[str, str]], full_images_dir: s
             img = np.array(Image.open(isolines_path))
             images_data[horizon_name]['isolines'] = img
             print(f"    Loaded Isolines: {isolines_path} (shape={img.shape})")
+        
+        # Загружаем closed_isolines изображение
+        closed_path = os.path.join(full_images_dir, f'x_closedIsolines_{horizon_name}.png')
+        if os.path.exists(closed_path):
+            img = np.array(Image.open(closed_path))
+            images_data[horizon_name]['closed_isolines'] = img
+            print(f"    Loaded Closed Isolines: {closed_path} (shape={img.shape})")
 
         # Загружаем traps изображение
         traps_path = os.path.join(full_images_dir, f'y_traps_{horizon_name}.png')
