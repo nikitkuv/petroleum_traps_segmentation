@@ -8,7 +8,41 @@ import cv2
 import scipy.ndimage as ndimage
 
 from settings import settings
-from utils.images_utils import pad_image
+
+
+def pad_image(img: np.ndarray, target_h: int, target_w: int) -> np.ndarray:
+    """Добавляет паддинг до target_h x target_w нулями."""
+    curr_h, curr_w = img.shape[0], img.shape[1]
+    if curr_h > target_h or curr_w > target_w:
+        raise ValueError(f"Image {curr_h}x{curr_w} exceeds target {target_h}x{target_w}")
+    
+    pad_top = (target_h - curr_h) // 2
+    pad_bottom = target_h - curr_h - pad_top
+    pad_left = (target_w - curr_w) // 2
+    pad_right = target_w - curr_w - pad_left
+    
+    padded = cv2.copyMakeBorder(
+        img, pad_top, pad_bottom, pad_left, pad_right,
+        borderType=cv2.BORDER_CONSTANT, value=0
+    )
+    return padded
+
+
+def save_png(img_array: np.ndarray, path: str):
+    from PIL import Image
+    if len(img_array.shape) == 2:
+        img = Image.fromarray(img_array, mode='L')
+    else:
+        img = Image.fromarray(img_array, mode='RGB')
+    img.save(path)
+
+
+def extract_horizon_name(filename: str) -> str:
+    pattern = r'^(x_structuralNOisoline_|y_traps_)(.+)$'
+    match = re.match(pattern, filename)
+    if match:
+        return match.group(2)
+    return None
 
 
 def read_cps_grid(file_path: str, vertical_flip: bool = False) -> Tuple[np.ndarray, dict]:
@@ -78,9 +112,6 @@ def read_cps_grid(file_path: str, vertical_flip: bool = False) -> Tuple[np.ndarr
     # Вертикальный флип
     if vertical_flip:
         grid = np.flipud(grid)
-
-    # Поворот на 180 градусов
-    grid = np.rot90(grid, k=2)
     
     # Заменяем пустые значения
     grid[np.isclose(grid, null_value)] = np.nan
@@ -331,20 +362,6 @@ def cps_to_binary_mask(grid: np.ndarray, threshold: float = None) -> np.ndarray:
     return mask
 
 
-def save_png(img_array: np.ndarray, path: str):
-    """Сохраняет numpy array как PNG изображение."""
-    from PIL import Image
-
-    if len(img_array.shape) == 2:
-        # Grayscale
-        img = Image.fromarray(img_array, mode='L')
-    else:
-        # RGB
-        img = Image.fromarray(img_array, mode='RGB')
-
-    img.save(path)
-
-
 def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str, isoline_step: float = 5.0) -> Dict[str, Dict[str, np.ndarray]]:
     """
     Конвертирует CPS файлы в PNG и сохраняет большие изображения.
@@ -373,8 +390,6 @@ def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str, isol
 
             # Конвертируем в RGB
             rgb_img = cps_to_rgb(grid, cmap_name='purple_jet')
-            # Поворачиваем на 180 градусов
-            rgb_img = np.rot90(rgb_img, k=2)
             rgb_path = os.path.join(output_dir, f'x_structuralNOisoline_{horizon_name}.png')
             save_png(rgb_img, rgb_path)
             print(f"  Saved RGB: {rgb_path} (shape={rgb_img.shape})")
@@ -382,8 +397,6 @@ def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str, isol
 
             # Конвертируем в grayscale (для depth_norm)
             gray_img = cps_to_grayscale(grid, invert=False)
-            # Поворачиваем на 180 градусов
-            gray_img = np.rot90(gray_img, k=2)
             gray_path = os.path.join(output_dir, f'x_structuralBlackWhite_{horizon_name}.png')
             save_png(gray_img, gray_path)
             print(f"  Saved Grayscale: {gray_path} (shape={gray_img.shape})")
@@ -391,8 +404,6 @@ def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str, isol
 
             # Конвертируем в изолинии
             isolines_img = cps_to_isolines(grid, step=isoline_step)
-            # Поворачиваем на 180 градусов
-            isolines_img = np.rot90(isolines_img, k=2)
             isolines_path = os.path.join(output_dir, f'x_isolines_{horizon_name}.png')
             save_png(isolines_img, isolines_path)
             print(f"  Saved Isolines: {isolines_path} (shape={isolines_img.shape})")
@@ -400,7 +411,6 @@ def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str, isol
 
             # Конвертируем в маску замкнутых изолиний
             closed_mask = cps_to_closed_mask(grid, step=isoline_step)
-            closed_mask = np.rot90(closed_mask, k=2)
             closed_img = (closed_mask * 255).astype(np.uint8) # В uint8 для PNG
             closed_path = os.path.join(output_dir, f'x_closedIsolines_{horizon_name}.png')
             save_png(closed_img, closed_path)
@@ -415,30 +425,12 @@ def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str, isol
             # Для traps используем бинаризацию
             traps_img = cps_to_binary_mask(grid)
             traps_img = (traps_img * 255).astype(np.uint8)
-            # Поворачиваем на 180 градусов
-            traps_img = np.rot90(traps_img, k=2)
             traps_path = os.path.join(output_dir, f'y_traps_{horizon_name}.png')
             save_png(traps_img, traps_path)
             print(f"  Saved Traps: {traps_path} (shape={traps_img.shape})")
             images_data[horizon_name]['traps'] = traps_img
 
     return images_data
-
-
-def extract_horizon_name(filename: str) -> str:
-    """
-    Извлекает название горизонта из имени файла.
-
-    Примеры:
-        x_structuralNOisoline_Ach3-2-1_toptop1 -> Ach3-2-1_toptop1
-        y_traps_U2_3_kolltop1 -> U2_3_kolltop1
-    """
-    # Паттерн: {prefix}_{horizon_name}
-    pattern = r'^(x_structuralNOisoline_|y_traps_)(.+)$'
-    match = re.match(pattern, filename)
-    if match:
-        return match.group(2)
-    return None
 
 
 def find_cps_files(cps_dir: str) -> Dict[str, Dict[str, str]]:
@@ -471,269 +463,166 @@ def find_cps_files(cps_dir: str) -> Dict[str, Dict[str, str]]:
     return horizons
 
 
-def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
-                     output_dir: str,
-                     tile_width: int = None,
-                     tile_height: int = None,
-                     overlap_ratio: float = None,
-                     min_traps_pixels: int = None,
+def split_cps_grids_into_tiles(
+    horizons: Dict[str, Dict[str, str]],
+    output_dir: str,
+    tile_width: int = None,
+    tile_height: int = None,
+    overlap_ratio: float = None,
+    min_traps_pixels: int = None,
+    isoline_step: float = 5.0
 ) -> List[str]:
     """
-    Разбивает большие изображения на тайлы с перекрытием.
-
-    Для каждого горизонта создаются тайлы с одинаковыми координатами
-    для всех типов изображений (rgb, grayscale, isolines, traps).
-
-    Args:
-        images_data: Данные изображений по горизонтам
-        output_dir: Директория для сохранения тайлов
-        tile_width: Ширина тайла (по умолчанию settings.TARGET_WIDTH)
-        tile_height: Высота тайла (по умолчанию settings.TARGET_HEIGHT)
-        overlap_ratio: Процент перекрытия (по умолчанию settings.TILE_OVERLAP_RATIO)
-
-    Returns:
-        Список сохраненных файлов
+    Загружает CPS гриды, нарезает их на тайлы и конвертирует в PNG.
+    Каждый тайл получает СВОЮ ЛОКАЛЬНУЮ цветовую палитру (vmin/vmax).
     """
     tile_width = tile_width or settings.TARGET_WIDTH
     tile_height = tile_height or settings.TARGET_HEIGHT
     overlap_ratio = overlap_ratio if overlap_ratio is not None else settings.TILE_OVERLAP_RATIO
     min_traps_pixels = min_traps_pixels if min_traps_pixels is not None else settings.MIN_NUM_PIXS_OF_TRAPS_IN_TILES
 
-    # Вычисляем stride (шаг) с учетом перекрытия
-    stride_h = int(tile_height * (1 - overlap_ratio))
-    stride_w = int(tile_width * (1 - overlap_ratio))
-
-    # Гарантируем минимальный шаг хотя бы 1 пиксель
-    stride_h = max(1, stride_h)
-    stride_w = max(1, stride_w)
+    stride_h = max(1, int(tile_height * (1 - overlap_ratio)))
+    stride_w = max(1, int(tile_width * (1 - overlap_ratio)))
 
     Path(output_dir).mkdir(parents=True, exist_ok=True)
-
     saved_files = []
-    skipped_tiles = 0 # Счетчик пропущенных пустых тайлов
+    skipped_tiles = 0
 
-    for horizon_name, images in images_data.items():
-        print(f"\nSplitting horizon {horizon_name} into tiles ({tile_width}x{tile_height}, overlap={overlap_ratio*100:.0f}%)...")
+    for horizon_name, files in horizons.items():
+        print(f"\nProcessing horizon: {horizon_name}")
 
-        # Получаем размеры изображений (все должны быть одинаковыми)
-        rgb_img = images.get('rgb')
-        grayscale_img = images.get('grayscale')
-        isolines_img = images.get('isolines')
-        closed_isolines_img = images.get('closed_isolines')
-        traps_img = images.get('traps')
+        struct_grid = None
+        if 'structural' in files:
+            struct_grid, _ = read_cps_grid(files['structural'])
 
-        # Используем rgb для определения размеров
-        if rgb_img is not None:
-            h, w = rgb_img.shape[:2]
-        elif grayscale_img is not None:
-            h, w = grayscale_img.shape[:2]
-        elif isolines_img is not None:
-            h, w = isolines_img.shape[:2]
-        elif traps_img is not None:
-            h, w = traps_img.shape[:2]
-        else:
-            print(f"  No images found for horizon {horizon_name}, skipping...")
+        traps_grid = None
+        if 'traps' in files:
+            traps_grid, _ = read_cps_grid(files['traps'])
+
+        if struct_grid is None and traps_grid is None:
             continue
 
-        print(f"  Image size: {h}x{w}")
-        print(f"  Stride: {stride_h}x{stride_w}")
+        # Определяем размер по структурной карте
+        h, w = struct_grid.shape if struct_grid is not None else traps_grid.shape
+        print(f"  Grid size: {h}x{w}")
 
-        if h <= tile_height and w <= tile_width:
-            # Проверяем, есть ли достаточное количество ловушек на ВСЕЙ карте
-            if traps_img is not None and np.sum(traps_img > 128) < min_traps_pixels:
-                print(f"  Skipping horizon {horizon_name}: not enough trap pixels ({np.sum(traps_img > 128)} < {min_traps_pixels})")
-                skipped_tiles += 1
-                continue # Пропускаем ВЕСЬ горизонт (все его каналы)
+        # Заблаговременно конвертируем ловушки, чтобы быстро нарезать и считать пиксели
+        traps_mask_full = None
+        if traps_grid is not None:
+            traps_mask_full = (cps_to_binary_mask(traps_grid) * 255).astype(np.uint8)
 
-            tile_index = 1
-            tile_prefix = f"{tile_index:03d}_"
-
-            # Сохраняем rgb тайл
-            if rgb_img is not None:
-                tile_rgb = pad_image(rgb_img, tile_height, tile_width)
-                rgb_tile_path = os.path.join(output_dir, f'{tile_prefix}x_structuralNOisoline_{horizon_name}.png')
-                save_png(tile_rgb, rgb_tile_path)
-                saved_files.append(rgb_tile_path)
-
-            # Сохраняем grayscale тайл
-            if grayscale_img is not None:
-                tile_gray = pad_image(grayscale_img, tile_height, tile_width)
-                gray_tile_path = os.path.join(output_dir, f'{tile_prefix}x_structuralBlackWhite_{horizon_name}.png')
-                save_png(tile_gray, gray_tile_path)
-                saved_files.append(gray_tile_path)
-
-            # Сохраняем isolines тайл
-            if isolines_img is not None:
-                tile_iso = pad_image(isolines_img, tile_height, tile_width)
-                iso_tile_path = os.path.join(output_dir, f'{tile_prefix}x_isolines_{horizon_name}.png')
-                save_png(tile_iso, iso_tile_path)
-                saved_files.append(iso_tile_path)
-
-            # Сохраняем closed_isolines тайл
-            if closed_isolines_img is not None:
-                tile_closed = pad_image(closed_isolines_img, tile_height, tile_width)
-                closed_tile_path = os.path.join(output_dir, f'{tile_prefix}x_closedIsolines_{horizon_name}.png')
-                save_png(tile_closed, closed_tile_path)
-                saved_files.append(closed_tile_path)
-
-            # Сохраняем traps тайл
-            if traps_img is not None:
-                tile_traps = pad_image(traps_img, tile_height, tile_width)
-                traps_tile_path = os.path.join(output_dir, f'{tile_prefix}y_traps_{horizon_name}.png')
-                save_png(tile_traps, traps_tile_path)
-                saved_files.append(traps_tile_path)
-
-            print(f"  Image is smaller than tile size, saved as 1 tile with padding")
-            continue
-
-        # Вычисляем количество тайлов с учетом stride
         n_tiles_h = max(1, (h - tile_height) // stride_h + 1)
         n_tiles_w = max(1, (w - tile_width) // stride_w + 1)
+        if (n_tiles_h - 1) * stride_h + tile_height < h: n_tiles_h += 1
+        if (n_tiles_w - 1) * stride_w + tile_width < w: n_tiles_w += 1
 
-        # Корректируем если последний тайл выходит за границы
-        # Добавляем дополнительный тайл если нужно
-        if (n_tiles_h - 1) * stride_h + tile_height < h:
-            n_tiles_h += 1
-        if (n_tiles_w - 1) * stride_w + tile_width < w:
-            n_tiles_w += 1
-
-        print(f"  Number of potential tiles: {n_tiles_h} x {n_tiles_w} = {n_tiles_h * n_tiles_w}")
-
+        print(f"  Potential tiles: {n_tiles_h} x {n_tiles_w} = {n_tiles_h * n_tiles_w}")
         saved_tile_count = 0
 
         for row in range(n_tiles_h):
             for col in range(n_tiles_w):
-                # Вычисляем координаты с учетом stride
                 y_start = row * stride_h
                 x_start = col * stride_w
-
-                # Вычисляем конечные координаты
                 y_end = min(y_start + tile_height, h)
                 x_end = min(x_start + tile_width, w)
 
-                # Корректируем начальные координаты если мы у края
-                if y_end == h:
-                    y_start = max(0, y_end - tile_height)
-                if x_end == w:
-                    x_start = max(0, x_end - tile_width)
+                if y_end == h: y_start = max(0, y_end - tile_height)
+                if x_end == w: x_start = max(0, x_end - tile_width)
 
-                # ВАЖНО: Сначала проверяем ловушки, и только потом решаем сохранять ли тайл
-                if traps_img is not None:
-                    tile_traps_raw = traps_img[y_start:y_end, x_start:x_end]
-                    
-                    # Если ловушек в тайле меньше порога - пропускаем ВЕСЬ тайл (все каналы)
+                # Проверяем ловушки
+                if traps_mask_full is not None:
+                    tile_traps_raw = traps_mask_full[y_start:y_end, x_start:x_end]
                     if np.sum(tile_traps_raw > 128) < min_traps_pixels:
                         skipped_tiles += 1
                         continue
+                else:
+                    tile_traps_raw = None
 
-                # Генерируем префикс только если тайл прошел проверку
                 saved_tile_count += 1
                 tile_prefix = f"{saved_tile_count:03d}_"
 
-                # Сохраняем rgb тайл
-                if rgb_img is not None:
-                    tile_rgb = rgb_img[y_start:y_end, x_start:x_end]
-                    tile_rgb = pad_image(tile_rgb, tile_height, tile_width)
-                    rgb_tile_path = os.path.join(output_dir, f'{tile_prefix}x_structuralNOisoline_{horizon_name}.png')
-                    save_png(tile_rgb, rgb_tile_path)
-                    saved_files.append(rgb_tile_path)
+                # Нарезка и конвертация структурного грида с ЛОКАЛЬНЫМИ vmin/vmax
+                if struct_grid is not None:
+                    tile_struct = struct_grid[y_start:y_end, x_start:x_end]
 
-                # Сохраняем grayscale тайл
-                if grayscale_img is not None:
-                    tile_gray = grayscale_img[y_start:y_end, x_start:x_end]
-                    tile_gray = pad_image(tile_gray, tile_height, tile_width)
-                    gray_tile_path = os.path.join(output_dir, f'{tile_prefix}x_structuralBlackWhite_{horizon_name}.png')
-                    save_png(tile_gray, gray_tile_path)
-                    saved_files.append(gray_tile_path)
+                    tile_rgb = cps_to_rgb(tile_struct, cmap_name='purple_jet')
+                    tile_gray = cps_to_grayscale(tile_struct)
+                    tile_isolines = cps_to_isolines(tile_struct, step=isoline_step)
+                    tile_closed_mask = cps_to_closed_mask(tile_struct, step=isoline_step)
+                    tile_closed = (tile_closed_mask * 255).astype(np.uint8)
 
-                # Сохраняем isolines тайл
-                if isolines_img is not None:
-                    tile_iso = isolines_img[y_start:y_end, x_start:x_end]
-                    tile_iso = pad_image(tile_iso, tile_height, tile_width)
-                    iso_tile_path = os.path.join(output_dir, f'{tile_prefix}x_isolines_{horizon_name}.png')
-                    save_png(tile_iso, iso_tile_path)
-                    saved_files.append(iso_tile_path)
-                
-                # Сохраняем closed_isolines тайл
-                if closed_isolines_img is not None:
-                    tile_closed = closed_isolines_img[y_start:y_end, x_start:x_end]
-                    tile_closed = pad_image(tile_closed, tile_height, tile_width)
-                    closed_tile_path = os.path.join(output_dir, f'{tile_prefix}x_closedIsolines_{horizon_name}.png')
-                    save_png(tile_closed, closed_tile_path)
-                    saved_files.append(closed_tile_path)
+                    # Сохраняем и добавляем пути в список
+                    rgb_path = os.path.join(output_dir, f'{tile_prefix}x_structuralNOisoline_{horizon_name}.png')
+                    save_png(pad_image(tile_rgb, tile_height, tile_width), rgb_path)
+                    saved_files.append(rgb_path)
 
-                # Сохраняем traps тайл
-                if traps_img is not None:
-                    tile_traps = pad_image(tile_traps_raw, tile_height, tile_width) # Используем уже нарезанный кусок
-                    traps_tile_path = os.path.join(output_dir, f'{tile_prefix}y_traps_{horizon_name}.png')
-                    save_png(tile_traps, traps_tile_path)
-                    saved_files.append(traps_tile_path)
+                    gray_path = os.path.join(output_dir, f'{tile_prefix}x_structuralBlackWhite_{horizon_name}.png')
+                    save_png(pad_image(tile_gray, tile_height, tile_width), gray_path)
+                    saved_files.append(gray_path)
 
-        print(f"  Created {saved_tile_count} tile sets for horizon {horizon_name} (skipped {n_tiles_h * n_tiles_w - saved_tile_count} empty tiles)")
+                    iso_path = os.path.join(output_dir, f'{tile_prefix}x_isolines_{horizon_name}.png')
+                    save_png(pad_image(tile_isolines, tile_height, tile_width), iso_path)
+                    saved_files.append(iso_path)
 
-    print(f"\nTotal skipped empty tiles across all horizons: {skipped_tiles}")
+                    closed_path = os.path.join(output_dir, f'{tile_prefix}x_closedIsolines_{horizon_name}.png')
+                    save_png(pad_image(tile_closed, tile_height, tile_width), closed_path)
+                    saved_files.append(closed_path)
+
+                if tile_traps_raw is not None:
+                    traps_path = os.path.join(output_dir, f'{tile_prefix}y_traps_{horizon_name}.png')
+                    save_png(pad_image(tile_traps_raw, tile_height, tile_width), traps_path)
+                    saved_files.append(traps_path)
+
+        print(f"  Saved {saved_tile_count} tiles (skipped {skipped_tiles} empty)")
+
+    print(f"\nTotal skipped tiles: {skipped_tiles}")
     return saved_files
 
 
-def load_existing_images(horizons: Dict[str, Dict[str, str]], full_images_dir: str) -> Dict[str, Dict[str, np.ndarray]]:
+def clean_cps_filenames(cps_dir: str, suffixes_to_remove: list = None):
     """
-    Загружает существующие полные изображения из директории.
-
-    Используется для режима --only-split, когда большие изображения уже были сохранены ранее.
-
+    Удаляет указанные суффиксы из имен файлов в директории cps_dir.
+    
     Args:
-        horizons: Словарь горизонтов от find_cps_files
-        full_images_dir: Директория с полными изображениями
-
-    Returns:
-        Dict[horizon_name] -> {
-            'rgb': RGB image array,
-            'grayscale': grayscale image array,
-            'isolines': isolines image array,
-            'traps': traps image array
-        }
+        cps_dir: Путь к директории с CPS файлами
+        suffixes_to_remove: Список суффиксов для удаления (например, ['.cps3', '-UNIQ1'])
     """
-    from PIL import Image
+    if suffixes_to_remove is None:
+        suffixes_to_remove = [".cps3", "-UNIQ1"]
 
-    images_data = {}
+    if not os.path.exists(cps_dir):
+        print(f"Directory not found: {cps_dir}. Skipping filename cleaning.")
+        return
 
-    for horizon_name, files in horizons.items():
-        print(f"  Loading existing images for horizon: {horizon_name}")
-        images_data[horizon_name] = {}
+    print(f"Cleaning filenames in {cps_dir}...")
+    print(f"Suffixes to remove: {suffixes_to_remove}")
+    
+    renamed_count = 0
 
-        # Загружаем structural/RGB изображение
-        rgb_path = os.path.join(full_images_dir, f'x_structuralNOisoline_{horizon_name}.png')
-        if os.path.exists(rgb_path):
-            img = np.array(Image.open(rgb_path))
-            images_data[horizon_name]['rgb'] = img
-            print(f"    Loaded RGB: {rgb_path} (shape={img.shape})")
+    for filename in os.listdir(cps_dir):
+        old_path = os.path.join(cps_dir, filename)
 
-        # Загружаем grayscale изображение
-        gray_path = os.path.join(full_images_dir, f'x_structuralBlackWhite_{horizon_name}.png')
-        if os.path.exists(gray_path):
-            img = np.array(Image.open(gray_path))
-            images_data[horizon_name]['grayscale'] = img
-            print(f"    Loaded Grayscale: {gray_path} (shape={img.shape})")
+        if not os.path.isfile(old_path):
+            continue
 
-        # Загружаем isolines изображение
-        isolines_path = os.path.join(full_images_dir, f'x_isolines_{horizon_name}.png')
-        if os.path.exists(isolines_path):
-            img = np.array(Image.open(isolines_path))
-            images_data[horizon_name]['isolines'] = img
-            print(f"    Loaded Isolines: {isolines_path} (shape={img.shape})")
-        
-        # Загружаем closed_isolines изображение
-        closed_path = os.path.join(full_images_dir, f'x_closedIsolines_{horizon_name}.png')
-        if os.path.exists(closed_path):
-            img = np.array(Image.open(closed_path))
-            images_data[horizon_name]['closed_isolines'] = img
-            print(f"    Loaded Closed Isolines: {closed_path} (shape={img.shape})")
+        new_name = filename
 
-        # Загружаем traps изображение
-        traps_path = os.path.join(full_images_dir, f'y_traps_{horizon_name}.png')
-        if os.path.exists(traps_path):
-            img = np.array(Image.open(traps_path))
-            images_data[horizon_name]['traps'] = img
-            print(f"    Loaded Traps: {traps_path} (shape={img.shape})")
+        # Удаляем все суффиксы из имени
+        for suffix in suffixes_to_remove:
+            if new_name.endswith(suffix):
+                new_name = new_name[:-len(suffix)]
 
-    return images_data
+        # Если имя изменилось, переименовываем
+        if new_name != filename:
+            new_path = os.path.join(cps_dir, new_name)
+            
+            # Защита от перезаписи существующих файлов
+            if os.path.exists(new_path):
+                print(f"  WARNING: Cannot rename '{filename}' -> '{new_name}'. File already exists!")
+                continue
+                
+            print(f"  Renaming: {filename} -> {new_name}")
+            os.rename(old_path, new_path)
+            renamed_count += 1
+
+    print(f"Filename cleaning done. Renamed {renamed_count} files.\n")

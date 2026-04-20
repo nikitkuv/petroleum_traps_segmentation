@@ -38,22 +38,18 @@ def overlay_isolines_on_rgb_from_cps(
     # 2. Генерируем RGB и изолинии
     rgb_img = cps_to_rgb(grid, cmap_name=cmap_name)
     isolines_img = cps_to_isolines(grid, step=isoline_step)
-    
-    # 3. Применяем поворот на 180 градусов (как в пайплайне конвертации)
-    rgb_img = np.rot90(rgb_img, k=2)
-    isolines_img = np.rot90(isolines_img, k=2)
 
-    # 4. Нормализуем RGB к [0, 1]
+    # 43. Нормализуем RGB к [0, 1]
     rgb_float = rgb_img.astype(np.float32) / 255.0
 
-    # 5. Инвертируем изолинии: черный фон (0) → белый (1), белые линии (255) → черные (0)
+    # 4. Инвертируем изолинии: черный фон (0) → белый (1), белые линии (255) → черные (0)
     isolines_inverted = 1.0 - (isolines_img.astype(np.float32) / 255.0)
 
     # Создаем маску для линий (где изолинии черные после инверсии, т.е. близки к 0)
     # isolines_inverted: 1.0 = фон, 0.0 = линии
     line_mask = 1.0 - isolines_inverted  # Теперь: 1.0 = линии, 0.0 = фон
 
-    # 6. Накладываем изолинии на RGB (затемняем области с линиями)
+    # 5. Накладываем изолинии на RGB (затемняем области с линиями)
     overlay = rgb_float.copy()
     # Используем alpha для контроля интенсивности затемнения (0.7 - множитель затемнения)
     overlay = overlay * (1.0 - line_mask[:, :, np.newaxis] * alpha * 0.7)
@@ -61,7 +57,7 @@ def overlay_isolines_on_rgb_from_cps(
     # Ограничиваем значения к [0, 1]
     overlay = np.clip(overlay, 0, 1)
 
-    # 7. Визуализация
+    # 6. Визуализация
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
 
     # RGB изображение
@@ -99,17 +95,14 @@ def visualize_closed_isolines(rgb_cps_paht: str, traps_cps_path: str, isoline_st
     print("Генерация изолиний...")
     # Генерируем изолинии из структурного грида
     isolines_img = cps_to_isolines(structural_grid, step=isoline_step)
-    isolines_img = np.rot90(isolines_img, k=2) # Поворот как при сохранении
 
     print("Генерация маски замкнутых изолиний...")
     # Генерируем маску замкнутых контуров
     closed_mask = cps_to_closed_mask(structural_grid, step=isoline_step)
-    closed_mask = np.rot90(closed_mask, k=2) # Поворот как при сохранении
 
     print("Генерация маски ловушек (GT)...")
     # Генерируем бинарную маску ловушек
     traps_mask = cps_to_binary_mask(traps_grid)
-    traps_mask = np.rot90(traps_mask, k=2) # Поворот как при сохранении
 
     # Визуализация 1x3 (1 ряд, 3 колонки)
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
