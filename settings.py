@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     LOGS_OVERFIT_CHECK_DIR: str = './logs/overfit_check/'
     GRAD_ANOMALIES_DIR: str = './gradient_anomalies/'
     CUSTOM_TEST_FILES_DIR: str = './logs/custom_test_files.json'
+    CUSTOM_VAL_FILES_DIR: str = './logs/custom_val_files.json'
 
     # Размеры изображений
     @computed_field
@@ -87,7 +88,7 @@ class Settings(BaseSettings):
     WEIGHT_DECAY: float = 5e-3
     DECODER_DROPOUT: float = 0.2
     NUM_EPOCHS: int = 50
-    ES_PATIANCE: int = 10
+    ES_PATIANCE: int = 7
     GRADIENT_ACC_STEPS: int = 1
 
     # Трекинг градиентов

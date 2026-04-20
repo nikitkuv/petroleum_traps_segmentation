@@ -84,8 +84,10 @@ def run_full_pipeline(
     )
 
     if not overfit_check_mode:
-        save_list(test_files)
-        print(f"Custom test files are saved: {settings.CUSTOM_TEST_FILES_DIR}")
+        save_list(paths=val_files, filepath=settings.CUSTOM_VAL_FILES_DIR)
+        print(f"Custom VAL files are saved: {settings.CUSTOM_VAL_FILES_DIR}")
+        save_list(paths=test_files, filepath=settings.CUSTOM_TEST_FILES_DIR)
+        print(f"Custom TEST files are saved: {settings.CUSTOM_TEST_FILES_DIR}")
     else:
         print(f"Overfit check mode: no saving custom test files")
 
@@ -217,7 +219,7 @@ def run_full_pipeline(
         )
         
         print("\n[STEP 9] Evaluating best model on test data...")
-        best_model_path = os.path.join(settings.CHECKPOINT_DIR, f'{"faults" if settings.USE_FAULTS else "no_faults"}_epochs-{settings.NUM_EPOCHS}_lr-{settings.LEARNING_RATE}_bs-{settings.BATCH_SIZE}.pth')
+        best_model_path = os.path.join(settings.CHECKPOINT_DIR, f'{wandb_run_name}.pth')
         model = load_model_checkpoint(model, best_model_path, device)
         
         test_metrics = evaluate_on_test(

@@ -3,7 +3,7 @@ from settings import settings
 from data.dataloaders import load_list
 
 
-checkpoint_path = "checkpoints/no_faults_epochs-50_lr-0.0001_bs-4_v2.pth"
+checkpoint_path = "checkpoints/v1_cps_tiles_640x448_no_faults_e-50_bs-4_lr-0.0003(0.1)_wd-0.005.pth"
 
 custom_test_files = load_list()
 
