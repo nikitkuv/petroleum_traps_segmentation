@@ -7,7 +7,7 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 
 from settings import settings
-from data.dataloaders import get_file_list, split_data_by_groups, create_dataloaders
+from data.dataloaders import get_file_list, split_data_by_groups
 from models.unetplusplus import load_unetplusplus, load_model_checkpoint
 from metrics.metrics import MetricsCalculator
 from visualization.visualize import visualize_test_results
@@ -102,7 +102,7 @@ def evaluate_all_test_samples(
 
     print(f"Test files: {len(test_files)} files")
 
-    # Создаем dataloader только для теста (напрямую, без create_dataloaders)
+    # Создаем dataloader только для теста
     test_dataset = GeologyTrapsDataset(
         file_list=test_files,
         data_dir=data_dir,
