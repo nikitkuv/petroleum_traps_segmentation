@@ -2,13 +2,14 @@ from training.pipeline import run_full_pipeline
 from settings import settings
 
 
-model_name = f'{settings.DATA_SOURCE}_'
-f'{settings.TARGET_HEIGHT}x{settings.TARGET_WIDTH}_'
-f'{"faults" if settings.USE_FAULTS else "no_faults"}_'
-f'e-{settings.NUM_EPOCHS}_'
-f'bs-{settings.BATCH_SIZE}_'
-f'lr-{settings.LEARNING_RATE}({settings.ENCODER_LR_MULTIPLIER})_'
-f'wd-{settings.WEIGHT_DECAY}_'
+model_name = 'v2_' \
+f'{settings.DATA_SOURCE}_' \
+f'{settings.TARGET_HEIGHT}x{settings.TARGET_WIDTH}_' \
+f'{"faults" if settings.USE_FAULTS else "no_faults"}_' \
+f'e-{settings.NUM_EPOCHS}_' \
+f'bs-{settings.BATCH_SIZE}_' \
+f'lr-{settings.LEARNING_RATE}({settings.ENCODER_LR_MULTIPLIER})_' \
+f'wd-{settings.WEIGHT_DECAY}_' \
 f'{"cos" if settings.SCHEDULER_NAME == "cosine_annealing" else "rlp"}'
 
 test_metrics = run_full_pipeline(
