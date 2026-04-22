@@ -1,4 +1,4 @@
-# Добавление новых cps гридов
+# Создание семплов из cps гридов
 1. visualization\visualize_cps_rgb_vs_isolines.py
 2. visualization\visualize_closed_isolines.py
 3. data\convert_cps_to_tiles.py

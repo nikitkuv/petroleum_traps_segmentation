@@ -183,13 +183,20 @@ def cps_to_rgb(grid: np.ndarray, cmap_name: str = 'purple_jet') -> np.ndarray:
     return rgb
 
 
-def cps_to_grayscale(grid: np.ndarray, invert: bool = False) -> np.ndarray:
+def cps_to_grayscale(
+    grid: np.ndarray, 
+    invert: bool = False, 
+    global_vmin: float = None, 
+    global_vmax: float = None
+) -> np.ndarray:
     """
     Конвертирует CPS грид в черно-белое изображение.
     
     Args:
         grid: 2D numpy array
         invert: Если True — инвертируем (черный = макс, белый = мин)
+        global_vmin: Глобальный минимум (если нужен, например, для тайлов)
+        global_vmax: Глобальный максимум (если нужен, например, для тайлов)
     
     Returns:
         gray: (H, W) uint8 array
@@ -199,10 +206,13 @@ def cps_to_grayscale(grid: np.ndarray, invert: bool = False) -> np.ndarray:
     if valid_mask.sum() == 0:
         return np.zeros(grid.shape, dtype=np.uint8)
     
-    vmin, vmax = np.nanmin(grid), np.nanmax(grid)
+    # Используем глобальные min/max, если они переданы, иначе вычисляем локальные
+    vmin = global_vmin if global_vmin is not None else np.nanmin(grid)
+    vmax = global_vmax if global_vmax is not None else np.nanmax(grid)
     
     # Нормализация к [0, 255]
     grid_norm = (grid - vmin) / (vmax - vmin + 1e-8)
+    # Клиппинг обязателен при глобальной нормализации, так как значения тайла могут выходить за пределы global_vmin/global_vmax из-за NaN
     grid_norm = np.clip(grid_norm, 0, 1)
     
     if invert:
@@ -212,7 +222,6 @@ def cps_to_grayscale(grid: np.ndarray, invert: bool = False) -> np.ndarray:
     gray[~valid_mask] = 0  # NaN = чёрный
     
     return gray
-
 
 def cps_to_isolines(grid: np.ndarray, step: float = 5.0) -> np.ndarray:
     """
@@ -474,7 +483,7 @@ def split_cps_grids_into_tiles(
 ) -> List[str]:
     """
     Загружает CPS гриды, нарезает их на тайлы и конвертирует в PNG.
-    Каждый тайл получает СВОЮ ЛОКАЛЬНУЮ цветовую палитру (vmin/vmax).
+    RGB использует ЛОКАЛЬНУЮ палитру, Depth_norm использует ГЛОБАЛЬНУЮ палитру всего грида.
     """
     tile_width = tile_width or settings.TARGET_WIDTH
     tile_height = tile_height or settings.TARGET_HEIGHT
@@ -492,8 +501,16 @@ def split_cps_grids_into_tiles(
         print(f"\nProcessing horizon: {horizon_name}")
 
         struct_grid = None
+        global_vmin, global_vmax = None, None  # Инициализация глобальных min/max
+        
         if 'structural' in files:
             struct_grid, _ = read_cps_grid(files['structural'])
+            # Вычисляем глобальные min и max для всего горизонта один раз
+            valid_mask = ~np.isnan(struct_grid)
+            if valid_mask.sum() > 0:
+                global_vmin = np.nanmin(struct_grid)
+                global_vmax = np.nanmax(struct_grid)
+                print(f"  Global depth range: [{global_vmin:.1f}, {global_vmax:.1f}]")
 
         traps_grid = None
         if 'traps' in files:
@@ -541,12 +558,20 @@ def split_cps_grids_into_tiles(
                 saved_tile_count += 1
                 tile_prefix = f"{saved_tile_count:03d}_"
 
-                # Нарезка и конвертация структурного грида с ЛОКАЛЬНЫМИ vmin/vmax
+                # Нарезка и конвертация структурного грида
                 if struct_grid is not None:
                     tile_struct = struct_grid[y_start:y_end, x_start:x_end]
 
+                    # RGB с ЛОКАЛЬНОЙ нормализацией
                     tile_rgb = cps_to_rgb(tile_struct, cmap_name='purple_jet')
-                    tile_gray = cps_to_grayscale(tile_struct)
+                    
+                    # Depth_norm с ГЛОБАЛЬНОЙ нормализацией грида
+                    tile_gray = cps_to_grayscale(
+                        tile_struct, 
+                        global_vmin=global_vmin, 
+                        global_vmax=global_vmax
+                    )
+                    
                     tile_isolines = cps_to_isolines(tile_struct, step=isoline_step)
                     tile_closed_mask = cps_to_closed_mask(tile_struct, step=isoline_step)
                     tile_closed = (tile_closed_mask * 255).astype(np.uint8)
