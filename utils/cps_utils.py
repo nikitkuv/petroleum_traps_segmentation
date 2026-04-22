@@ -737,3 +737,52 @@ def load_existing_images(horizons: Dict[str, Dict[str, str]], full_images_dir: s
             print(f"    Loaded Traps: {traps_path} (shape={img.shape})")
 
     return images_data
+
+
+def clean_cps_filenames(cps_dir: str, suffixes_to_remove: list = None):
+    """
+    Удаляет указанные суффиксы из имен файлов в директории cps_dir.
+    
+    Args:
+        cps_dir: Путь к директории с CPS файлами
+        suffixes_to_remove: Список суффиксов для удаления (например, ['.cps3', '-UNIQ1'])
+    """
+    if suffixes_to_remove is None:
+        suffixes_to_remove = [".cps3", "-UNIQ1"]
+
+    if not os.path.exists(cps_dir):
+        print(f"Directory not found: {cps_dir}. Skipping filename cleaning.")
+        return
+
+    print(f"Cleaning filenames in {cps_dir}...")
+    print(f"Suffixes to remove: {suffixes_to_remove}")
+    
+    renamed_count = 0
+
+    for filename in os.listdir(cps_dir):
+        old_path = os.path.join(cps_dir, filename)
+
+        if not os.path.isfile(old_path):
+            continue
+
+        new_name = filename
+
+        # Удаляем все суффиксы из имени
+        for suffix in suffixes_to_remove:
+            if new_name.endswith(suffix):
+                new_name = new_name[:-len(suffix)]
+
+        # Если имя изменилось, переименовываем
+        if new_name != filename:
+            new_path = os.path.join(cps_dir, new_name)
+            
+            # Защита от перезаписи существующих файлов
+            if os.path.exists(new_path):
+                print(f"  WARNING: Cannot rename '{filename}' -> '{new_name}'. File already exists!")
+                continue
+                
+            print(f"  Renaming: {filename} -> {new_name}")
+            os.rename(old_path, new_path)
+            renamed_count += 1
+
+    print(f"Filename cleaning done. Renamed {renamed_count} files.\n")

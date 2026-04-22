@@ -7,7 +7,8 @@ from utils.cps_utils import (
     find_cps_files,
     save_large_images,
     split_into_tiles,
-    load_existing_images
+    load_existing_images,
+    clean_cps_filenames
 )
 from settings import settings
 
@@ -53,6 +54,10 @@ def main():
 
     print(f"\nMode: {mode}")
     print("=" * 60)
+
+    # Очистка имен файлов (удаление мусорных суффиксов)
+    print("\nStep 0: Cleaning CPS filenames...")
+    clean_cps_filenames(cps_dir, suffixes_to_remove=[".cps3", "-UNIQ1"])
 
     # Собираем cps файлы (needed for both modes that involve save_large_images)
     horizons = None
