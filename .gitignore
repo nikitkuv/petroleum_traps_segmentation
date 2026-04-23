@@ -1,39 +1,58 @@
-# Compiled and build artifacts
-*.pyc
-__pycache__/
+# Documentation builds and outputs
+docs/_build/
+docs/build/
+docs/site/
+.sphinx/
+docutils-stamp/
 
-# Dependencies
-.venv/
-venv/
-node_modules/
+# Temporary documentation files
+*.tmp
+*.log
 
-# Environment
-.env
-.env.local
-.env.*
+# Cache directories
+.cache/
+.jekyll-cache/
+.sphinx-gallery/
 
-# Editors
+# Generated documentation artifacts
+_gen/
+_generated/
+api/
+apidocs/
+dist/
+build/
+
+# Editor files
 .vscode/
 .idea/
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.local
+*.env.*
+
+# Python specific
+__pycache__/
+*.pyc
+*.pyo
+.Python
+*.so
+*.egg-info/
+.eggs/
 
 # Coverage reports
 .coverage
-coverage/
 htmlcov/
+.coverage.*
+.nox/
 
-# Python cache
-.mypy_cache/
-.pytest_cache/
+# Logs
+*.log
 
-data/raw/
-data/cps/
-
-data/test_cps_visualization/
-data/test_dataset_vizualisation/
-
-prompts/
-logs/
-.ipynb_checkpoints/
-test_something.py
-checkpoints/
-gradient_anomalies/
+# OS generated files
+.DS_Store
+Thumbs.db
+.directory
+*.nfs*
