@@ -6,9 +6,19 @@
 
 **Задача**: Выделить замкнутые структурные ловушки - закрашенные части карт по последней замкнутой изолинии, выше которых существует замкнутая возвышенность.
 
-**Варианты данных**:
-- PNG: RGB без изолиний + depth_norm + map_mask (без разломов)
-- PNG: RGB без изолиний + fault_mask + depth_norm + depth_mask + map_mask (с разломами)
+**Источники данных**:
+- **cps_tiles** (основной): PNG файлы из CPS гридов с каналами RGB(3) + Depth(1) + Isolines(1) + ClosedIsolines(1) [+ Faults(1) опционально]
+- **png**: Классические PNG изображения с каналами RGB(3) + Depth(1) [+ Faults(1) опционально]
+
+### Варианты данных
+
+#### Для cps_tiles:
+- **Без разломов**: 6 каналов = RGB(3) + Depth(1) + Isolines(1) + ClosedIsolines(1)
+- **С разломами**: 7 каналов = RGB(3) + Depth(1) + Isolines(1) + ClosedIsolines(1) + Faults(1)
+
+#### Для png:
+- **Без разломов**: 4 канала = RGB(3) + Depth(1)
+- **С разломами**: 5 каналов = RGB(3) + Depth(1) + Faults(1)
 
 ## Структура проекта
 
@@ -34,8 +44,9 @@
 | Утилита | Файл | Описание |
 |---------|------|----------|
 | Images Utils | `utils/images_utils.py` | Загрузка PNG, создание масок, паддинг |
+| Dataset Utils | `utils/dataset_utils.py` | Парсинг имен файлов, группировка семплов, загрузка данных |
 | Augmentations | `utils/augmentations.py` | Аугментации (Albumentations) |
-| CPS Utils | `utils/cps_utils.py` | Работа с CPS гридами (опционально) |
+| CPS Utils | `utils/cps_utils.py` | Работа с CPS гридами: чтение, генерация RGB, изолиний, замкнутых контуров |
 
 ## Быстрый старт
 
@@ -80,23 +91,44 @@ test_metrics = run_full_pipeline(
 ### Шаг 1: Подготовка данных
 
 #### Формат имен файлов
+
 ```
 {number}_{x|y}_{type}_{name}.png
 ```
 
-Примеры:
+**Для cps_tiles:**
+- `001_x_structuralNOisoline_Ach3-2-1_toptop1.png` - RGB карта (purple_jet)
+- `001_x_structuralBlackWhite_Ach3-2-1_toptop1.png` - Depth нормализованный
+- `001_x_isolines_Ach3-2-1_toptop1.png` - Изолинии (белые линии на черном фоне)
+- `001_x_closedIsolines_Ach3-2-1_toptop1.png` - Замкнутые изолинии (маска ловушек)
+- `001_x_faults_Ach3-2-1_toptop1.png` - Разломы (опционально)
+- `001_y_traps_Ach3-2-1_toptop1.png` - Ловушки (таргет)
+
+**Для png:**
 - `001_x_structuralNOisoline_H150.png` - RGB карта
 - `001_x_structuralBlackWhite_H150.png` - Depth нормализованный
 - `001_x_faults_H150.png` - Разломы (опционально)
 - `001_y_traps_H150.png` - Ловушки (таргет)
 
 #### Структура директорий
+
+**Для cps_tiles:**
+```
+data/images_cps/
+├── 001_x_structuralNOisoline_Ach3-2-1_toptop1.png
+├── 001_x_structuralBlackWhite_Ach3-2-1_toptop1.png
+├── 001_x_isolines_Ach3-2-1_toptop1.png
+├── 001_x_closedIsolines_Ach3-2-1_toptop1.png
+├── 001_y_traps_Ach3-2-1_toptop1.png
+└── ...
+```
+
+**Для png:**
 ```
 data/images/
 ├── 001_x_structuralNOisoline_H150.png
 ├── 001_x_structuralBlackWhite_H150.png
 ├── 001_y_traps_H150.png
-├── 002_x_structuralNOisoline_H150.png
 └── ...
 ```
 
@@ -104,7 +136,7 @@ data/images/
 from data.dataloaders import get_file_list, split_data_by_groups, create_dataloaders
 
 # Получить список файлов
-file_list = get_file_list('./data/images/', data_source='png')
+file_list = get_file_list('./data/images_cps/', data_source='cps_tiles')
 
 # Разделить на выборки (группировка по name)
 train_files, val_files, test_files = split_data_by_groups(
@@ -119,7 +151,7 @@ train_loader, val_loader, test_loader = create_dataloaders(
     train_files, val_files, test_files,
     batch_size=4,
     use_faults=False,
-    data_source='png'
+    data_source='cps_tiles'
 )
 ```
 
@@ -129,7 +161,17 @@ train_loader, val_loader, test_loader = create_dataloaders(
 from models.unetplusplus import load_unetplusplus
 from settings import settings
 
+# Для cps_tiles без разломов (6 каналов)
 model = load_unetplusplus(
+    in_channels=6,  # RGB (3) + depth_norm (1) + isolines (1) + closed_isolines (1)
+    classes=1,
+    encoder_name='resnet34',
+    encoder_weights='imagenet',
+    device='cuda'
+)
+
+# Для png без разломов (4 канала)
+model_png = load_unetplusplus(
     in_channels=4,  # RGB (3) + depth_norm (1)
     classes=1,
     encoder_name='resnet34',
@@ -141,7 +183,7 @@ model = load_unetplusplus(
 **Особенности архитектуры**:
 - U-Net++ с энкодером ResNet34 (ImageNet pretrained)
 - Первые 3 канала используют предобученные веса
-- Дополнительные каналы (depth, faults) инициализируются средним значением RGB весов
+- Дополнительные каналы (depth, isolines, closed_isolines, faults) инициализируются средним значением RGB весов
 - Decoder инициализируется случайно
 
 ### Шаг 3: Настройка функции потерь
