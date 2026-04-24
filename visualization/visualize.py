@@ -11,10 +11,12 @@ from settings import settings
 from utils.cps_utils import (
     read_cps_grid, 
     cps_to_rgb, 
+    cps_to_grayscale,
     cps_to_isolines,
     cps_to_closed_mask,
     cps_to_binary_mask
 )
+from utils.images_utils import create_map_mask
 
 
 def overlay_isolines_on_rgb_from_cps(
@@ -32,28 +34,24 @@ def overlay_isolines_on_rgb_from_cps(
         cmap_name: Название цветовой палитры для RGB карты (по умолчанию 'purple_jet')
         alpha: Прозрачность наложения изолиний (0.0 - полностью прозрачные, 1.0 - полностью видимые)
     """
-    # 1. Загружаем CPS грид
+    # Загружаем CPS грид
     grid, _ = read_cps_grid(cps_path)
     
-    # 2. Генерируем RGB и изолинии
+    # Генерируем RGB и изолинии
     rgb_img = cps_to_rgb(grid, cmap_name=cmap_name)
     isolines_img = cps_to_isolines(grid, step=isoline_step)
-    
-    # 3. Применяем поворот на 180 градусов (как в пайплайне конвертации)
-    rgb_img = np.rot90(rgb_img, k=2)
-    isolines_img = np.rot90(isolines_img, k=2)
 
-    # 4. Нормализуем RGB к [0, 1]
+    # Нормализуем RGB к [0, 1]
     rgb_float = rgb_img.astype(np.float32) / 255.0
 
-    # 5. Инвертируем изолинии: черный фон (0) → белый (1), белые линии (255) → черные (0)
+    # Инвертируем изолинии: черный фон (0) → белый (1), белые линии (255) → черные (0)
     isolines_inverted = 1.0 - (isolines_img.astype(np.float32) / 255.0)
 
     # Создаем маску для линий (где изолинии черные после инверсии, т.е. близки к 0)
     # isolines_inverted: 1.0 = фон, 0.0 = линии
     line_mask = 1.0 - isolines_inverted  # Теперь: 1.0 = линии, 0.0 = фон
 
-    # 6. Накладываем изолинии на RGB (затемняем области с линиями)
+    # Накладываем изолинии на RGB (затемняем области с линиями)
     overlay = rgb_float.copy()
     # Используем alpha для контроля интенсивности затемнения (0.7 - множитель затемнения)
     overlay = overlay * (1.0 - line_mask[:, :, np.newaxis] * alpha * 0.7)
@@ -61,7 +59,7 @@ def overlay_isolines_on_rgb_from_cps(
     # Ограничиваем значения к [0, 1]
     overlay = np.clip(overlay, 0, 1)
 
-    # 7. Визуализация
+    # Визуализация
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
 
     # RGB изображение
@@ -83,33 +81,30 @@ def overlay_isolines_on_rgb_from_cps(
     plt.show()
 
 
-def visualize_closed_isolines(rgb_cps_paht: str, traps_cps_path: str, isoline_step: float):
+def visualize_closed_isolines(rgb_cps_path: str, traps_cps_path: str, isoline_step: float):
     # Проверка существования файлов
-    for path in [rgb_cps_paht, traps_cps_path]:
+    for path in [rgb_cps_path, traps_cps_path]:
         if not Path(path).exists():
             print(f"Ошибка: Файл не найден - {path}")
             return
 
     print("Загрузка CPS grids...")
     # Загружаем структурный грид (карта глубин)
-    structural_grid, _ = read_cps_grid(rgb_cps_paht)
+    structural_grid, _ = read_cps_grid(rgb_cps_path)
     # Загружаем грид ловушек
     traps_grid, _ = read_cps_grid(traps_cps_path)
 
     print("Генерация изолиний...")
     # Генерируем изолинии из структурного грида
     isolines_img = cps_to_isolines(structural_grid, step=isoline_step)
-    isolines_img = np.rot90(isolines_img, k=2) # Поворот как при сохранении
 
     print("Генерация маски замкнутых изолиний...")
     # Генерируем маску замкнутых контуров
     closed_mask = cps_to_closed_mask(structural_grid, step=isoline_step)
-    closed_mask = np.rot90(closed_mask, k=2) # Поворот как при сохранении
 
     print("Генерация маски ловушек (GT)...")
     # Генерируем бинарную маску ловушек
     traps_mask = cps_to_binary_mask(traps_grid)
-    traps_mask = np.rot90(traps_mask, k=2) # Поворот как при сохранении
 
     # Визуализация 1x3 (1 ряд, 3 колонки)
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
@@ -480,3 +475,116 @@ def visualize_test_results(
             wandb.log({
                 f'test_visualization_{sample_name}': wandb.Image(filepath)
             })
+
+
+def visualize_full_cps_analysis(
+    rgb_cps_path: str, 
+    traps_cps_path: str, 
+    isoline_step: float = 5.0,
+    overlay_alpha: float = 0.4
+) -> None:
+    """
+    Визуализирует данные из CPS грида в два ряда:
+    1 ряд: RGB - Карта замкнутых изолиний - Depth_norm карта - Карта traps
+    2 ряд: RGB с изолиниями - RGB с замкнутыми изолиниями (черные области, белый фон) - Map_mask - (пусто)
+    
+    Args:
+        rgb_cps_path: Путь к CPS файлу структурной карты (x_structuralNOisoline_*)
+        traps_cps_path: Путь к CPS файлу карты ловушек (y_traps_*)
+        isoline_step: Шаг изолиний в метрах
+        overlay_alpha: Степень прозрачности для наложения маски на RGB (0.0 - прозрачно, 1.0 - непрозрачно)
+    """
+    # Проверка существования файлов
+    for path in [rgb_cps_path, traps_cps_path]:
+        if not Path(path).exists():
+            print(f"Ошибка: Файл не найден - {path}")
+            return
+
+    print("Загрузка и обработка CPS грида...")
+    # 1. Структурная карта
+    structural_grid, _ = read_cps_grid(rgb_cps_path)
+    
+    rgb_img = cps_to_rgb(structural_grid)
+    depth_img = cps_to_grayscale(structural_grid, invert=False)
+    isolines_img = cps_to_isolines(structural_grid, step=isoline_step)
+    closed_mask = cps_to_closed_mask(structural_grid, step=isoline_step)
+
+    # 2. Карта ловушек
+    traps_grid, _ = read_cps_grid(traps_cps_path)
+    traps_mask = cps_to_binary_mask(traps_grid)
+
+    # 3. Map mask (1 - внутри карты, 0 - снаружи)
+    # Передаем data_source='cps_tiles', чтобы функция знала, что фон черный
+    map_mask = create_map_mask(rgb_img, data_source='cps_tiles')
+
+    # 4. Нормализация для визуализации и оверлеев
+    rgb_float = rgb_img.astype(np.float32) / 255.0
+    depth_norm = depth_img.astype(np.float32) / 255.0
+    isolines_norm = isolines_img.astype(np.float32) / 255.0
+
+    # 5. Создание оверлеев
+    # 5.1. RGB + Изолинии (затемняем линии на RGB)
+    rgb_isolines_overlay = rgb_float.copy()
+    line_mask = isolines_norm > 0.5
+    rgb_isolines_overlay[line_mask] = rgb_isolines_overlay[line_mask] * (1.0 - 0.6)
+
+    # 5.2. RGB + Замкнутые изолинии (по ТЗ: замкнутые области - черные, фон - белый, в прозрачности)
+    # Создаем слой наложения: где closed_mask == 1 (ловушка) -> 0 (черный), где 0 (фон) -> 1 (белый)
+    overlay_layer = 1.0 - closed_mask
+    overlay_layer_3ch = np.stack([overlay_layer] * 3, axis=-1)
+    
+    # Смешиваем RGB и созданный слой с прозрачностью alpha
+    rgb_closed_overlay = cv2.addWeighted(
+        rgb_float, 
+        1.0 - overlay_alpha, 
+        overlay_layer_3ch, 
+        overlay_alpha, 
+        0
+    )
+
+    # 6. Отрисовка
+    fig, axes = plt.subplots(2, 4, figsize=(24, 12))
+    
+    # === Ряд 1 ===
+    # 1. RGB
+    axes[0, 0].imshow(rgb_float)
+    axes[0, 0].set_title("RGB Map", fontsize=14)
+    axes[0, 0].axis('off')
+
+    # 2. Карта замкнутых изолиний
+    axes[0, 1].imshow(closed_mask, cmap='gray', vmin=0.0, vmax=1.0)
+    axes[0, 1].set_title("Closed Isolines Mask", fontsize=14)
+    axes[0, 1].axis('off')
+
+    # 3. Depth_norm карта
+    axes[0, 2].imshow(depth_norm, cmap='gray', vmin=0.0, vmax=1.0)
+    axes[0, 2].set_title("Depth Norm Map", fontsize=14)
+    axes[0, 2].axis('off')
+
+    # 4. Карта traps
+    axes[0, 3].imshow(traps_mask, cmap='gray', vmin=0.0, vmax=1.0)
+    axes[0, 3].set_title("Ground Truth Traps", fontsize=14)
+    axes[0, 3].axis('off')
+
+    # === Ряд 2 ===
+    # 1. RGB с наложенными изолиниями
+    axes[1, 0].imshow(rgb_isolines_overlay)
+    axes[1, 0].set_title("RGB + Isolines Overlay", fontsize=14)
+    axes[1, 0].axis('off')
+
+    # 2. RGB с наложенными замкнутыми изолиниями (черные области, белый фон)
+    axes[1, 1].imshow(rgb_closed_overlay)
+    axes[1, 1].set_title(f"RGB + Closed Iso Overlay\n(alpha={overlay_alpha}, black=traps, white=bg)", fontsize=14)
+    axes[1, 1].axis('off')
+
+    # 3. Map_mask
+    axes[1, 2].imshow(map_mask, cmap='gray', vmin=0.0, vmax=1.0)
+    axes[1, 2].set_title("Map Mask (1=inside, 0=outside)", fontsize=14)
+    axes[1, 2].axis('off')
+
+    # 4. Пустая ячейка (скрываем оси)
+    axes[1, 3].axis('off')
+
+    plt.suptitle("Full CPS Data Analysis", fontsize=18, fontweight='bold')
+    plt.tight_layout()
+    plt.show()
