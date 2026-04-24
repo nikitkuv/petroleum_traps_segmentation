@@ -78,9 +78,6 @@ def read_cps_grid(file_path: str, vertical_flip: bool = False) -> Tuple[np.ndarr
     # Вертикальный флип
     if vertical_flip:
         grid = np.flipud(grid)
-
-    # Поворот на 180 градусов
-    grid = np.rot90(grid, k=2)
     
     # Заменяем пустые значения
     grid[np.isclose(grid, null_value)] = np.nan
@@ -373,8 +370,6 @@ def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str, isol
 
             # Конвертируем в RGB
             rgb_img = cps_to_rgb(grid, cmap_name='purple_jet')
-            # Поворачиваем на 180 градусов
-            rgb_img = np.rot90(rgb_img, k=2)
             rgb_path = os.path.join(output_dir, f'x_structuralNOisoline_{horizon_name}.png')
             save_png(rgb_img, rgb_path)
             print(f"  Saved RGB: {rgb_path} (shape={rgb_img.shape})")
@@ -382,8 +377,6 @@ def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str, isol
 
             # Конвертируем в grayscale (для depth_norm)
             gray_img = cps_to_grayscale(grid, invert=False)
-            # Поворачиваем на 180 градусов
-            gray_img = np.rot90(gray_img, k=2)
             gray_path = os.path.join(output_dir, f'x_structuralBlackWhite_{horizon_name}.png')
             save_png(gray_img, gray_path)
             print(f"  Saved Grayscale: {gray_path} (shape={gray_img.shape})")
@@ -391,8 +384,6 @@ def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str, isol
 
             # Конвертируем в изолинии
             isolines_img = cps_to_isolines(grid, step=isoline_step)
-            # Поворачиваем на 180 градусов
-            isolines_img = np.rot90(isolines_img, k=2)
             isolines_path = os.path.join(output_dir, f'x_isolines_{horizon_name}.png')
             save_png(isolines_img, isolines_path)
             print(f"  Saved Isolines: {isolines_path} (shape={isolines_img.shape})")
@@ -400,7 +391,6 @@ def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str, isol
 
             # Конвертируем в маску замкнутых изолиний
             closed_mask = cps_to_closed_mask(grid, step=isoline_step)
-            closed_mask = np.rot90(closed_mask, k=2)
             closed_img = (closed_mask * 255).astype(np.uint8) # В uint8 для PNG
             closed_path = os.path.join(output_dir, f'x_closedIsolines_{horizon_name}.png')
             save_png(closed_img, closed_path)
@@ -415,8 +405,6 @@ def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str, isol
             # Для traps используем бинаризацию
             traps_img = cps_to_binary_mask(grid)
             traps_img = (traps_img * 255).astype(np.uint8)
-            # Поворачиваем на 180 градусов
-            traps_img = np.rot90(traps_img, k=2)
             traps_path = os.path.join(output_dir, f'y_traps_{horizon_name}.png')
             save_png(traps_img, traps_path)
             print(f"  Saved Traps: {traps_path} (shape={traps_img.shape})")

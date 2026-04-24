@@ -75,20 +75,24 @@ class TestDatasetUtils:
         data_dir = tmp_path / "data"
         data_dir.mkdir()
 
-        # Create complete sample 1
+        # Create complete sample 1 (cps_tiles format with isolines and closed_isolines)
         for filename in [
             "001_x_structuralNOisoline_H150.png",
             "001_x_structuralBlackWhite_H150.png",
+            "001_x_isolines_H150.png",
+            "001_x_closedIsolines_H150.png",
             "001_y_traps_H150.png"
         ]:
             img = np.zeros((50, 50, 3), dtype=np.uint8)
             cv2 = pytest.importorskip("cv2")
             cv2.imwrite(str(data_dir / filename), img)
 
-        # Create complete sample 2 with faults
+        # Create complete sample 2 with faults (cps_tiles format)
         for filename in [
             "002_x_structuralNOisoline_BZ24.png",
             "002_x_structuralBlackWhite_BZ24.png",
+            "002_x_isolines_BZ24.png",
+            "002_x_closedIsolines_BZ24.png",
             "002_x_faults_BZ24.png",
             "002_y_traps_BZ24.png"
         ]:
@@ -96,10 +100,11 @@ class TestDatasetUtils:
             cv2 = pytest.importorskip("cv2")
             cv2.imwrite(str(data_dir / filename), img)
 
-        # Create incomplete sample (missing traps)
+        # Create incomplete sample (missing traps and closed_isolines)
         for filename in [
             "003_x_structuralNOisoline_XUY1.png",
-            "003_x_structuralBlackWhite_XUY1.png"
+            "003_x_structuralBlackWhite_XUY1.png",
+            "003_x_isolines_XUY1.png"
         ]:
             img = np.zeros((50, 50, 3), dtype=np.uint8)
             cv2 = pytest.importorskip("cv2")
@@ -145,17 +150,21 @@ class TestDatasetUtils:
         """Test that collect_samples correctly maps file types to channel names."""
         samples = collect_samples(sample_files_for_collect)
 
-        # Check sample 1 (no faults)
+        # Check sample 1 (no faults, cps_tiles format)
         sample1 = samples['001_H150']
         assert any('structuralNOisoline' in v for v in sample1.values())  # rgb
         assert any('structuralBlackWhite' in v for v in sample1.values())  # depth_norm
+        assert any('isolines' in v for v in sample1.values())  # isolines
+        assert any('closedIsolines' in v for v in sample1.values())  # closed_isolines
         assert any('traps' in v for v in sample1.values())  # traps
         assert 'faults' not in sample1
 
-        # Check sample 2 (with faults)
+        # Check sample 2 (with faults, cps_tiles format)
         sample2 = samples['002_BZ24']
         assert any('structuralNOisoline' in v for v in sample2.values())  # rgb
         assert any('structuralBlackWhite' in v for v in sample2.values())  # depth_norm
+        assert any('isolines' in v for v in sample2.values())  # isolines
+        assert any('closedIsolines' in v for v in sample2.values())  # closed_isolines
         assert any('traps' in v for v in sample2.values())  # traps
         assert any('faults' in v for v in sample2.values())  # faults
 
@@ -163,11 +172,13 @@ class TestDatasetUtils:
         """Test that incomplete samples are still collected (filtering is done later)."""
         samples = collect_samples(sample_files_for_collect)
 
-        # Incomplete sample should be present but missing traps
+        # Incomplete sample should be present but missing traps and closed_isolines
         sample3 = samples['003_XUY1']
         assert 'rgb' in sample3 or any('structuralNOisoline' in v for v in sample3.values())
         assert 'depth_norm' in sample3 or any('structuralBlackWhite' in v for v in sample3.values())
+        assert 'isolines' in sample3 or any('isolines' in v for v in sample3.values())
         assert 'traps' not in sample3
+        assert 'closed_isolines' not in sample3
 
     def test_collect_samples_empty_list(self):
         """Test collect_samples with empty file list."""
@@ -231,9 +242,13 @@ class TestDatasetUtils:
 
         cv2 = pytest.importorskip("cv2")
 
-        # Create test images
+        # Create test images for cps_tiles format
         rgb_img = np.ones((50, 50, 3), dtype=np.uint8) * 128
         depth_img = np.ones((50, 50), dtype=np.uint8) * 100
+        isolines_img = np.zeros((50, 50), dtype=np.uint8)
+        isolines_img[10:40, 10:40] = 255  # Some isolines
+        closed_isolines_img = np.zeros((50, 50), dtype=np.uint8)
+        closed_isolines_img[20:30, 20:30] = 255  # Closed isolines area
         traps_img = np.zeros((50, 50), dtype=np.uint8)
         traps_img[20:30, 20:30] = 255
         faults_img = np.zeros((50, 50), dtype=np.uint8)
@@ -241,29 +256,39 @@ class TestDatasetUtils:
 
         rgb_path = str(data_dir / "rgb.png")
         depth_path = str(data_dir / "depth.png")
+        isolines_path = str(data_dir / "isolines.png")
+        closed_isolines_path = str(data_dir / "closed_isolines.png")
         traps_path = str(data_dir / "traps.png")
         faults_path = str(data_dir / "faults.png")
 
         cv2.imwrite(rgb_path, rgb_img)
         cv2.imwrite(depth_path, depth_img)
+        cv2.imwrite(isolines_path, isolines_img)
+        cv2.imwrite(closed_isolines_path, closed_isolines_img)
         cv2.imwrite(traps_path, traps_img)
         cv2.imwrite(faults_path, faults_img)
 
         sample_paths = {
             'rgb': rgb_path,
             'depth_norm': depth_path,
+            'isolines': isolines_path,
+            'closed_isolines': closed_isolines_path,
             'traps': traps_path,
             'faults': faults_path
         }
 
-        rgb, depth, traps, faults = load_maps_into_ndarray(
-            sample_paths, use_faults=True, data_source='images'
+        rgb, depth, isolines, closed_isolines, traps, faults = load_maps_into_ndarray(
+            sample_paths, use_faults=True, data_source='cps_tiles'
         )
 
         assert rgb.shape == (50, 50, 3)
         assert rgb.dtype == np.uint8
         assert depth.shape == (50, 50)
         assert depth.dtype == np.uint8
+        assert isolines.shape == (50, 50)
+        assert isolines.dtype == np.uint8
+        assert closed_isolines.shape == (50, 50)
+        assert closed_isolines.dtype == np.uint8
         assert traps.shape == (50, 50)
         assert traps.dtype == np.float32
         assert faults.shape == (50, 50)
@@ -278,28 +303,38 @@ class TestDatasetUtils:
 
         rgb_img = np.ones((50, 50, 3), dtype=np.uint8) * 128
         depth_img = np.ones((50, 50), dtype=np.uint8) * 100
+        isolines_img = np.zeros((50, 50), dtype=np.uint8)
+        closed_isolines_img = np.zeros((50, 50), dtype=np.uint8)
         traps_img = np.zeros((50, 50), dtype=np.uint8)
 
         rgb_path = str(data_dir / "rgb.png")
         depth_path = str(data_dir / "depth.png")
+        isolines_path = str(data_dir / "isolines.png")
+        closed_isolines_path = str(data_dir / "closed_isolines.png")
         traps_path = str(data_dir / "traps.png")
 
         cv2.imwrite(rgb_path, rgb_img)
         cv2.imwrite(depth_path, depth_img)
+        cv2.imwrite(isolines_path, isolines_img)
+        cv2.imwrite(closed_isolines_path, closed_isolines_img)
         cv2.imwrite(traps_path, traps_img)
 
         sample_paths = {
             'rgb': rgb_path,
             'depth_norm': depth_path,
+            'isolines': isolines_path,
+            'closed_isolines': closed_isolines_path,
             'traps': traps_path
         }
 
-        rgb, depth, traps, faults = load_maps_into_ndarray(
-            sample_paths, use_faults=False, data_source='images'
+        rgb, depth, isolines, closed_isolines, traps, faults = load_maps_into_ndarray(
+            sample_paths, use_faults=False, data_source='cps_tiles'
         )
 
         assert rgb.shape == (50, 50, 3)
         assert depth.shape == (50, 50)
+        assert isolines.shape == (50, 50)
+        assert closed_isolines.shape == (50, 50)
         assert traps.shape == (50, 50)
         # Faults should be zero mask
         assert faults.shape == (50, 50)
@@ -313,6 +348,57 @@ class TestDatasetUtils:
         cv2 = pytest.importorskip("cv2")
 
         # For cps_tiles, traps/faults are white (> threshold)
+        rgb_img = np.ones((50, 50, 3), dtype=np.uint8) * 128
+        depth_img = np.ones((50, 50), dtype=np.uint8) * 100
+        isolines_img = np.zeros((50, 50), dtype=np.uint8)
+        closed_isolines_img = np.zeros((50, 50), dtype=np.uint8)
+        closed_isolines_img[20:30, 20:30] = 255  # Closed isolines area
+        traps_img = np.zeros((50, 50), dtype=np.uint8)
+        traps_img[20:30, 20:30] = 255  # White = trap
+
+        rgb_path = str(data_dir / "rgb.png")
+        depth_path = str(data_dir / "depth.png")
+        isolines_path = str(data_dir / "isolines.png")
+        closed_isolines_path = str(data_dir / "closed_isolines.png")
+        traps_path = str(data_dir / "traps.png")
+
+        cv2.imwrite(rgb_path, rgb_img)
+        cv2.imwrite(depth_path, depth_img)
+        cv2.imwrite(isolines_path, isolines_img)
+        cv2.imwrite(closed_isolines_path, closed_isolines_img)
+        cv2.imwrite(traps_path, traps_img)
+
+        sample_paths = {
+            'rgb': rgb_path,
+            'depth_norm': depth_path,
+            'isolines': isolines_path,
+            'closed_isolines': closed_isolines_path,
+            'traps': traps_path
+        }
+
+        rgb, depth, isolines, closed_isolines, traps, faults = load_maps_into_ndarray(
+            sample_paths, use_faults=False, data_source='cps_tiles'
+        )
+
+        assert rgb.shape == (50, 50, 3)
+        assert depth.shape == (50, 50)
+        assert isolines.shape == (50, 50)
+        assert closed_isolines.shape == (50, 50)
+        # Closed isolines should have values where image was white
+        assert closed_isolines[25, 25] == 255  # Inside closed area
+        assert closed_isolines[0, 0] == 0  # Outside closed area
+        # Traps should have 1s where image was white
+        assert traps[25, 25] == 1.0  # Inside trap area
+        assert traps[0, 0] == 0.0  # Outside trap area
+
+    def test_load_maps_into_ndarray_png_source(self, tmp_path):
+        """Test load_maps_into_ndarray with png data source (no isolines)."""
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+
+        cv2 = pytest.importorskip("cv2")
+
+        # For png source, no isolines/closed_isolines files
         rgb_img = np.ones((50, 50, 3), dtype=np.uint8) * 128
         depth_img = np.ones((50, 50), dtype=np.uint8) * 100
         traps_img = np.zeros((50, 50), dtype=np.uint8)
@@ -332,11 +418,17 @@ class TestDatasetUtils:
             'traps': traps_path
         }
 
-        rgb, depth, traps, faults = load_maps_into_ndarray(
-            sample_paths, use_faults=False, data_source='cps_tiles'
+        rgb, depth, isolines, closed_isolines, traps, faults = load_maps_into_ndarray(
+            sample_paths, use_faults=False, data_source='png'
         )
 
         assert rgb.shape == (50, 50, 3)
+        assert depth.shape == (50, 50)
+        # Isolines and closed_isolines should be zero masks for png source
+        assert isolines.shape == (50, 50)
+        assert np.all(isolines == 0)
+        assert closed_isolines.shape == (50, 50)
+        assert np.all(closed_isolines == 0)
         # Traps should have 1s where image was white
         assert traps[25, 25] == 1.0  # Inside trap area
         assert traps[0, 0] == 0.0  # Outside trap area
@@ -353,7 +445,7 @@ def test_dataset_utils_smoke_test(tmp_path):
     key = get_sample_key(parsed)
     assert key == "001_H150"
 
-    # Test collect_samples
+    # Test collect_samples with cps_tiles format
     data_dir = tmp_path / "data"
     data_dir.mkdir()
     cv2 = pytest.importorskip("cv2")
@@ -361,6 +453,8 @@ def test_dataset_utils_smoke_test(tmp_path):
     for filename in [
         "001_x_structuralNOisoline_H150.png",
         "001_x_structuralBlackWhite_H150.png",
+        "001_x_isolines_H150.png",
+        "001_x_closedIsolines_H150.png",
         "001_y_traps_H150.png"
     ]:
         cv2.imwrite(str(data_dir / filename), np.zeros((50, 50, 3), dtype=np.uint8))
@@ -370,3 +464,49 @@ def test_dataset_utils_smoke_test(tmp_path):
 
     assert len(samples) == 1
     assert "001_H150" in samples
+    # Check that all expected channels are present
+    sample = samples["001_H150"]
+    assert 'rgb' in sample
+    assert 'depth_norm' in sample
+    assert 'isolines' in sample
+    assert 'closed_isolines' in sample
+    assert 'traps' in sample
+
+
+@pytest.mark.smoke
+class TestClosedIsolinesChannel:
+    """Tests specifically for the new closed_isolines channel."""
+
+    def test_parse_closed_isolines_filename(self):
+        """Test parsing of closedIsolines filename."""
+        result = parse_filename("001_x_closedIsolines_H150.png")
+
+        assert result is not None
+        assert result['number'] == '001'
+        assert result['role'] == 'x'
+        assert result['type'] == 'closedIsolines'
+        assert result['name'] == 'H150'
+
+    def test_collect_samples_includes_closed_isolines(self, tmp_path):
+        """Test that collect_samples includes closed_isolines channel."""
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+        cv2 = pytest.importorskip("cv2")
+
+        # Create files with closed_isolines
+        for filename in [
+            "001_x_structuralNOisoline_H150.png",
+            "001_x_structuralBlackWhite_H150.png",
+            "001_x_isolines_H150.png",
+            "001_x_closedIsolines_H150.png",
+            "001_y_traps_H150.png"
+        ]:
+            cv2.imwrite(str(data_dir / filename), np.zeros((50, 50, 3), dtype=np.uint8))
+
+        file_list = [str(data_dir / f) for f in os.listdir(data_dir)]
+        samples = collect_samples(file_list)
+
+        assert len(samples) == 1
+        sample = samples["001_H150"]
+        assert 'closed_isolines' in sample
+        assert 'closedIsolines' in sample['closed_isolines']
