@@ -20,8 +20,8 @@ def load_unetplusplus(
     
     Args:
         in_channels: Количество входных каналов:
-            - Для data_source='png': 4 (RGB+depth) или 5 (RGB+depth+faults)
-            - Для data_source='cps_tiles': 6 (RGB+depth+isolines+closed_isolines) или 7 (+faults)
+            - 6 (RGB+depth+isolines+closed_isolines)
+            - 7 (+faults)
         classes: Количество классов сегментации
         encoder_name: Название энкодера
         encoder_weights: Веса энкодера

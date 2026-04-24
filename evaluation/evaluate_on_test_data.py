@@ -12,12 +12,11 @@ from models.unetplusplus import load_unetplusplus, load_model_checkpoint
 from metrics.metrics import MetricsCalculator
 from visualization.visualize import visualize_test_results
 from data.dataset import GeologyTrapsDataset
-    
+
 
 def evaluate_all_test_samples(
     checkpoint_path: str,
     use_faults: bool = None,
-    data_source: str = None,
     batch_size: int = None,
     threshold: float = None,
     save_viz_dir: str = None,
@@ -25,53 +24,29 @@ def evaluate_all_test_samples(
     seed: int = None,
     custom_test_files: list = None
 ) -> Dict:
-    """
-    Загружает модель и оценивает её на всех тестовых семплах.
-
-    Args:
-        checkpoint_path: Путь к чекпоинту модели
-        data_dir: Путь к данным (для data_source='png')
-        cps_tiles_dir: Путь к CPS tiles данным (для data_source='cps_tiles')
-        use_faults: Использовать ли разломы (должно совпадать с обучением)
-        data_source: Источник данных ('png' или 'cps_tiles')
-        batch_size: Размер батча
-        threshold: Порог бинаризации
-        save_viz_dir: Директория для сохранения визуализаций
-        save_metrics_path: Путь для сохранения JSON с метриками
-        seed: Random seed для воспроизведения разбиения (должен совпадать с обучением)
-
-    Returns:
-        Словарь с результатами: per_sample_metrics, aggregated_metrics, sample_names
-    """
     device = settings.DEVICE
 
-    # Настройки по умолчанию
     use_faults = use_faults if use_faults is not None else settings.USE_FAULTS
-    data_source = data_source or settings.DATA_SOURCE
     batch_size = batch_size or settings.BATCH_SIZE
     threshold = threshold or settings.TEST_THRESHOLD
     seed = seed or settings.SEED
 
-    data_dir = settings.DATA_DIR
-    cps_tiles_dir = settings.CPS_TILES_DIR
+    data_dir = settings.CPS_TILES_DIR
 
     if save_viz_dir is None:
         save_viz_dir = os.path.join(settings.LOGS_DIR, 'test_all_samples_viz')
     if save_metrics_path is None:
         save_metrics_path = os.path.join(settings.LOGS_DIR, 'test_all_samples_metrics.json')
 
-    # Создаем директорию для визуализаций
     os.makedirs(save_viz_dir, exist_ok=True)
 
     print("=" * 80)
     print("EVALUATING MODEL ON ALL TEST SAMPLES")
     print("=" * 80)
     print(f"Checkpoint: {checkpoint_path}")
-    print(f"Data source: {data_source}")
     print(f"TARGET_HEIGHT: {settings.TARGET_HEIGHT}")
     print(f"TARGET_WIDTH: {settings.TARGET_WIDTH}")
     print(f"Data dir: {data_dir}")
-    print(f"CPS tiles dir: {cps_tiles_dir}")
     print(f"Use faults: {use_faults}")
     print(f"Device: {device}")
     print(f"Threshold: {threshold}")
@@ -79,14 +54,11 @@ def evaluate_all_test_samples(
     print("=" * 80)
 
     print("\n[STEP 1] Loading data and reproducing test split...")
-    dir_to_load_data_from = data_dir if data_source == "png" else cps_tiles_dir
-    print(f"Directory to load data from: {dir_to_load_data_from}")
-    all_files = get_file_list(dir_to_load_data_from, data_source=data_source)
+    all_files = get_file_list(data_dir)
 
     if len(all_files) == 0:
         raise ValueError("No data files found!")
 
-    # Воспроизводим разбиение с тем же seed что и при обучении
     if not custom_test_files:
         print("Using data split")
         _, _, test_files = split_data_by_groups(
@@ -98,24 +70,20 @@ def evaluate_all_test_samples(
     else:
         print("Using custom test_files")
         test_files = custom_test_files
-    
 
     print(f"Test files: {len(test_files)} files")
 
-    # Создаем dataloader только для теста
     test_dataset = GeologyTrapsDataset(
         file_list=test_files,
         data_dir=data_dir,
-        cps_tiles_dir=cps_tiles_dir,
         augment=False,
         use_faults=use_faults,
-        data_source=data_source
     )
 
     print(f"Test dataset initialized with {len(test_dataset)} samples")
 
     if len(test_dataset) == 0:
-        raise ValueError("Test dataset is empty! Check that test files have all required components (rgb, depth_norm, traps).")
+        raise ValueError("Test dataset is empty! Check that test files have all required components.")
 
     pin_memory_flag = torch.cuda.is_available()
 
@@ -134,7 +102,7 @@ def evaluate_all_test_samples(
         in_channels=in_channels,
         classes=1,
         encoder_name=settings.ENCODER_NAME,
-        encoder_weights=None,  # Не загружаем веса энкодера
+        encoder_weights=None,
         device=device
     )
     model = load_model_checkpoint(model, checkpoint_path, device)
@@ -163,13 +131,11 @@ def evaluate_all_test_samples(
 
             predictions = model(x)
 
-            # Сохраняем для агрегированных метрик
             all_predictions.append(predictions.cpu())
             all_targets.append(y.cpu())
             if mask_map is not None:
                 all_masks.append(mask_map.cpu())
 
-            # Вычисляем метрики для каждого семпла в батче
             batch_size_current = x.shape[0]
             for i in range(batch_size_current):
                 pred_i = predictions[i:i+1]
@@ -178,7 +144,6 @@ def evaluate_all_test_samples(
 
                 metrics = metrics_calc.compute_all(pred_i, target_i, mask_i)
 
-                # Получаем имя семпла
                 sample_paths = test_loader.dataset.samples[batch['sample_idx'][i].item()]
                 first_path = list(sample_paths.values())[0]
                 filename = Path(first_path).stem
@@ -217,8 +182,6 @@ def evaluate_all_test_samples(
 
     print("\n[STEP 5] Saving visualizations for each test sample...")
 
-    test_loader.dataset.augment = False
-
     metrics_by_sample = {r['sample_name']: r for r in per_sample_results}
 
     with torch.no_grad():
@@ -227,10 +190,8 @@ def evaluate_all_test_samples(
             x = batch['x'].to(device)
             predictions = model(x)
 
-            # Получаем реальные индексы семплов из батча
             real_sample_indices = batch['sample_idx'].tolist()
 
-            # Визуализируем каждый семпл в батче, передавая реальные индексы
             visualize_test_results(
                 batch=batch,
                 predictions=predictions.cpu(),
@@ -283,7 +244,6 @@ def evaluate_all_test_samples(
     print(f"{'Sample Name':<30} {'Dice':>8} {'IoU':>8} {'Recall':>8} {'Prec':>8} {'F1':>8}")
     print("-" * 78)
 
-    # Сортируем по Dice для удобства
     sorted_results = sorted(per_sample_results, key=lambda x: x['dice'], reverse=True)
     for r in sorted_results:
         print(f"{r['sample_name']:<30} {r['dice']:>8.4f} {r['iou']:>8.4f} {r['recall']:>8.4f} {r['precision']:>8.4f} {r['f1']:>8.4f}")

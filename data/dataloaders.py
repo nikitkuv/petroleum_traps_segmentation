@@ -23,48 +23,28 @@ def load_list(filepath=settings.CUSTOM_TEST_FILES_DIR):
         return json.load(f)
 
 
-def get_file_list(data_dir: str, data_source: str = 'png') -> List[str]:
+def get_file_list(data_dir: str) -> List[str]:
     """
     Получает список всех файлов данных из указанной директории.
     
+    Формат: {number}_{x|y}_{type}_{name}.png
+    
     Args:
         data_dir: Путь к директории с данными
-        data_source: Источник данных ('png' или 'cps_tiles')
     
     Returns:
         Список путей к файлам
     """
-    if data_source == 'png':
-        # Ищем все PNG файлы в директории и поддиректориях
-        png_files = []
-        for root, _, files in os.walk(data_dir):
-            for file in files:
-                if file.endswith('.png'):
-                    # Проверяем, что файл соответствует формату
-                    parsed = parse_filename(file)
-                    if parsed:
-                        png_files.append(os.path.join(root, file))
-        
-        print(f"Found {len(png_files)} PNG files matching format {{number}}_{{x|y}}_{{type}}_{{name}}.png")
-        return png_files
+    png_files = []
+    for root, _, files in os.walk(data_dir):
+        for file in files:
+            if file.endswith('.png'):
+                parsed = parse_filename(file)
+                if parsed:
+                    png_files.append(os.path.join(root, file))
     
-    elif data_source == 'cps_tiles':
-        # Ищем все PNG файлы в директории images_cps/
-        # Формат: {number}_{x|y}_{type}_{name}.png
-        png_files = []
-        for root, _, files in os.walk(data_dir):
-            for file in files:
-                if file.endswith('.png'):
-                    # Проверяем, что файл соответствует формату
-                    parsed = parse_filename(file)
-                    if parsed:
-                        png_files.append(os.path.join(root, file))
-        
-        print(f"Found {len(png_files)} CPS tile PNG files matching format {{number}}_{{x|y}}_{{type}}_{{name}}.png")
-        return png_files
-    
-    else:
-        raise ValueError(f"Unknown data_source: {data_source}")
+    print(f"Found {len(png_files)} PNG files matching format {{number}}_{{x|y}}_{{type}}_{{name}}.png")
+    return png_files
 
 
 def split_data_by_groups(
@@ -77,14 +57,10 @@ def split_data_by_groups(
     Разделяет данные на train/val/test с учетом группировки по горизонтам.
     Все семплы из одного горизонта (name) попадают в одну выборку.
     
-    Формат названий: {number}_{x|y}_{type}_{name}.png
-    Группировка производится по {name}.
-    
     Args:
         file_list: Список всех файлов
         train_ratio: Доля обучающей выборки
         val_ratio: Доля валидационной выборки
-        test_ratio: Доля тестовой выборки
         seed: Random seed
     
     Returns:
@@ -96,7 +72,6 @@ def split_data_by_groups(
 
     random.seed(seed)
     
-    # Сначала группируем файлы по семплам (number + name)
     samples = collect_samples(file_list)
     
     if len(samples) == 0:
@@ -107,11 +82,12 @@ def split_data_by_groups(
             "  001_x_structuralNOisoline_H150.png\n"
             "  001_y_traps_H150.png\n"
             "  001_x_structuralBlackWhite_H150.png\n"
-            "  001_x_isolines_H150.png (для cps_tiles)\n"
+            "  001_x_isolines_H150.png\n"
+            "  001_x_closedIsolines_H150.png\n"
             f"\nChecked {len(file_list)} files."
         )
 
-    # Затем группируем семплы по горизонтам (name)
+    # Группируем семплы по горизонтам (name)
     groups = {}  # name -> list of sample_keys
     for key, files in samples.items():
         if not files:
@@ -155,7 +131,6 @@ def split_data_by_groups(
         split_files = []
         for name in names_list:
             for sample_key in groups[name]:
-                # Добавляем все файлы семпла
                 for file_path in samples[sample_key].values():
                     split_files.append(file_path)
         return split_files
@@ -176,11 +151,9 @@ def create_dataloaders(
     val_files: List[str],
     test_files: List[str],
     data_dir: str = None,
-    cps_tiles_dir: str = None,
     batch_size: int = None,
     num_workers: int = None,
-    use_faults: bool = False,
-    data_source: str = None
+    use_faults: bool = False
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
     Создает DataLoader для train/val/test выборок.
@@ -189,48 +162,38 @@ def create_dataloaders(
         train_files: Файлы обучающей выборки
         val_files: Файлы валидационной выборки
         test_files: Файлы тестовой выборки
-        data_dir: Путь к данным
-        cps_tiles_dir: Путь к CPS tiles данным (PNG файлы из images_cps/)
+        data_dir: Путь к данным (CPS tiles)
         batch_size: Размер батча
         num_workers: Количество рабочих процессов
         use_faults: Использовать ли разломы
-        data_source: Источник данных ('png' или 'cps_tiles')
     
     Returns:
         Кортеж (train_loader, val_loader, test_loader)
     """
     batch_size = batch_size or settings.BATCH_SIZE
     num_workers = num_workers or settings.NUM_WORKERS
-    data_dir = data_dir or settings.DATA_DIR
-    cps_tiles_dir = cps_tiles_dir or settings.CPS_TILES_DIR
-    data_source = data_source or settings.DATA_SOURCE
+    data_dir = data_dir or settings.CPS_TILES_DIR
     
     # Создаем датасеты
     train_dataset = GeologyTrapsDataset(
         file_list=train_files,
         data_dir=data_dir,
-        cps_tiles_dir=cps_tiles_dir,
         augment=settings.AUGMENT_TRAIN,
         use_faults=use_faults,
-        data_source=data_source
     )
     
     val_dataset = GeologyTrapsDataset(
         file_list=val_files,
         data_dir=data_dir,
-        cps_tiles_dir=cps_tiles_dir,
         augment=False,
         use_faults=use_faults,
-        data_source=data_source
     )
     
     test_dataset = GeologyTrapsDataset(
         file_list=test_files,
         data_dir=data_dir,
-        cps_tiles_dir=cps_tiles_dir,
         augment=False,
         use_faults=use_faults,
-        data_source=data_source
     )
 
     pin_memory_flag = torch.cuda.is_available()

@@ -10,7 +10,6 @@ custom_test_files = load_list()
 results = evaluate_all_test_samples(
     checkpoint_path=checkpoint_path,
     use_faults=settings.USE_FAULTS,
-    data_source=settings.DATA_SOURCE,
     batch_size=settings.BATCH_SIZE,
     threshold=settings.TEST_THRESHOLD,
     save_viz_dir=settings.LOGS_TEST_VIZ_DIR,
