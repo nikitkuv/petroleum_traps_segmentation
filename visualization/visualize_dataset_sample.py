@@ -26,30 +26,26 @@ def visualize_sample(
     sample_data = dataset[idx]
     sample_paths = dataset.samples[idx]
 
-    # Загружаем оригиналы
     orig_rgb = load_image(sample_paths['rgb'])
     orig_depth = load_grayscale_image(sample_paths['depth_norm'])
     orig_traps = load_grayscale_image(sample_paths['traps'])
     orig_isolines = load_grayscale_image(sample_paths['isolines'])
-    orig_closed_isolines = load_grayscale_image(sample_paths['closed_isolines'])
 
-    # Извлекаем тензоры из dataset
+    # Извлекаем тензоры
     x_rgb = sample_data['x'][:3].permute(1, 2, 0).numpy()      # (H, W, 3)
     x_depth = sample_data['x'][3].numpy()                       # (H, W)
     x_isolines = sample_data['x'][4].numpy()                    # (H, W)
-    x_closed_isolines = sample_data['x'][5].numpy()             # (H, W)
 
     y_traps = sample_data['y'][0].numpy()                       # (H, W)
     mask_map = sample_data['mask_map'][0].numpy()               # (H, W)
 
-    # Формируем ID семпла
     sample_filename = Path(sample_paths['rgb']).name
     parts = sample_filename.split('_')
     sample_number = parts[0]
     sample_name = Path(sample_paths['rgb']).stem.split('_')[-1]
     sample_id = f"{sample_number}_{sample_name}"
 
-    # Структура: 3 ряда x 4 колонки
+    # Раскладка 3 ряда x 4 колонки
     fig = plt.figure(figsize=(22, 16))
     gs = gridspec.GridSpec(3, 4, figure=fig,
                            height_ratios=[1, 1, 1],
@@ -78,7 +74,7 @@ def visualize_sample(
     ax4.set_title('Processed Depth', fontsize=12, pad=4)
     ax4.axis('off')
 
-    # === РЯД 2: Isolines и Closed Isolines ===
+    # === РЯД 2: Isolines и Traps ===
     ax5 = fig.add_subplot(gs[1, 0])
     ax5.imshow(orig_isolines, cmap='gray')
     ax5.set_title('Original Isolines', fontsize=12, pad=4)
@@ -90,33 +86,22 @@ def visualize_sample(
     ax6.axis('off')
 
     ax7 = fig.add_subplot(gs[1, 2])
-    ax7.imshow(orig_closed_isolines, cmap='gray')
-    ax7.set_title('Original Closed Iso', fontsize=12, pad=4)
+    ax7.imshow(orig_traps, cmap='gray')
+    ax7.set_title('Original Traps', fontsize=12, pad=4)
     ax7.axis('off')
 
     ax8 = fig.add_subplot(gs[1, 3])
-    ax8.imshow(x_closed_isolines, cmap='gray', vmin=0.0, vmax=1.0)
-    ax8.set_title('Processed Closed Iso', fontsize=12, pad=4)
+    ax8.imshow(y_traps, cmap='gray', vmin=0.0, vmax=1.0)
+    ax8.set_title('Target Y (Traps)', fontsize=12, pad=4)
     ax8.axis('off')
 
-    # === РЯД 3: Map Mask, Traps, Stats ===
+    # === РЯД 3: Map Mask и Stats ===
     ax9 = fig.add_subplot(gs[2, 0])
     ax9.imshow(mask_map, cmap='gray', vmin=0.0, vmax=1.0)
     ax9.set_title('Map Mask\n(1=Valid, 0=Pad)', fontsize=12, pad=4)
     ax9.axis('off')
 
-    ax10 = fig.add_subplot(gs[2, 1])
-    ax10.imshow(orig_traps, cmap='gray')
-    ax10.set_title('Original Traps', fontsize=12, pad=4)
-    ax10.axis('off')
-
-    ax11 = fig.add_subplot(gs[2, 2])
-    ax11.imshow(y_traps, cmap='gray', vmin=0.0, vmax=1.0)
-    ax11.set_title('Target Y (Traps)', fontsize=12, pad=4)
-    ax11.axis('off')
-
-    # Блок со статистикой
-    ax12 = fig.add_subplot(gs[2, 3])
+    ax12 = fig.add_subplot(gs[2, 1:3])
     ax12.axis('off')
 
     orig_h, orig_w = orig_rgb.shape[:2]
@@ -128,8 +113,8 @@ def visualize_sample(
     traps_gt_px = y_traps.sum()
     traps_gt_pct = (y_traps.sum() / (map_valid_px + 1e-8)) * 100
     
-    closed_iso_px = x_closed_isolines.sum()
-    closed_iso_pct = (x_closed_isolines.sum() / (map_valid_px + 1e-8)) * 100
+    isolines_px = x_isolines.sum()
+    isolines_pct = (x_isolines.sum() / (map_valid_px + 1e-8)) * 100
 
     info_text = (
         f"Sample ID: {sample_id}\n"
@@ -142,9 +127,9 @@ def visualize_sample(
         f"Valid Map Area: {map_valid_px:.0f} px ({map_valid_pct:.1f}%)\n\n"
         f"--- Target & Features ---\n"
         f"Traps (Y): {traps_gt_px:.0f} px ({traps_gt_pct:.1f}% of map)\n"
-        f"Closed Iso: {closed_iso_px:.0f} px ({closed_iso_pct:.1f}% of map)"
+        f"Isolines: {isolines_px:.0f} px ({isolines_pct:.1f}% of map)"
     )
-    ax12.text(0.5, 0.5, info_text, ha='center', va='center', fontsize=11,
+    ax12.text(0.5, 0.5, info_text, ha='center', va='center', fontsize=12,
               family='monospace',
               bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.8, pad=0.8))
 
@@ -165,7 +150,7 @@ def get_all_files() -> List[str]:
         parts = stem.split('_')
         if len(parts) >= 3:
             file_type = parts[2] if len(parts) > 2 else ''
-            if file_type in ['structuralNOisoline', 'structuralBlackWhite', 'isolines', 'closedIsolines', 'faults', 'traps']:
+            if file_type in ['structuralNOisoline', 'structuralBlackWhite', 'isolines', 'faults', 'traps']:
                 relevant_files.append(f)
 
     print(f"Found {len(relevant_files)} relevant files in {data_dir}")

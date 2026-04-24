@@ -20,8 +20,8 @@ def load_unetplusplus(
     
     Args:
         in_channels: Количество входных каналов:
-            - 6 (RGB+depth+isolines+closed_isolines)
-            - 7 (+faults)
+            - 5 (RGB+depth+isolines)
+            - 6 (+faults)
         classes: Количество классов сегментации
         encoder_name: Название энкодера
         encoder_weights: Веса энкодера
@@ -89,17 +89,6 @@ def load_model_checkpoint(
     checkpoint_path: str,
     device: str = None
 ) -> nn.Module:
-    """
-    Загружает веса модели из чекпоинта.
-    
-    Args:
-        model: Модель для загрузки весов
-        checkpoint_path: Путь к чекпоинту
-        device: Устройство
-    
-    Returns:
-        Модель с загруженными весами
-    """
     device = device or settings.DEVICE
     
     if not os.path.exists(checkpoint_path):
@@ -124,20 +113,6 @@ def save_model_checkpoint(
     save_path: str,
     filename: str = 'checkpoint.pth'
 ) -> str:
-    """
-    Сохраняет чекпоинт модели.
-    
-    Args:
-        model: Модель
-        optimizer: Оптимизатор
-        epoch: Номер эпохи
-        metrics: Метрики для сохранения
-        save_path: Путь для сохранения
-        filename: Имя файла
-    
-    Returns:
-        Полный путь к сохраненному чекпоинту
-    """
     os.makedirs(save_path, exist_ok=True)
     filepath = os.path.join(save_path, filename)
     
