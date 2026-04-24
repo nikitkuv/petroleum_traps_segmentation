@@ -27,15 +27,12 @@ class GeologyTrapsDataset(Dataset):
         self.augment = augment
         self.use_faults = use_faults if use_faults is not None else settings.USE_FAULTS
         
-        # Выбираем трансформации
         self.transforms = get_train_transforms() if augment else get_val_transforms()
         print(f"Transforms: {self.transforms}")
         print(f"Len transforms: {len(self.transforms)}")
         
-        # Группируем файлы по семплам
         self.samples = self._parse_files(file_list)
         
-        # Статистика
         n_faults = sum(1 for s in self.samples if 'faults' in s)
         print(f"Dataset initialized with {len(self.samples)} samples")
         print(f"Mode: use_faults={self.use_faults}")
@@ -44,31 +41,15 @@ class GeologyTrapsDataset(Dataset):
         print(f"Target size: {self.target_h}×{self.target_w}")
         print()
         
-        n_files = 7 if self.use_faults else 6
-        print(f"Required files per sample: {n_files} (rgb, depth_norm, isolines, closedIsolines, [faults], traps)")
+        n_files = 6 if self.use_faults else 5
+        print(f"Required files per sample: {n_files} (rgb, depth_norm, isolines, [faults], traps)")
 
     def _parse_files(self, file_list: List[str]) -> List[Dict[str, str]]:
-        """
-        Группирует файлы по семплам и формирует список путей к данным.
-
-        Формат названий: {number}_{x|y}_{type}_{name}.png
-
-        Для каждого семпла проверяется наличие обязательных файлов:
-            - rgb
-            - depth_norm
-            - isolines
-            - closed_isolines
-            - traps
-            - faults (опционально, если use_faults=True)
-
-        Семплы, в которых отсутствуют обязательные файлы, отбрасываются.
-        """
         samples = collect_samples(file_list)
         result = []
 
         for key, paths in samples.items():
-
-            required_keys = ['rgb', 'depth_norm', 'isolines', 'closed_isolines', 'traps']
+            required_keys = ['rgb', 'depth_norm', 'isolines', 'traps']
 
             if self.use_faults:
                 required_keys.append('faults')
@@ -82,7 +63,6 @@ class GeologyTrapsDataset(Dataset):
             }
 
             clean_paths['_sample_key'] = key
-
             result.append(clean_paths)
 
         return result
@@ -93,19 +73,14 @@ class GeologyTrapsDataset(Dataset):
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         sample_paths = self.samples[idx]
         
-        # Загрузка
-        rgb_img, depth_img, isolines_img, closed_isolines_img, trap_mask, fault_mask = load_maps_into_ndarray(
+        rgb_img, depth_img, isolines_img, trap_mask, fault_mask = load_maps_into_ndarray(
             sample_paths=sample_paths, 
             use_faults=self.use_faults
         )
 
         sample_key = sample_paths.get('_sample_key', f"sample_{idx}")
+        metadata = {'sample_key': sample_key}
         
-        metadata = {
-            'sample_key': sample_key
-        }
-        
-        # Создание масок
         map_mask = create_map_mask(rgb_img)
         
         if self.use_faults:
@@ -113,52 +88,41 @@ class GeologyTrapsDataset(Dataset):
         else:
             depth_mask = np.zeros_like(map_mask, dtype=np.float32)
         
-        # Нормализация
         rgb_norm = rgb_img.astype(np.float32) / 255.0
         depth_norm = depth_img.astype(np.float32) / 255.0
         isolines_norm = isolines_img.astype(np.float32) / 255.0
-        closed_isolines_norm = closed_isolines_img.astype(np.float32) / 255.0
         
-        # Паддинг
         rgb_padded = pad_image(rgb_norm, self.target_h, self.target_w)
         depth_padded = pad_image(depth_norm, self.target_h, self.target_w)
         isolines_padded = pad_image(isolines_norm, self.target_h, self.target_w)
-        closed_isolines_padded = pad_image(closed_isolines_norm, self.target_h, self.target_w)
         fault_mask_padded = pad_image(fault_mask, self.target_h, self.target_w)
         trap_mask_padded = pad_image(trap_mask, self.target_h, self.target_w)
         depth_mask_padded = pad_image(depth_mask, self.target_h, self.target_w)
         map_mask_padded = pad_image(map_mask, self.target_h, self.target_w)
         
-        # Аугментации
         augmented = self.transforms(
             image=rgb_padded,
             depth=depth_padded,
             isolines=isolines_padded,
-            closed_isolines=closed_isolines_padded,
             faults=fault_mask_padded,
             traps=trap_mask_padded,
             mask_depth=depth_mask_padded,
             mask_map=map_mask_padded
         )
         
-        # Извлекаем тензоры
-        x_rgb = augmented['image']           # (3, H, W)
-        x_depth = augmented['depth']         # (H, W) или (1, H, W)
-        x_isolines = augmented['isolines']   # (H, W) или (1, H, W)
-        x_closed_isolines = augmented['closed_isolines']
-        x_faults = augmented['faults']       # (H, W)
+        x_rgb = augmented['image']           
+        x_depth = augmented['depth']         
+        x_isolines = augmented['isolines']   
+        x_faults = augmented['faults']       
         
-        y_traps = augmented['traps']         # (H, W)
-        mask_depth = augmented['mask_depth'] # (H, W)
-        mask_map = augmented['mask_map']     # (H, W)
+        y_traps = augmented['traps']         
+        mask_depth = augmented['mask_depth'] 
+        mask_map = augmented['mask_map']     
         
-        # Добавляем канал для масок если нужно
         if x_depth.dim() == 2:
             x_depth = x_depth.unsqueeze(0)
         if x_isolines.dim() == 2:
             x_isolines = x_isolines.unsqueeze(0)
-        if x_closed_isolines.dim() == 2:              
-            x_closed_isolines = x_closed_isolines.unsqueeze(0) 
         if x_faults.dim() == 2:
             x_faults = x_faults.unsqueeze(0)
         if y_traps.dim() == 2:
@@ -168,14 +132,11 @@ class GeologyTrapsDataset(Dataset):
         if mask_map.dim() == 2:
             mask_map = mask_map.unsqueeze(0)
 
-        # Объединяем входы
-        # RGB (3) + Depth (1) + Isolines (1) + ClosedIso (1) + [Faults (1)]
+        # Входы: RGB (3) + Depth (1) + Isolines (1) + [Faults (1)]
         if self.use_faults:
-            # 7 каналов: RGB(3) + Depth(1) + Isolines(1) + ClosedIso(1) + Faults(1)
-            x_in = torch.cat([x_rgb, x_depth, x_isolines, x_closed_isolines, x_faults], dim=0)
+            x_in = torch.cat([x_rgb, x_depth, x_isolines, x_faults], dim=0)
         else:
-            # 6 каналов: RGB(3) + Depth(1) + Isolines(1) + ClosedIso(1)
-            x_in = torch.cat([x_rgb, x_depth, x_isolines, x_closed_isolines], dim=0)
+            x_in = torch.cat([x_rgb, x_depth, x_isolines], dim=0)
         
         return {
             'x': x_in,

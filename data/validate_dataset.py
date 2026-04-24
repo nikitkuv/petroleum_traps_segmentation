@@ -53,8 +53,6 @@ class DatasetValidator:
                     analysis['file_types']['depth_norm'] += 1
                 elif 'structuralNOisoline' in subtype:
                     analysis['file_types']['rgb'] += 1
-                elif 'closedIsolines' in subtype:
-                    analysis['file_types']['closedIsolines'] += 1
                 elif 'isolines' in subtype:
                     analysis['file_types']['isolines'] += 1
                 elif 'traps' in subtype:
@@ -147,8 +145,8 @@ class DatasetValidator:
         print("\n VALIDATING EACH SAMPLE:")
         print("-" * 70)
         
-        # RGB(3) + Depth(1) + Isolines(1) + ClosedIso(1) + Faults(1 если use_faults) = 6 или 7
-        expected_channels = 7 if use_faults else 6
+        # RGB(3) + Depth(1) + Isolines(1) + Faults(1 если use_faults) = 5 или 6
+        expected_channels = 6 if use_faults else 5
 
         successful_samples = 0
         failed_samples = 0

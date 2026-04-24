@@ -1,7 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import computed_field
 from pathlib import Path
-from typing import Literal
 import torch
 
 
@@ -18,7 +17,7 @@ class Settings(BaseSettings):
     @computed_field
     @property
     def IN_CHANNELS(self) -> int:
-        channels = 6  # RGB (3) + Depth (1) + Isolines (1) + ClosedIsolines (1)
+        channels = 5  # RGB (3) + Depth (1) + Isolines (1)
         if self.USE_FAULTS:
             channels += 1  # + Faults (1)
         return channels
@@ -48,7 +47,6 @@ class Settings(BaseSettings):
     AUGMENT_PROB: float = 0.5
 
     # CPS настройки
-    CLOSED_ISO_MIN_AREA: int = 25
     TILE_OVERLAP_RATIO: float = 0.25
     MIN_NUM_PIXS_OF_TRAPS_IN_TILES: int = 100
     CPS_NULL_VALUE: float = -999.0
