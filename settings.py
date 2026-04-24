@@ -12,25 +12,19 @@ class Settings(BaseSettings):
         env_file_encoding='utf-8'
     )
 
-    # Источник данных
-    DATA_SOURCE: Literal['png', 'cps_tiles'] = 'cps_tiles'
-
     # Работаем с разломами или нет
     USE_FAULTS: bool = False
 
     @computed_field
     @property
     def IN_CHANNELS(self) -> int:
-        channels = 4 # Базовые: RGB (3) + Depth (1)
-        if self.DATA_SOURCE == "cps_tiles":
-            channels += 2 # + Изолинии (1) + Замкнутые изолинии (1)
+        channels = 6  # RGB (3) + Depth (1) + Isolines (1) + ClosedIsolines (1)
         if self.USE_FAULTS:
-            channels += 1 # + Разломы (1)
+            channels += 1  # + Faults (1)
         return channels
     
     # Пути
     CPS_SOURCE_DIR: str = './data/cps/'
-    DATA_DIR: str = './data/images/'
     CPS_TILES_DIR: str = './data/images_cps/'
     CPS_FULL_DIR: str = './data/images_cps_full/'
     CHECKPOINT_DIR: str = './checkpoints/'
@@ -44,19 +38,8 @@ class Settings(BaseSettings):
     CUSTOM_VAL_FILES_DIR: str = './logs/custom_val_files.json'
 
     # Размеры изображений
-    @computed_field
-    @property
-    def TARGET_HEIGHT(self) -> int:
-        if self.DATA_SOURCE == "cps_tiles":
-            return 640
-        return 1248
-
-    @computed_field
-    @property
-    def TARGET_WIDTH(self) -> int:
-        if self.DATA_SOURCE == "cps_tiles":
-            return 448
-        return 512
+    TARGET_HEIGHT: int = 640
+    TARGET_WIDTH: int = 448
     
     # Порог бинаризации масок
     BINARY_THRESHOLD: int = 128
@@ -78,7 +61,7 @@ class Settings(BaseSettings):
     
     # Обучение
     OVERFIT_SIZE: int = 2
-    AUGMENT_TRAIN: bool = True
+    AUGMENT_TRAIN: bool = False
     ENCODER_NAME: str = "resnet34"
     SCHEDULER_NAME: str = "reduce_lr_plateau"
     BATCH_SIZE: int = 4
@@ -111,15 +94,7 @@ class Settings(BaseSettings):
     
     @property
     def data_path(self) -> Path:
-        return Path(self.DATA_DIR)
-
-    @property
-    def cps_tiles_path(self) -> Path:
         return Path(self.CPS_TILES_DIR)
-    
-    @property
-    def cps_full_path(self) -> Path:
-        return Path(self.CPS_FULL_DIR)
     
     @property
     def checkpoint_path(self) -> Path:

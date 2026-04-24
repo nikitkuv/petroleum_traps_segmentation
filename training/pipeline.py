@@ -18,7 +18,6 @@ from data.dataset import GeologyTrapsDataset
 def run_full_pipeline(
     data_dir: str = None,
     use_faults: bool = False,
-    data_source: str = None,
     overfit_check_mode: bool = False,
     wandb_project: str = 'geology-traps-segmentation',
     wandb_run_name: str = None,
@@ -26,43 +25,22 @@ def run_full_pipeline(
     batch_size: int = None,
     learning_rate: float = None,
     early_stopping_patience: int = None,
-    encoder_lr_multiplier: float = None,
-    cps_tiles_dir: str = None
+    encoder_lr_multiplier: float = None
 ) -> Dict[str, float]:
     """
     Запускает полный пайплайн обучения и тестирования модели.
-    
-    Args:
-        data_dir: Путь к данным
-        use_faults: Использовать ли разломы
-        data_source: Источник данных ('png' или 'cps_tiles')
-        overfit_check_mode: Режим проверки overfit
-        wandb_project: wandb
-        wandb_run_name: Имя запуска
-        n_epochs: Количество эпох
-        batch_size: Размер батча
-        learning_rate: Скорость обучения
-        early_stopping_patience: Патанс для ранней остановки
-        encoder_lr_multiplier: Множитель LR для энкодера
-        cps_tiles_dir: Путь к CPS tiles данным (для data_source='cps_tiles')
-    
-    Returns:
-        Метрики на тестовой выборке
     """
-    data_source = data_source or settings.DATA_SOURCE
     in_channels = settings.IN_CHANNELS
     device = settings.DEVICE
-    data_dir = data_dir or settings.DATA_DIR
+    data_dir = data_dir or settings.CPS_TILES_DIR
     batch_size = batch_size or settings.BATCH_SIZE
     learning_rate = learning_rate or settings.LEARNING_RATE
     n_epochs = n_epochs or settings.NUM_EPOCHS
     early_stopping_patience = early_stopping_patience or settings.ES_PATIANCE
     encoder_lr_multiplier = encoder_lr_multiplier or settings.ENCODER_LR_MULTIPLIER
-    cps_tiles_dir = cps_tiles_dir or settings.CPS_TILES_DIR
     
     print("=" * 80)
     print("GEOLOGY TRAPS SEGMENTATION PIPELINE")
-    print(f"Data source: {data_source}")
     print(f"Input channels: {in_channels}")
     print(f"TARGET_HEIGHT: {settings.TARGET_HEIGHT}")
     print(f"TARGET_WIDTH: {settings.TARGET_WIDTH}")
@@ -71,7 +49,7 @@ def run_full_pipeline(
     print("=" * 80)
     
     print("\n[STEP 1] Loading data...")
-    all_files = get_file_list(data_dir if data_source != 'cps_tiles' else cps_tiles_dir, data_source=data_source)
+    all_files = get_file_list(data_dir)
     
     if len(all_files) == 0:
         raise ValueError("No data files found!")
@@ -93,14 +71,12 @@ def run_full_pipeline(
 
     print("\n[STEP 2.5] Checking data leakage and source consistency...")
 
-    # Проверка data leakage между выборками
     leakage_results = check_leakage_from_dataloaders(
         train_files=train_files,
         val_files=val_files,
         test_files=test_files
     )
 
-    # Assert для остановки обучения при обнаружении leakage
     has_leakage = (
         len(leakage_results['horizon_check']['train_val_overlap']) > 0 or
         len(leakage_results['horizon_check']['train_test_overlap']) > 0 or
@@ -124,13 +100,10 @@ def run_full_pipeline(
         val_files=val_files,
         test_files=test_files,
         data_dir=data_dir,
-        cps_tiles_dir=cps_tiles_dir,
         batch_size=batch_size,
-        use_faults=use_faults,
-        data_source=data_source
+        use_faults=use_faults
     )
     
-    # Если режим overfit check - берем только 1-2 карты из train
     if overfit_check_mode:
         print("\n[OVERFIT CHECK MODE] Using only first batch from train...")
         if len(train_loader.dataset) > 1:
@@ -141,12 +114,10 @@ def run_full_pipeline(
             overfit_dataset = GeologyTrapsDataset(
                 file_list=all_files,
                 data_dir=data_dir,
-                cps_tiles_dir=cps_tiles_dir,
                 use_faults=use_faults,
-                data_source=data_source,
                 augment=False
             )
-        overfit_indices = list(range(min(settings.OVERFIT_SIZE, len(overfit_dataset))))  # 2 семпла
+        overfit_indices = list(range(min(settings.OVERFIT_SIZE, len(overfit_dataset))))
         print(f"Selected indices for overfit: {overfit_indices}")
         overfit_subset = Subset(overfit_dataset, overfit_indices)
 

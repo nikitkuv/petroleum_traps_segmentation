@@ -14,29 +14,22 @@ from data.dataset import GeologyTrapsDataset
 class DatasetValidator:
     """Валидатор для проверки корректности Dataset."""
     
-    def __init__(self, file_list: List[str], data_dir: str = None, data_source: str = None):
+    def __init__(self, file_list: List[str], data_dir: str = None):
         self.file_list = file_list
-        self.data_dir = data_dir or str(settings.data_path)
-        self.data_source = data_source if data_source is not None else settings.DATA_SOURCE
+        self.data_dir = data_dir or settings.CPS_TILES_DIR
         self.errors = []
         self.warnings = []
         self.stats = defaultdict(int)
         
     def scan_directory(self) -> List[str]:
-        """Сканирует директорию и находит все файлы."""
-        
-        # PNG: ищем только .png
         data_path = Path(self.data_dir)
         files = sorted([f.name for f in data_path.glob("*.png")])
         
         print(f"Found {len(files)} files in {self.data_dir}")
-        
         self.file_list = files
-        
         return files
     
     def analyze_files(self, file_list: List[str]) -> Dict:
-        """Анализирует структуру файлов."""
         analysis = {
             'total_files': len(file_list),
             'unique_cards': set(),
@@ -49,7 +42,6 @@ class DatasetValidator:
         for f in file_list:
             parts = f.split('_')
             if len(parts) >= 4:
-                # Убираем .png из названия для CPS совместимости
                 card_id = f"{parts[0]}_{'_'.join(parts[3:]).replace('.png', '').replace('.cps', '')}"
                 analysis['unique_cards'].add(card_id)
                 
@@ -76,7 +68,6 @@ class DatasetValidator:
         return analysis
     
     def validate_dataset(self, use_faults: bool = None) -> Dict:
-        """Проверяет Dataset на ошибки."""
         use_faults = use_faults if use_faults is not None else settings.USE_FAULTS
         
         print("\n" + "=" * 70)
@@ -87,7 +78,6 @@ class DatasetValidator:
             print(" file_list is empty, scanning directory...")
             self.scan_directory()
         
-        # 1. Анализ файлов
         print("\n FILE ANALYSIS:")
         print("-" * 70)
         analysis = self.analyze_files(self.file_list)
@@ -102,8 +92,6 @@ class DatasetValidator:
         
         if analysis['unique_cards'] == 0:
             print("\n No valid cards found! Check file naming convention.")
-            print("Expected format: NNN_x_type_HORIZON.png")
-            print("Example: 001_x_structuralNOisoline_H150.png")
             return {
                 'success': False,
                 'errors': ['No valid cards found'],
@@ -116,7 +104,6 @@ class DatasetValidator:
                 'file_analysis': analysis
             }
         
-        # 2. Создание Dataset
         print("\n CREATING DATASET:")
         print("-" * 70)
         try:
@@ -157,17 +144,11 @@ class DatasetValidator:
                 'file_analysis': analysis
             }
         
-        # 3. Проверка каждого семпла
         print("\n VALIDATING EACH SAMPLE:")
         print("-" * 70)
         
-        # Определяем ожидаемое количество каналов в зависимости от источника данных и use_faults
-        if settings.DATA_SOURCE == 'cps_tiles':
-            # Для cps_tiles: RGB (3) + depth (1) + isolines (1) + closedIsolines (1) + faults (1 если use_faults) = 6 или 7
-            expected_channels = 7 if use_faults else 6
-        else:
-            # Для png: RGB (3) + depth (1) + faults (1 если use_faults) = 4 или 5
-            expected_channels = 5 if use_faults else 4
+        # RGB(3) + Depth(1) + Isolines(1) + ClosedIso(1) + Faults(1 если use_faults) = 6 или 7
+        expected_channels = 7 if use_faults else 6
 
         successful_samples = 0
         failed_samples = 0
@@ -193,7 +174,6 @@ class DatasetValidator:
             try:
                 sample = dataset[idx]
                 
-                # Проверка структуры
                 required_keys = ['x', 'y', 'mask_depth', 'mask_map', 'sample_idx', 'use_faults']
                 for key in required_keys:
                     if key not in sample:
@@ -201,7 +181,6 @@ class DatasetValidator:
                         failed_samples += 1
                         continue
                 
-                # Проверка каналов
                 actual_channels = sample['x'].shape[0]
                 if actual_channels != expected_channels:
                     self.errors.append(
@@ -212,14 +191,12 @@ class DatasetValidator:
                 else:
                     successful_samples += 1
                 
-                # Сбор статистики форм
                 shape_stats['x_shapes'].add(tuple(sample['x'].shape))
                 shape_stats['y_shapes'].add(tuple(sample['y'].shape))
                 shape_stats['mask_map_shapes'].add(tuple(sample['mask_map'].shape))
                 if sample['mask_depth'] is not None:
                     shape_stats['mask_depth_shapes'].add(tuple(sample['mask_depth'].shape))
                 
-                # Сбор статистики значений
                 value_stats['x_min'] = min(value_stats['x_min'], sample['x'].min().item())
                 value_stats['x_max'] = max(value_stats['x_max'], sample['x'].max().item())
                 value_stats['y_min'] = min(value_stats['y_min'], sample['y'].min().item())
@@ -227,7 +204,6 @@ class DatasetValidator:
                 value_stats['traps_pixels'] += (sample['y'] > 0).sum().item()
                 value_stats['total_pixels'] += sample['y'].numel()
                 
-                # Прогресс
                 if (idx + 1) % 50 == 0 or idx == len(dataset) - 1:
                     print(f" Processed {idx + 1}/{len(dataset)} samples "
                           f"({(idx + 1) / len(dataset) * 100:.1f}%)")
@@ -237,7 +213,6 @@ class DatasetValidator:
                 failed_samples += 1
                 print(f"  Sample {idx} failed: {str(e)}")
         
-        # 4. Проверка DataLoader
         print("\n VALIDATING DATALOADER:")
         print("-" * 70)
         
@@ -256,7 +231,6 @@ class DatasetValidator:
             total_batch_samples = 0
             
             for batch_idx, batch in enumerate(loader):
-                # Проверка формы батча
                 if batch['x'].shape[0] != batch['y'].shape[0]:
                     self.errors.append(f"Batch {batch_idx}: X and Y batch size mismatch")
                 
@@ -264,8 +238,7 @@ class DatasetValidator:
                 total_batch_samples += batch['x'].shape[0]
                 
                 if (batch_idx + 1) % 10 == 0:
-                    print(f" Processed {batch_idx + 1} batches "
-                          f"({total_batch_samples} samples)")
+                    print(f" Processed {batch_idx + 1} batches ({total_batch_samples} samples)")
             
             print(f"DataLoader validation passed")
             print(f"Total batches: {batch_count}")
@@ -275,7 +248,6 @@ class DatasetValidator:
             self.errors.append(f"DataLoader validation failed: {str(e)}")
             print(f"  DataLoader validation failed: {str(e)}")
         
-        # 5. Итоговый отчёт
         print("\n" + "=" * 70)
         print("VALIDATION REPORT")
         print("=" * 70)
@@ -306,12 +278,11 @@ class DatasetValidator:
         
         if self.errors:
             print(f"\n ERRORS ({len(self.errors)}):")
-            for err in self.errors[:10]:  # Показать первые 10
+            for err in self.errors[:10]:
                 print(f" - {err}")
             if len(self.errors) > 10:
                 print(f" ... and {len(self.errors) - 10} more errors")
         
-        # 6. Итоговый статус
         print("\n" + "=" * 70)
         if len(self.errors) == 0 and failed_samples == 0:
             print("VALIDATION PASSED! Dataset is ready for training!")
@@ -335,23 +306,15 @@ class DatasetValidator:
 
 
 def main():
-    """Главная функция валидации."""
     print("\n" + "=" * 70)
     print("GEOLOGY TRAPS DATASET VALIDATOR")
     print("=" * 70)
     
-    # Создание директорий
     settings.create_dirs()
     
-    # Выбор директории и списка файлов в зависимости от источника данных
-    if settings.DATA_SOURCE == 'cps_tiles':
-        data_dir = settings.CPS_TILES_DIR
-        print(f"Using CPS tiles data directory: {data_dir}")
-    else:
-        data_dir = settings.DATA_DIR
-        print(f"Using PNG data directory: {data_dir}")
+    data_dir = settings.CPS_TILES_DIR
+    print(f"Using data directory: {data_dir}")
     
-    # Сканирование директории
     validator = DatasetValidator(file_list=[], data_dir=data_dir)
     all_files = validator.scan_directory()
     
@@ -361,19 +324,16 @@ def main():
     
     validator.file_list = all_files
     
-    # Валидация в режиме БЕЗ разломов
     print("\n" + "=" * 70)
     print("MODE 1: VALIDATION WITHOUT FAULTS (use_faults=False)")
     print("=" * 70)
     settings.USE_FAULTS = False
     result_no_faults = validator.validate_dataset(use_faults=False)
     
-    # Если первая валидация провалилась — не продолжаем
     if not result_no_faults['success']:
         print("\n First validation failed. Fix errors before continuing.")
         return
     
-    # Валидация в режиме С разломами (опционально)
     print("\n\n")
     run_with_faults = input("Run validation WITH faults (use_faults=True)? [y/N]: ").strip().lower()
     
@@ -387,13 +347,11 @@ def main():
     else:
         result_with_faults = None
     
-    # Сохранение отчёта
     report_path = settings.logs_path / 'dataset_validation_report.txt'
     with open(report_path, 'w', encoding='utf-8') as f:
         f.write("GEOLOGY TRAPS DATASET VALIDATION REPORT\n")
         f.write("=" * 70 + "\n\n")
-        f.write(f"Validation Date: {torch.__version__}\n")
-        f.write(f"Data Directory: {settings.DATA_DIR}\n\n")
+        f.write(f"Data Directory: {settings.CPS_TILES_DIR}\n\n")
         
         f.write("MODE 1: WITHOUT FAULTS\n")
         f.write("-" * 70 + "\n")

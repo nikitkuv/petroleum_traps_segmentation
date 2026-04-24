@@ -4,11 +4,7 @@ import re
 from pathlib import Path
 import os
 
-from utils.images_utils import (
-    load_image, 
-    load_grayscale_image, 
-    create_binary_mask,
-)
+from utils.images_utils import load_image, load_grayscale_image, create_binary_mask
 
 
 def parse_filename(filename: str) -> Optional[Dict[str, str]]:
@@ -22,12 +18,8 @@ def parse_filename(filename: str) -> Optional[Dict[str, str]]:
     Returns:
         Словарь с компонентами или None, если формат не совпадает.
     """
-    # Удаляем расширение
     name_no_ext = Path(filename).stem
-    
-    # Регулярное выражение: число_роль_тип_имя
     pattern = r'^(\d+)_(x|y)_([^_]+)_(.+)$'
-    
     match = re.match(pattern, name_no_ext)
     
     if match:
@@ -53,12 +45,13 @@ def collect_samples(file_list: List[str]) -> Dict[str, Dict[str, str]]:
     Ожидаемые файлы для полного семпла:
         - {number}_x_structuralNOisoline_{name}.png (rgb)
         - {number}_x_structuralBlackWhite_{name}.png (depth_norm)
-        - {number}_x_isolines_{name}.png (isolines) - только для cps_tiles
+        - {number}_x_isolines_{name}.png (isolines)
+        - {number}_x_closedIsolines_{name}.png (closed_isolines)
         - {number}_x_faults_{name}.png (faults)
         - {number}_y_traps_{name}.png (traps)
         
     Returns:
-        Dict[key_sempla] -> { 'rgb': filename, 'depth_norm': filename, 'isolines': filename, 'faults': filename, 'traps': filename }
+        Dict[key_sempla] -> { 'rgb': filename, 'depth_norm': filename, 'isolines': filename, 'closed_isolines': filename, 'faults': filename, 'traps': filename }
     """
     samples = {}
     
@@ -72,7 +65,6 @@ def collect_samples(file_list: List[str]) -> Dict[str, Dict[str, str]]:
         if key not in samples:
             samples[key] = {}
             
-        # Маппинг типа файла из имени в внутреннее имя канала
         file_type = parsed['type']
         role = parsed['role']
         
@@ -102,32 +94,20 @@ def resolve_path(path: str, base_dir: str) -> str:
 
 def load_maps_into_ndarray(
     sample_paths: Dict, 
-    use_faults: bool, 
-    data_source: str
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    use_faults: bool
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     rgb_img = load_image(sample_paths['rgb'])
     depth_img = load_grayscale_image(sample_paths['depth_norm'])
+    isolines_img = load_grayscale_image(sample_paths['isolines'])
+    closed_isolines_img = load_grayscale_image(sample_paths['closed_isolines'])
     traps_img = load_grayscale_image(sample_paths['traps'])
-
-    # Загружаем изолинии только для cps_tiles
-    if data_source == 'cps_tiles' and 'isolines' in sample_paths:
-        isolines_img = load_grayscale_image(sample_paths['isolines'])
-    else:
-        # Создаем пустую маску (все черное = 0) если изолиний нет (нет сигнала)
-        isolines_img = np.zeros_like(depth_img, dtype=np.uint8)
-    
-    # Загружаем замкнутые изолинины
-    if data_source == 'cps_tiles' and 'closed_isolines' in sample_paths:
-        closed_isolines_img = load_grayscale_image(sample_paths['closed_isolines'])
-    else:
-        closed_isolines_img = np.zeros_like(depth_img, dtype=np.uint8)
     
     if use_faults and 'faults' in sample_paths:
         faults_img = load_grayscale_image(sample_paths['faults'])
-        fault_mask = create_binary_mask(faults_img, invert=False, data_source=data_source)
+        fault_mask = create_binary_mask(faults_img, invert=False)
     else:
         fault_mask = np.zeros_like(depth_img, dtype=np.float32)
     
-    trap_mask = create_binary_mask(traps_img, invert=False, data_source=data_source)
+    trap_mask = create_binary_mask(traps_img, invert=False)
 
     return rgb_img, depth_img, isolines_img, closed_isolines_img, trap_mask, fault_mask
