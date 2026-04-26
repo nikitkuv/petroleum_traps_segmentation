@@ -10,8 +10,7 @@
 
 - **Архитектура**: U-Net++ с поддержкой различных encoder'ов (ResNet34)
 - **Источники данных**: 
-  - `cps_tiles` (основной): PNG файлы из CPS гридов с каналами RGB, depth, isolines, closedIsolines
-  - `png`: Классические PNG изображения с каналами RGB, depth
+  - `cps_tiles`: PNG файлы из CPS гридов с каналами RGB, depth, isolines [+ faults опционально]
 - **Мониторинг**: Трекинг градиентов (взрыв/затухание), анализ аномалий в лоссах
 - **Защита от leakage**: Утилиты для проверки пересечений между train/val/test
 - **Гибкость**: Поддержка режимов с разломами и без, кастомные лоссы и метрики
@@ -47,7 +46,7 @@ pip install -r requirements.txt
 Отредактируйте `.env` файл или установите переменные окружения:
 
 ```bash
-DATA_SOURCE=cps_tiles    # или 'png'
+DATA_SOURCE=cps_tiles    # источник данных
 USE_FAULTS=False         # использовать ли разломы
 BATCH_SIZE=4
 LEARNING_RATE=3e-4
@@ -99,11 +98,13 @@ python evaluate_model.py
 
 ### Источники данных
 
-#### cps_tiles (основной)
-- 6 входных каналов без разломов: RGB(3) + Depth(1) + Isolines(1) + ClosedIsolines(1)
-- 7 входных каналов с разломами: + Faults(1)
+#### cps_tiles
+- 5 входных каналов без разломов: RGB(3) + Depth(1) + Isolines(1)
+- 6 входных каналов с разломами: + Faults(1)
 - Размер тайлов: 448×640
 - Данные генерируются из CPS гридов с помощью `utils/cps_utils.py`
+
+- **Важно**: разломы вырезаются на картах rgb, depth_norm и isolines (области разломов становятся черными)
 
 #### png (классический)
 - 4 входных канала без разломов: RGB(3) + Depth(1)
@@ -153,14 +154,14 @@ pytest tests/ -m "smoke" -v
 
 | Параметр | Значение по умолчанию | Описание |
 |----------|----------------------|----------|
-| DATA_SOURCE | 'cps_tiles' | Источник данных ('png' или 'cps_tiles') |
+| DATA_SOURCE | 'cps_tiles' | Источник данных |
 | USE_FAULTS | False | Использовать ли разломы |
 | BATCH_SIZE | 4 | Размер батча |
 | NUM_EPOCHS | 50 | Количество эпох |
 | LEARNING_RATE | 3e-4 | Базовая скорость обучения |
 | ENCODER_LR_MULTIPLIER | 0.1 | Множитель LR для энкодера |
-| TARGET_HEIGHT | 640 (cps) / 1248 (png) | Целевая высота |
-| TARGET_WIDTH | 448 (cps) / 512 (png) | Целевая ширина |
+| TARGET_HEIGHT | 640 | Целевая высота |
+| TARGET_WIDTH | 448 | Целевая ширина |
 
 ## 📊 Формат данных
 
@@ -173,7 +174,6 @@ pytest tests/ -m "smoke" -v
 001_x_structuralNOisoline_Ach3-2-1_toptop1.png   # RGB карта
 001_x_structuralBlackWhite_Ach3-2-1_toptop1.png  # Depth
 001_x_isolines_Ach3-2-1_toptop1.png              # Изолинии
-001_x_closedIsolines_Ach3-2-1_toptop1.png        # Замкнутые изолинии
 001_y_traps_Ach3-2-1_toptop1.png                 # Ловушки (таргет)
 ```
 
