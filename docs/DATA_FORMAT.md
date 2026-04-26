@@ -2,10 +2,9 @@
 
 ## Обзор источников данных
 
-Проект поддерживает два источника данных:
+Проект использует один источник данных:
 
-1. **`cps_tiles`** (основной пайплайн) - PNG файлы, сконвертированные из CPS гридов с дополнительными каналами (изолинии, замкнутые изолинии)
-2. **`png`** - классические PNG изображения структурных карт
+1. **`cps_tiles`** - PNG файлы, сконвертированные из CPS гридов - тайлы определенного размера
 
 ---
 
@@ -29,7 +28,6 @@
 | `structuralNOisoline` | RGB карта без изолиний и разломов (purple_jet colormap) | rgb (3 канала) | uint8 PNG |
 | `structuralBlackWhite` | Черно-белая карта глубины (0=высокие точки, 255=низкие) | depth_norm (1 канал) | uint8 PNG |
 | `isolines` | Карта изолиний с шагом 5м (белые линии на черном фоне) | isolines (1 канал) | uint8 PNG |
-| `closedIsolines` | Маска замкнутых контуров/ловушек (белые области = замкнутые) | closed_isolines (1 канал) | uint8 PNG |
 | `faults` | Карта разломов (опционально) | faults (1 канал) | uint8 PNG |
 
 #### Целевые данные (y):
@@ -44,7 +42,6 @@
 001_x_structuralNOisoline_Ach3-2-1_toptop1.png      # RGB карта
 001_x_structuralBlackWhite_Ach3-2-1_toptop1.png     # Depth нормализованный
 001_x_isolines_Ach3-2-1_toptop1.png                 # Изолинии
-001_x_closedIsolines_Ach3-2-1_toptop1.png           # Замкнутые изолинии (маска ловушек)
 001_x_faults_Ach3-2-1_toptop1.png                   # Разломы (опционально)
 001_y_traps_Ach3-2-1_toptop1.png                    # Ловушки (таргет)
 ```
@@ -54,7 +51,7 @@
 002_x_structuralNOisoline_Ach3-2-1_toptop1.png
 002_x_structuralBlackWhite_Ach3-2-1_toptop1.png
 002_x_isolines_Ach3-2-1_toptop1.png
-002_x_closedIsolines_Ach3-2-1_toptop1.png
+002_x_faults_Ach3-2-1_toptop1.png
 002_y_traps_Ach3-2-1_toptop1.png
 ```
 
@@ -63,40 +60,8 @@
 001_x_structuralNOisoline_H150.png
 001_x_structuralBlackWhite_H150.png
 001_x_isolines_H150.png
-001_x_closedIsolines_H150.png
+001_x_faults_H150.png
 001_y_traps_H150.png
-```
-
----
-
-## Источник данных: png (классический)
-
-### Структура именования файлов
-
-Формат: `{number}_{x|y}_{type}_{name}.png`
-
-### Типы файлов для png
-
-#### Входные данные (x):
-| type | Описание | Канал в модели |
-|------|----------|----------------|
-| `structuralNOisoline` | RGB карта без изолиний и разломов | rgb (3 канала) |
-| `structuralBlackWhite` | Черно-белая карта глубины (0=высокие точки, 255=низкие) | depth_norm (1 канал) |
-| `faults` | Карта разломов (опционально) | faults (1 канал) |
-
-#### Целевые данные (y):
-| type | Описание | Канал в модели |
-|------|----------|----------------|
-| `traps` | Карта ловушек (таргет) | traps (1 канал) |
-
-### Примеры имен файлов для png
-
-#### Один семпл (горизонт H150, карта 001):
-```
-001_x_structuralNOisoline_H150.png      # RGB карта без изолиний
-001_x_structuralBlackWhite_H150.png     # Depth нормализованный
-001_x_faults_H150.png                   # Разломы (опционально)
-001_y_traps_H150.png                    # Ловушки (таргет)
 ```
 
 ---
@@ -123,47 +88,26 @@
 ### Режим "без разломов" (use_faults=False)
 
 #### Для cps_tiles:
-Для обучения без учета разломов используются 6 входных каналов + target:
+Для обучения без учета разломов используются 5 входных каналов + target:
 - `001_x_structuralNOisoline_H150.png` → rgb (3 канала)
 - `001_x_structuralBlackWhite_H150.png` → depth_norm (1 канал)
 - `001_x_isolines_H150.png` → isolines (1 канал)
-- `001_x_closedIsolines_H150.png` → closed_isolines (1 канал)
 - `001_y_traps_H150.png` → traps (target)
 
-**Итого входных каналов**: 6 (RGB + depth + isolines + closed_isolines)
-**Маски**: map_mask (для игнорирования фона за пределами карты)
-
-#### Для png:
-Для обучения без учета разломов используются 4 входных канала + target:
-- `001_x_structuralNOisoline_H150.png` → rgb (3 канала)
-- `001_x_structuralBlackWhite_H150.png` → depth_norm (1 канал)
-- `001_y_traps_H150.png` → traps (target)
-
-**Итого входных каналов**: 4 (RGB + depth)
+**Итого входных каналов**: 5 (RGB + depth + isolines)
 **Маски**: map_mask (для игнорирования фона за пределами карты)
 
 ### Режим "с разломами" (use_faults=True)
 
 #### Для cps_tiles:
-Для обучения с учетом разломов используются 7 входных каналов + target:
+Для обучения с учетом разломов используются 6 входных каналов + target:
 - `001_x_structuralNOisoline_H150.png` → rgb (3 канала)
 - `001_x_structuralBlackWhite_H150.png` → depth_norm (1 канал)
 - `001_x_isolines_H150.png` → isolines (1 канал)
-- `001_x_closedIsolines_H150.png` → closed_isolines (1 канал)
 - `001_x_faults_H150.png` → faults (1 канал)
 - `001_y_traps_H150.png` → traps (target)
 
 **Итого входных каналов**: 7 (RGB + depth + isolines + closed_isolines + faults)
-**Маски**: map_mask + depth_mask (depth_mask = map_mask × (1 - faults))
-
-#### Для png:
-Для обучения с учетом разломов используются 5 входных каналов + target:
-- `001_x_structuralNOisoline_H150.png` → rgb (3 канала)
-- `001_x_structuralBlackWhite_H150.png` → depth_norm (1 канал)
-- `001_x_faults_H150.png` → faults (1 канал)
-- `001_y_traps_H150.png` → traps (target)
-
-**Итого входных каналов**: 5 (RGB + depth + faults)
 **Маски**: map_mask + depth_mask (depth_mask = map_mask × (1 - faults))
 
 ## Вспомогательные маски
@@ -173,12 +117,6 @@
 - **Расчет**: Создается автоматически из RGB изображения (пиксели < 250 считаются картой)
 - **Значения**: 1 = область карты, 0 = фон/паддинг
 - **Используется**: Всегда в обоих режимах и для всех источников данных
-
-### depth_mask
-- **Назначение**: Игнорировать области под разломами при обучении
-- **Расчет**: depth_mask = map_mask × (1 - fault_mask)
-- **Значения**: 1 = учитываем при обучении, 0 = игнорируем
-- **Используется**: Только в режиме с разломами (use_faults=True)
 
 ## Парсинг имен файлов
 
@@ -204,11 +142,6 @@ parse_filename("001_x_structuralNOisoline_H150.png")
 - После тайлинга: 448 (ширина) × 640 (высота)
 - Паддинг добавляется автоматически с использованием `cv2.BORDER_CONSTANT`
 
-#### Для png:
-- Исходный размер: 505 (ширина) × 1218 (высота)
-- После паддинга: 512 × 1248
-- Паддинг добавляется автоматически с использованием `cv2.BORDER_CONSTANT`
-
 ### Форматы
 - Формат файлов: PNG
 - RGB изображения: 3 канала (0-255), uint8
@@ -217,13 +150,14 @@ parse_filename("001_x_structuralNOisoline_H150.png")
 
 ### Цветовые конвенции
 
-#### Для cps_tiles и png:
+#### Для cps_tiles:
 - **structuralNOisoline**: RGB палитра purple_jet от индиго/фиолетового (низкие) до красного (высокие)
 - **structuralBlackWhite**: 0=наивысшие точки, 255=низшие точки
 - **isolines**: 0=фон (черный), 255=изолинии (белые линии)
-- **closedIsolines**: 0=не замкнутые области (черный), 255=замкнутые ловушки (белые области)
 - **faults**: 0=разломы (черный), 255=не разломы (белый)
 - **traps**: 0=ловушки (черный), 255=не ловушки (белый)
+
+**Важно**: В режиме с разломами области разломов на картах rgb, depth_norm и isolines вырезаются (становятся черными).
 
 ### Конвертация из CPS в PNG
 
@@ -233,7 +167,7 @@ parse_filename("001_x_structuralNOisoline_H150.png")
 2. **Генерация RGB**: Применение colormap purple_jet к нормализованным значениям глубин
 3. **Генерация grayscale**: Нормализация к [0, 255] с опциональной инверсией
 4. **Генерация изолиний**: cv2.findContours с шагом 5м
-5. **Генерация замкнутых изолиний**: ndimage.label для поиска связных компонент, проверка на замкнутость
+5. **Вырезание разломов**: Области разломов на картах rgb, depth_norm и isolines становятся черными
 6. **Тайлинг**: Разбиение больших изображений на тайлы размером 448×640 с overlap 25%
 
 ### Минимальные требования к данным
@@ -241,9 +175,5 @@ parse_filename("001_x_structuralNOisoline_H150.png")
 #### Для cps_tiles:
 - Наличие CPS файлов с структурными картами (`x_structuralNOisoline_*.cps`)
 - Наличие CPS файлов с картами ловушек (`y_traps_*.cps`) - опционально для генерации таргетов
+- Наличие CPS файлов с разломами (`x_faults_*.cps`) - опционально для режима с разломами
 - CPS файлы должны содержать корректные заголовки FSNROW, FSLIMI
-
-#### Для png:
-- Наличие PNG файлов с RGB картами (`{number}_x_structuralNOisoline_{name}.png`)
-- Наличие PNG файлов с depth картами (`{number}_x_structuralBlackWhite_{name}.png`)
-- Наличие PNG файлов с таргетами (`{number}_y_traps_{name}.png`)

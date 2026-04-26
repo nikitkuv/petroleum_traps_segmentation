@@ -6,9 +6,8 @@
 
 **Задача**: Выделить замкнутые структурные ловушки - закрашенные части карт по последней замкнутой изолинии, выше которых существует замкнутая возвышенность.
 
-**Источники данных**:
-- **cps_tiles** (основной): PNG файлы, сконвертированные из CPS гридов с каналами: RGB, depth, isolines, closedIsolines, faults (опционально)
-- **png**: Классические PNG изображения структурных карт с каналами: RGB, depth, faults (опционально)
+**Источник данных**:
+- **cps_tiles**: PNG файлы, сконвертированные из CPS гридов с каналами: RGB, depth, isolines, faults (опционально)
 
 ## Структура проекта
 
@@ -96,7 +95,7 @@
 
 ## Формат названий изображений
 
-### Для cps_tiles (основной источник):
+### Для cps_tiles:
 
 Формат: `{number}_{x|y}_{type}_{name}.png`
 
@@ -104,23 +103,13 @@
 - `{number}_x_structuralNOisoline_{name}.png` → rgb (RGB карта без изолиний и разломов, purple_jet colormap)
 - `{number}_x_structuralBlackWhite_{name}.png` → depth_norm (нормализованная глубина)
 - `{number}_x_isolines_{name}.png` → isolines (карта изолиний с шагом 5м)
-- `{number}_x_closedIsolines_{name}.png` → closed_isolines (маска замкнутых контуров/ловушек)
 - `{number}_x_faults_{name}.png` → faults (карта разломов, опционально)
 - `{number}_y_traps_{name}.png` → traps (целевая маска ловушек)
 
 **Примеры:**
 - `001_x_structuralNOisoline_Ach3-2-1_toptop1.png` - RGB карта для горизонта Ach3-2-1_toptop1
 - `001_x_isolines_Ach3-2-1_toptop1.png` - Изолинии для Ach3-2-1_toptop1
-- `001_x_closedIsolines_Ach3-2-1_toptop1.png` - Замкнутые изолинии для Ach3-2-1_toptop1
 - `001_y_traps_Ach3-2-1_toptop1.png` - Ловушки для Ach3-2-1_toptop1
-
-### Для png (классический источник):
-
-**Типы файлов:**
-- `{number}_x_structuralNOisoline_{name}.png` → rgb (RGB карта без изолиний и разломов)
-- `{number}_x_structuralBlackWhite_{name}.png` → depth_norm (нормализованная глубина)
-- `{number}_x_faults_{name}.png` → faults (карта разломов, опционально)
-- `{number}_y_traps_{name}.png` → traps (целевая маска ловушек)
 
 Группировка производится по комбинации `{number}_{name}` - все файлы с одинаковым номером и названием горизонта попадают в один семпл. Разные номера для одного горизонта (например, 001_H150, 002_H150) будут разными семплами, но при разделении на выборки группировка происходит по `{name}` (горизонту), чтобы данные из одного горизонта не попадали одновременно в train и test.
 
@@ -135,7 +124,6 @@ from settings import settings
 test_metrics = run_full_pipeline(
     data_dir=settings.DATA_DIR,
     use_faults=False,  # Без разломов
-    data_source='png',
     overfit_check_mode=True,  # Режим проверки overfit
     n_epochs=100,
     batch_size=4,
@@ -152,10 +140,9 @@ from settings import settings
 test_metrics = run_full_pipeline(
     data_dir=settings.DATA_DIR,
     use_faults=False,  # Без разломов
-    data_source='png',
     overfit_check_mode=False,  # Полное обучение
     wandb_project='geology-traps-segmentation',
-    wandb_run_name='unetplusplus_rgb_depth_no_faults',
+    wandb_run_name='unetplusplus_rgb_depth_isolines',
     n_epochs=100,
     batch_size=4,
     learning_rate=1e-4,
@@ -172,7 +159,7 @@ test_metrics = run_full_pipeline(
 from data.dataloaders import get_file_list, split_data_by_groups, create_dataloaders
 
 # Получить список файлов
-files = get_file_list('./data/images/', data_source='png')
+files = get_file_list('./data/images_cps/')
 
 # Разделить на выборки
 train_files, val_files, test_files = split_data_by_groups(
@@ -195,9 +182,9 @@ train_loader, val_loader, test_loader = create_dataloaders(
 ```python
 from models.unetplusplus import load_unetplusplus, load_model_checkpoint
 
-# Создать модель
+# Создать модель для cps_tiles без разломов (5 каналов: RGB + depth + isolines)
 model = load_unetplusplus(
-    in_channels=4,  # RGB + depth
+    in_channels=5,
     classes=1,
     encoder_name='resnet34',
     encoder_weights='imagenet'
@@ -306,48 +293,40 @@ visualize_test_predictions(model, test_loader, sample_indices=[0,1,2,3])
 - `BATCH_SIZE`: Размер батча (по умолчанию 4)
 - `NUM_EPOCHS`: Количество эпох (по умолчанию 50)
 - `LEARNING_RATE`: Базовая скорость обучения (3e-4)
-- `TARGET_HEIGHT`: Целевая высота (640 для cps_tiles, 1248 для png)
-- `TARGET_WIDTH`: Целевая ширина (448 для cps_tiles, 512 для png)
+- `TARGET_HEIGHT`: Целевая высота (640)
+- `TARGET_WIDTH`: Целевая ширина (448)
 - `DEVICE`: Устройство (cuda/cpu)
 - `CHECKPOINT_DIR`: Путь для сохранения чекпоинтов
 
 Вычисляемые свойства:
 - `IN_CHANNELS`: 
-  - Для png: 4 (без разломов) или 5 (с разломами)
-  - Для cps_tiles: 6 (без разломов) или 7 (с разломами)
+  - Без разломов: 5 (RGB + depth_norm + isolines)
+  - С разломами: 6 (RGB + depth_norm + isolines + faults)
 
 ## Режимы данных
 
 ### Без разломов (use_faults=False)
 
 #### Для cps_tiles:
-- Входные каналы: 6 (RGB + depth_norm + isolines + closed_isolines)
-- Маски: только map_mask (игнорирование фона)
-- Encoder: ResNet34 ImageNet pretrained
-
-#### Для png:
-- Входные каналы: 4 (RGB + depth_norm)
+- Входные каналы: 5 (RGB + depth_norm + isolines)
 - Маски: только map_mask (игнорирование фона)
 - Encoder: ResNet34 ImageNet pretrained
 
 ### С разломами (use_faults=True)
 
 #### Для cps_tiles:
-- Входные каналы: 7 (RGB + depth_norm + isolines + closed_isolines + fault_mask)
-- Маски: map_mask + depth_mask (игнорирование фона и областей под разломами)
+- Входные каналы: 6 (RGB + depth_norm + isolines + faults)
+- Маски: только map_mask (игнорирование фона)
 - Encoder: ResNet34 ImageNet pretrained
 
-#### Для png:
-- Входные каналы: 5 (RGB + depth_norm + fault_mask)
-- Маски: map_mask + depth_mask (игнорирование фона и областей под разломами)
-- Encoder: ResNet34 ImageNet pretrained
+**Важно**: Разломы вырезаются из карт rgb, depth_norm и isolines (области разломов становятся черными).
 
 ## Особенности архитектуры
 
 - **Модель**: U-Net++ с энкодером ResNet34
 - **Входные каналы**: 
-  - png: 4 или 5
-  - cps_tiles: 6 или 7
+  - Без разломов: 5 (RGB + depth_norm + isolines)
+  - С разломами: 6 (+ faults)
   (модифицируется первый слой conv1)
 - **Инициализация**: Предобученные веса ImageNet для первых 3 каналов (RGB), остальные инициализируются средним значением RGB весов
 - **Differential LR**: Encoder обучается с LR × 0.1, Decoder с базовым LR
