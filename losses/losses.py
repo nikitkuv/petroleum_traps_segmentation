@@ -88,14 +88,12 @@ class CombinedLoss(nn.Module):
         self, 
         bce_weight: float = 0.5, 
         dice_weight: float = 0.5,
-        use_map_mask: bool = True,
-        use_depth_mask: bool = False
+        use_map_mask: bool = True
     ):
         super().__init__()
         self.bce_weight = bce_weight
         self.dice_weight = dice_weight
         self.use_map_mask = use_map_mask
-        self.use_depth_mask = use_depth_mask
         
         self.bce_loss = MaskedBCELoss(reduction='mean')
         self.dice_loss = MaskedDiceLoss(smooth=1.0, from_logits=True)
@@ -104,26 +102,19 @@ class CombinedLoss(nn.Module):
         self, 
         predictions: torch.Tensor, 
         targets: torch.Tensor,
-        mask_map: Optional[torch.Tensor] = None,
-        mask_depth: Optional[torch.Tensor] = None
+        mask_map: Optional[torch.Tensor] = None
     ) -> Tuple[torch.Tensor, Dict[str, float]]:
         """
         Args:
             predictions: Предсказания модели (логиты)
             targets: Целевые маски ловушек
             mask_map: Маска карты (игнорируем фон за пределами карты)
-            mask_depth: Маска глубины (игнорируем области под разломами)
         
         Returns:
             total_loss, metrics_dict
         """
-        # Объединяем маски
-        if self.use_map_mask and mask_map is not None:
-            combined_mask = mask_map
-            if self.use_depth_mask and mask_depth is not None:
-                combined_mask = combined_mask * mask_depth
-        else:
-            combined_mask = None
+        # Используем только маску карты
+        combined_mask = mask_map if self.use_map_mask and mask_map is not None else None
         
         # Вычисляем лоссы
         bce = self.bce_loss(predictions, targets, combined_mask)
@@ -138,3 +129,4 @@ class CombinedLoss(nn.Module):
         }
         
         return total_loss, metrics
+    
