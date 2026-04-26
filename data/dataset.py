@@ -58,11 +58,11 @@ class GeologyTrapsDataset(Dataset):
                 k: resolve_path(paths[k], self.data_dir)
                 for k in required_keys
             }
-
-            # Если use_faults=True и файл нашелся - добавляем путь
+            
+            # Добавляем faults только если он есть
             if self.use_faults and 'faults' in paths:
                 clean_paths['faults'] = resolve_path(paths['faults'], self.data_dir)
-            
+
             clean_paths['_sample_key'] = key
             result.append(clean_paths)
 
@@ -82,44 +82,42 @@ class GeologyTrapsDataset(Dataset):
         sample_key = sample_paths.get('_sample_key', f"sample_{idx}")
         metadata = {'sample_key': sample_key}
         
+        # Создаем маску карты
         map_mask = create_map_mask(rgb_img)
         
-        if self.use_faults:
-            depth_mask = map_mask * (1.0 - fault_mask)
-        else:
-            depth_mask = np.zeros_like(map_mask, dtype=np.float32)
-        
+        # Нормализация
         rgb_norm = rgb_img.astype(np.float32) / 255.0
         depth_norm = depth_img.astype(np.float32) / 255.0
         isolines_norm = isolines_img.astype(np.float32) / 255.0
         
+        # Паддинг
         rgb_padded = pad_image(rgb_norm, self.target_h, self.target_w)
         depth_padded = pad_image(depth_norm, self.target_h, self.target_w)
         isolines_padded = pad_image(isolines_norm, self.target_h, self.target_w)
         fault_mask_padded = pad_image(fault_mask, self.target_h, self.target_w)
         trap_mask_padded = pad_image(trap_mask, self.target_h, self.target_w)
-        depth_mask_padded = pad_image(depth_mask, self.target_h, self.target_w)
         map_mask_padded = pad_image(map_mask, self.target_h, self.target_w)
         
+        # Аугментации
         augmented = self.transforms(
             image=rgb_padded,
             depth=depth_padded,
             isolines=isolines_padded,
             faults=fault_mask_padded,
             traps=trap_mask_padded,
-            mask_depth=depth_mask_padded,
             mask_map=map_mask_padded
         )
         
+        # Извлекаем тензоры
         x_rgb = augmented['image']           
         x_depth = augmented['depth']         
         x_isolines = augmented['isolines']   
         x_faults = augmented['faults']       
         
         y_traps = augmented['traps']         
-        mask_depth = augmented['mask_depth'] 
         mask_map = augmented['mask_map']     
         
+        # Добавляем канал для масок если нужно
         if x_depth.dim() == 2:
             x_depth = x_depth.unsqueeze(0)
         if x_isolines.dim() == 2:
@@ -128,12 +126,10 @@ class GeologyTrapsDataset(Dataset):
             x_faults = x_faults.unsqueeze(0)
         if y_traps.dim() == 2:
             y_traps = y_traps.unsqueeze(0)
-        if mask_depth.dim() == 2:
-            mask_depth = mask_depth.unsqueeze(0)
         if mask_map.dim() == 2:
             mask_map = mask_map.unsqueeze(0)
 
-        # Входы: RGB (3) + Depth (1) + Isolines (1) + [Faults (1)]
+        # Объединяем входы
         if self.use_faults:
             x_in = torch.cat([x_rgb, x_depth, x_isolines, x_faults], dim=0)
         else:
@@ -142,7 +138,6 @@ class GeologyTrapsDataset(Dataset):
         return {
             'x': x_in,
             'y': y_traps,
-            'mask_depth': mask_depth,
             'mask_map': mask_map,
             'sample_idx': idx,
             'use_faults': self.use_faults,

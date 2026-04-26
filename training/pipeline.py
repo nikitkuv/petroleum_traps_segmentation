@@ -146,7 +146,6 @@ def run_full_pipeline(
         bce_weight=settings.BCE_WEIGHT_RATIO,
         dice_weight=settings.DICE_WEIGHT_RATIO,
         use_map_mask=True,
-        use_depth_mask=use_faults
     )
     
     print("\n[STEP 6] Setting up optimizer and scheduler...")

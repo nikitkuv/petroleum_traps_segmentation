@@ -31,10 +31,8 @@ def get_train_transforms():
         'image': 'image',
         'depth': 'mask',
         'isolines': 'mask',
-        'closed_isolines': 'mask',
         'faults': 'mask',
         'traps': 'mask',
-        'mask_depth': 'mask',
         'mask_map': 'mask'
     })
 
@@ -46,9 +44,7 @@ def get_val_transforms():
         'image': 'image',
         'depth': 'mask',
         'isolines': 'mask',
-        'closed_isolines': 'mask',
         'faults': 'mask',
         'traps': 'mask',
-        'mask_depth': 'mask',
         'mask_map': 'mask'
     })
