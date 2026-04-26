@@ -47,7 +47,7 @@ def main():
     print("=" * 60)
 
     print("\nStep 0: Cleaning CPS filenames...")
-    clean_cps_filenames(cps_dir, suffixes_to_remove=[".cps3", "-UNIQ1"])
+    clean_cps_filenames(cps_dir)
 
     horizons = None
     if mode in ("save_only", "both"):

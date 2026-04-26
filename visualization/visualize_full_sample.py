@@ -6,16 +6,24 @@ sys.path.append(str(Path(__file__).parent.parent))
 from visualization.visualize import visualize_full_cps_analysis
 
 
-STRUCTURAL_CPS_PATH = "./data/cps/x_structuralNOisoline_Ach5_toptop77"
-TRAPS_CPS_PATH = "./data/cps/y_traps_Ach5_toptop77"
+HORIZON_NAME = "H150_TWT"
 
-# STRUCTURAL_CPS_PATH = "./data/raw/CP3_ver2/x_structuralNOisoline_B_I_2top21"
-# TRAPS_CPS_PATH = "./data/raw/CP3_ver2/y_traps_B_I_2top21"
+# Флаг использования разломов
+USE_FAULTS = True
+
+STRUCTURAL_CPS_PATH = f"./data/raw/CPS3_faults/x_structuralNOisoline_{HORIZON_NAME}"
+TRAPS_CPS_PATH = f"./data/raw/CPS3_faults/y_traps_{HORIZON_NAME}"
+FAULTS_CPS_PATH = f"./data/raw/CPS3_faults/x_faults_{HORIZON_NAME}"
+
+# STRUCTURAL_CPS_PATH = f"./data/raw/CPS3_faults/x_structuralNOisoline_{HORIZON_NAME}"
+# TRAPS_CPS_PATH = f"./data/raw/CPS3_faults/y_traps_{HORIZON_NAME}"
 
 
 visualize_full_cps_analysis(
     rgb_cps_path=STRUCTURAL_CPS_PATH, 
     traps_cps_path=TRAPS_CPS_PATH, 
+    faults_cps_path=FAULTS_CPS_PATH if USE_FAULTS else None,
+    use_faults=USE_FAULTS,
     isoline_step=5,
     overlay_alpha=0.4
 )

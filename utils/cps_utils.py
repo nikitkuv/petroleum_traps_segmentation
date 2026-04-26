@@ -117,7 +117,10 @@ def cps_to_grayscale(grid: np.ndarray, invert: bool = False) -> np.ndarray:
     if invert:
         grid_norm = 1.0 - grid_norm
     
+    grid_norm = np.nan_to_num(grid_norm, nan=0.0)
     gray = (grid_norm * 255).astype(np.uint8)
+    
+    # Убираем фон за пределами карты (оставляем черным)
     gray[~valid_mask] = 0
     return gray
 
@@ -160,6 +163,9 @@ def cps_to_binary_mask(grid: np.ndarray, threshold: float = None) -> np.ndarray:
     else:
         grid_norm = np.zeros_like(grid)
 
+    # Безопасное приведение типов
+    grid_norm = np.nan_to_num(grid_norm, nan=0.0)
+
     mask = (grid_norm >= threshold).astype(np.float32)
     mask[~valid_mask] = 0
 
@@ -185,35 +191,88 @@ def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str, isol
     for horizon_name, files in horizons.items():
         print(f"\nProcessing horizon: {horizon_name}")
         images_data[horizon_name] = {}
+        
+        reference_shape = None  # Размер структурной карты (H, W), к которому будем приводить всё остальное
+        faults_img_original = None
+        
+        # 1. СНАЧАЛА загружаем разломы (если есть), но пока не меняем их размер
+        if 'faults' in files:
+            print(f"  Loading faults: {files['faults']}")
+            faults_grid, _ = read_cps_grid(files['faults'])
+            faults_img_original = (cps_to_binary_mask(faults_grid) * 255).astype(np.uint8)
 
+        # 2. Загружаем структурную карту (ОПРЕДЕЛЯЕТ РАЗМЕР)
         if 'structural' in files:
             print(f"  Loading structural: {files['structural']}")
-            grid, meta = read_cps_grid(files['structural'])
+            structural_grid, meta = read_cps_grid(files['structural'])
 
-            rgb_img = cps_to_rgb(grid, cmap_name='purple_jet')
+            rgb_img = cps_to_rgb(structural_grid, cmap_name='purple_jet')
+            gray_img = cps_to_grayscale(structural_grid, invert=False)
+            isolines_img = cps_to_isolines(structural_grid, step=isoline_step)
+            
+            reference_shape = rgb_img.shape[:2]  # (H, W)
+            print(f"  Reference shape set to: {reference_shape}")
+
+            # Обрезаем изолинии разломами (с учетом возможного ресайза маски разломов)
+            if faults_img_original is not None:
+                if faults_img_original.shape != reference_shape:
+                    print(f"  Resizing faults mask from {faults_img_original.shape} to {reference_shape} for isolines cut")
+                    faults_resized_for_cut = cv2.resize(
+                        faults_img_original, 
+                        (reference_shape[1], reference_shape[0]), 
+                        interpolation=cv2.INTER_NEAREST
+                    )
+                else:
+                    faults_resized_for_cut = faults_img_original
+                
+                isolines_img[faults_resized_for_cut > 128] = 0
+                print(f"  Applied faults mask to isolines")
+
+            # Сохраняем структурные карты (они уже правильного размера)
             rgb_path = os.path.join(output_dir, f'x_structuralNOisoline_{horizon_name}.png')
             save_png(rgb_img, rgb_path)
-            print(f"  Saved RGB: {rgb_path} (shape={rgb_img.shape})")
             images_data[horizon_name]['rgb'] = rgb_img
 
-            gray_img = cps_to_grayscale(grid, invert=False)
             gray_path = os.path.join(output_dir, f'x_structuralBlackWhite_{horizon_name}.png')
             save_png(gray_img, gray_path)
-            print(f"  Saved Grayscale: {gray_path} (shape={gray_img.shape})")
             images_data[horizon_name]['grayscale'] = gray_img
 
-            isolines_img = cps_to_isolines(grid, step=isoline_step)
             isolines_path = os.path.join(output_dir, f'x_isolines_{horizon_name}.png')
             save_png(isolines_img, isolines_path)
-            print(f"  Saved Isolines: {isolines_path} (shape={isolines_img.shape})")
             images_data[horizon_name]['isolines'] = isolines_img
 
+        # 3. ФИНАЛИЗИРУЕМ КАРТУ РАЗЛОМОВ (сохраняем и кладем в словарь ПРИВЕДЕННУЮ к размеру)
+        if faults_img_original is not None:
+            faults_img_final = faults_img_original
+            # Если есть референсный размер и он не совпадает - масштабируем
+            if reference_shape is not None and faults_img_original.shape != reference_shape:
+                print(f"  Resizing faults image from {faults_img_original.shape} to {reference_shape} for final save")
+                faults_img_final = cv2.resize(
+                    faults_img_original, 
+                    (reference_shape[1], reference_shape[0]), 
+                    interpolation=cv2.INTER_NEAREST
+                )
+            
+            faults_path = os.path.join(output_dir, f'x_faults_{horizon_name}.png')
+            save_png(faults_img_final, faults_path)
+            print(f"  Saved Faults: {faults_path} (shape={faults_img_final.shape})")
+            images_data[horizon_name]['faults'] = faults_img_final
+
+        # 4. Загружаем ловушки и ТАКЖЕ ПРИВОДИМ к размеру
         if 'traps' in files:
             print(f"  Loading traps: {files['traps']}")
-            grid, meta = read_cps_grid(files['traps'])
-
-            traps_img = cps_to_binary_mask(grid)
-            traps_img = (traps_img * 255).astype(np.uint8)
+            traps_grid, _ = read_cps_grid(files['traps'])
+            traps_img = (cps_to_binary_mask(traps_grid) * 255).astype(np.uint8)
+            
+            # Если есть референсный размер и он не совпадает - масштабируем
+            if reference_shape is not None and traps_img.shape != reference_shape:
+                print(f"  Resizing traps image from {traps_img.shape} to {reference_shape} for final save")
+                traps_img = cv2.resize(
+                    traps_img, 
+                    (reference_shape[1], reference_shape[0]), 
+                    interpolation=cv2.INTER_NEAREST
+                )
+                
             traps_path = os.path.join(output_dir, f'y_traps_{horizon_name}.png')
             save_png(traps_img, traps_path)
             print(f"  Saved Traps: {traps_path} (shape={traps_img.shape})")
@@ -223,7 +282,8 @@ def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str, isol
 
 
 def extract_horizon_name(filename: str) -> str:
-    pattern = r'^(x_structuralNOisoline_|y_traps_)(.+)$'
+    # Добавлен паттерн для x_faults_
+    pattern = r'^(x_structuralNOisoline_|y_traps_|x_faults_)(.+)$'
     match = re.match(pattern, filename)
     if match:
         return match.group(2)
@@ -247,6 +307,14 @@ def find_cps_files(cps_dir: str) -> Dict[str, Dict[str, str]]:
                 if horizon_name not in horizons:
                     horizons[horizon_name] = {}
                 horizons[horizon_name]['traps'] = os.path.join(cps_dir, filename)
+                
+        # Поиск CPS файлов разломов
+        elif filename.startswith('x_faults_'):
+            horizon_name = extract_horizon_name(filename)
+            if horizon_name:
+                if horizon_name not in horizons:
+                    horizons[horizon_name] = {}
+                horizons[horizon_name]['faults'] = os.path.join(cps_dir, filename)
 
     return horizons
 
@@ -280,6 +348,7 @@ def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
         rgb_img = images.get('rgb')
         grayscale_img = images.get('grayscale')
         isolines_img = images.get('isolines')
+        faults_img = images.get('faults')
         traps_img = images.get('traps')
 
         if rgb_img is not None:
@@ -323,6 +392,12 @@ def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
                 iso_tile_path = os.path.join(output_dir, f'{tile_prefix}x_isolines_{horizon_name}.png')
                 save_png(tile_iso, iso_tile_path)
                 saved_files.append(iso_tile_path)
+
+            if faults_img is not None:
+                tile_faults = pad_image(faults_img, tile_height, tile_width)
+                faults_tile_path = os.path.join(output_dir, f'{tile_prefix}x_faults_{horizon_name}.png')
+                save_png(tile_faults, faults_tile_path)
+                saved_files.append(faults_tile_path)
 
             if traps_img is not None:
                 tile_traps = pad_image(traps_img, tile_height, tile_width)
@@ -388,6 +463,13 @@ def split_into_tiles(images_data: Dict[str, Dict[str, np.ndarray]],
                     save_png(tile_iso, iso_tile_path)
                     saved_files.append(iso_tile_path)
 
+                if faults_img is not None:
+                    tile_faults = faults_img[y_start:y_end, x_start:x_end]
+                    tile_faults = pad_image(tile_faults, tile_height, tile_width)
+                    faults_tile_path = os.path.join(output_dir, f'{tile_prefix}x_faults_{horizon_name}.png')
+                    save_png(tile_faults, faults_tile_path)
+                    saved_files.append(faults_tile_path)
+
                 if traps_img is not None:
                     tile_traps = pad_image(tile_traps_raw, tile_height, tile_width)
                     traps_tile_path = os.path.join(output_dir, f'{tile_prefix}y_traps_{horizon_name}.png')
@@ -427,6 +509,12 @@ def load_existing_images(horizons: Dict[str, Dict[str, str]], full_images_dir: s
             images_data[horizon_name]['isolines'] = img
             print(f"    Loaded Isolines: {isolines_path} (shape={img.shape})")
 
+        faults_path = os.path.join(full_images_dir, f'x_faults_{horizon_name}.png')
+        if os.path.exists(faults_path):
+            img = np.array(Image.open(faults_path))
+            images_data[horizon_name]['faults'] = img
+            print(f"    Loaded Faults: {faults_path} (shape={img.shape})")
+
         traps_path = os.path.join(full_images_dir, f'y_traps_{horizon_name}.png')
         if os.path.exists(traps_path):
             img = np.array(Image.open(traps_path))
@@ -437,8 +525,13 @@ def load_existing_images(horizons: Dict[str, Dict[str, str]], full_images_dir: s
 
 
 def clean_cps_filenames(cps_dir: str, suffixes_to_remove: list = None):
+    """
+    Удаляет указанные суффиксы из имен файлов в директории cps_dir.
+    Помогает привести названия к единообразию перед парсингом.
+    """
     if suffixes_to_remove is None:
-        suffixes_to_remove = [".cps3", "-UNIQ1"]
+        # Расширенный список типичных мусорных суффиксов и расширений CPS
+        suffixes_to_remove = [".cps3", ".cps", ".grd", "-UNIQ1", "-UNIQ"]
 
     if not os.path.exists(cps_dir):
         print(f"Directory not found: {cps_dir}. Skipping filename cleaning.")
@@ -457,13 +550,20 @@ def clean_cps_filenames(cps_dir: str, suffixes_to_remove: list = None):
 
         new_name = filename
 
-        for suffix in suffixes_to_remove:
-            if new_name.endswith(suffix):
-                new_name = new_name[:-len(suffix)]
+        # Удаляем все указанные суффиксы из имени
+        # Делаем это в цикле, чтобы удалить и .cps3, и -UNIQ1, если они идут вместе
+        changed = True
+        while changed:
+            changed = False
+            for suffix in suffixes_to_remove:
+                if new_name.endswith(suffix):
+                    new_name = new_name[:-len(suffix)]
+                    changed = True # Проверяем еще раз, вдруг осталось что-то
 
         if new_name != filename:
             new_path = os.path.join(cps_dir, new_name)
             
+            # Защита от перезаписи существующих файлов
             if os.path.exists(new_path):
                 print(f"  WARNING: Cannot rename '{filename}' -> '{new_name}'. File already exists!")
                 continue
@@ -473,3 +573,4 @@ def clean_cps_filenames(cps_dir: str, suffixes_to_remove: list = None):
             renamed_count += 1
 
     print(f"Filename cleaning done. Renamed {renamed_count} files.\n")
+    
