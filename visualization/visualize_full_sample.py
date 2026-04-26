@@ -6,14 +6,15 @@ sys.path.append(str(Path(__file__).parent.parent))
 from visualization.visualize import visualize_full_cps_analysis
 
 
+DATA_FOLDER = "raw"
+SUBDATA_FOLDER = "CPS3_faults"
 HORIZON_NAME = "H150_TWT"
-USE_FAULTS = True
-STRUCTURAL_CPS_PATH = f"./data/raw/CPS3_faults/x_structuralNOisoline_{HORIZON_NAME}"
-TRAPS_CPS_PATH = f"./data/raw/CPS3_faults/y_traps_{HORIZON_NAME}"
-FAULTS_CPS_PATH = f"./data/raw/CPS3_faults/x_faults_{HORIZON_NAME}"
 
-# STRUCTURAL_CPS_PATH = f"./data/raw/CPS3_faults/x_structuralNOisoline_{HORIZON_NAME}"
-# TRAPS_CPS_PATH = f"./data/raw/CPS3_faults/y_traps_{HORIZON_NAME}"
+USE_FAULTS = True
+
+STRUCTURAL_CPS_PATH = f"./data/{DATA_FOLDER}/{SUBDATA_FOLDER}/x_structuralNOisoline_{HORIZON_NAME}"
+TRAPS_CPS_PATH = f"./data/{DATA_FOLDER}/{SUBDATA_FOLDER}/y_traps_{HORIZON_NAME}"
+FAULTS_CPS_PATH = f"./data/{DATA_FOLDER}/{SUBDATA_FOLDER}/x_faults_{HORIZON_NAME}"
 
 
 visualize_full_cps_analysis(
