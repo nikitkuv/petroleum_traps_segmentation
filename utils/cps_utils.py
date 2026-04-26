@@ -215,8 +215,8 @@ def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str, isol
 
             # Обрезаем изолинии разломами (с учетом возможного ресайза маски разломов)
             if faults_img_original is not None:
+                # Ресайзим маску разломов под размер структурной карты, если надо
                 if faults_img_original.shape != reference_shape:
-                    print(f"  Resizing faults mask from {faults_img_original.shape} to {reference_shape} for isolines cut")
                     faults_resized_for_cut = cv2.resize(
                         faults_img_original, 
                         (reference_shape[1], reference_shape[0]), 
@@ -225,8 +225,17 @@ def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str, isol
                 else:
                     faults_resized_for_cut = faults_img_original
                 
+                # 1. Вырезаем из RGB (делаем черным цветом: 0,0,0)
+                rgb_img[faults_resized_for_cut > 128] = 0
+                print(f"  Cut interpolated data from RGB at faults")
+                
+                # 2. Вырезаем из Depth/Grayscale (делаем черным: 0)
+                gray_img[faults_resized_for_cut > 128] = 0
+                print(f"  Cut interpolated data from Depth at faults")
+                
+                # 3. Вырезаем из изолиний
                 isolines_img[faults_resized_for_cut > 128] = 0
-                print(f"  Applied faults mask to isolines")
+                print(f"  Cut isolines at faults")
 
             # Сохраняем структурные карты (они уже правильного размера)
             rgb_path = os.path.join(output_dir, f'x_structuralNOisoline_{horizon_name}.png')

@@ -51,9 +51,6 @@ class GeologyTrapsDataset(Dataset):
         for key, paths in samples.items():
             required_keys = ['rgb', 'depth_norm', 'isolines', 'traps']
 
-            if self.use_faults:
-                required_keys.append('faults')
-
             if not all(k in paths for k in required_keys):
                 continue
 
@@ -62,6 +59,10 @@ class GeologyTrapsDataset(Dataset):
                 for k in required_keys
             }
 
+            # Если use_faults=True и файл нашелся - добавляем путь
+            if self.use_faults and 'faults' in paths:
+                clean_paths['faults'] = resolve_path(paths['faults'], self.data_dir)
+            
             clean_paths['_sample_key'] = key
             result.append(clean_paths)
 
