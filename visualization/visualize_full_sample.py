@@ -7,10 +7,7 @@ from visualization.visualize import visualize_full_cps_analysis
 
 
 HORIZON_NAME = "H150_TWT"
-
-# Флаг использования разломов
 USE_FAULTS = True
-
 STRUCTURAL_CPS_PATH = f"./data/raw/CPS3_faults/x_structuralNOisoline_{HORIZON_NAME}"
 TRAPS_CPS_PATH = f"./data/raw/CPS3_faults/y_traps_{HORIZON_NAME}"
 FAULTS_CPS_PATH = f"./data/raw/CPS3_faults/x_faults_{HORIZON_NAME}"
