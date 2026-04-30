@@ -11,7 +11,7 @@ from settings import settings
 from utils.cps_utils import (
     read_cps_grid, 
     cps_to_rgb, 
-    cps_to_grayscale,
+    cps_to_depth_norm_float,
     cps_to_isolines,
     cps_to_binary_mask
 )
@@ -94,21 +94,25 @@ def visualize_training_results(
     dataset=None,
     n_samples: int = 4
 ) -> None:
-    """
-    Визуализирует результаты обучения.
-    Колонки: RGB+Isolines, GT, Pred, Overlay, Error Map
-    """
     os.makedirs(save_path, exist_ok=True)
 
+    # Тензор x: [RGB(3), Depth(1), Iso(1), Faults(1? опционально), MapMask(1)]
     x_rgb = batch['x'][:, :3, :, :]  # 0-2: RGB
-    x_isolines = batch['x'][:, 4:5, :, :] if batch['x'].shape[1] >= 5 else None  # 4: Isolines (3=Depth)
+    x_depth = batch['x'][:, 3:4, :, :]  # 3: Depth
+    
+    # Безопасное извлечение изолиний в зависимости от флага разломов
+    if batch['x'].shape[1] == 7:  # use_faults = True
+        x_isolines = batch['x'][:, 4:5, :, :]  # 4: Isolines
+    else:  # use_faults = False
+        x_isolines = batch['x'][:, 4:5, :, :]  # 4: Isolines
+
     y_traps = batch['y']
     mask_map = batch.get('mask_map', None)
 
     preds_prob = torch.sigmoid(predictions)
     n_samples = min(n_samples, x_rgb.shape[0])
 
-    fig, axes = plt.subplots(n_samples, 5, figsize=(20, 5 * n_samples))
+    fig, axes = plt.subplots(n_samples, 6, figsize=(24, 5 * n_samples))
     if n_samples == 1:
         axes = axes.reshape(1, -1)
 
@@ -128,6 +132,7 @@ def visualize_training_results(
         rgb_img = x_rgb[i].cpu().permute(1, 2, 0).numpy()
         rgb_img = np.clip(rgb_img, 0, 1)
 
+        depth_img = x_depth[i, 0, :, :].cpu().numpy()
         isolines_img = x_isolines[i, 0, :, :].cpu().numpy() if x_isolines is not None else None
 
         gt_traps = y_traps[i, 0, :, :].cpu().numpy() if y_traps.dim() == 4 else y_traps[i].cpu().numpy()
@@ -148,26 +153,31 @@ def visualize_training_results(
         axes[i, 0].set_title(f'RGB + Isolines\n{sample_name}')
         axes[i, 0].axis('off')
 
-        # 2. Ground Truth Traps
-        axes[i, 1].imshow(gt_traps, cmap='gray')
-        axes[i, 1].set_title(f'Ground Truth Traps\n({sample_name})')
+        # 2. Depth Norm (НОВАЯ КОЛОНКА)
+        axes[i, 1].imshow(depth_img, cmap='gray', vmin=0.0, vmax=1.0) 
+        axes[i, 1].set_title(f'Depth Norm\n{sample_name}')
         axes[i, 1].axis('off')
 
-        # 3. Predicted Traps (Masked)
-        axes[i, 2].imshow(pred_traps_masked, cmap='gray')
-        axes[i, 2].set_title(f'Predicted Traps\n({sample_name})')
+        # 3. Ground Truth Traps
+        axes[i, 2].imshow(gt_traps, cmap='gray')
+        axes[i, 2].set_title(f'Ground Truth Traps\n({sample_name})')
         axes[i, 2].axis('off')
 
-        # 4. Prediction Overlay
-        axes[i, 3].imshow(pred_overlay)
-        axes[i, 3].set_title(f'Prediction Overlay\n({sample_name})')
+        # 4. Predicted Traps (Masked)
+        axes[i, 3].imshow(pred_traps_masked, cmap='gray')
+        axes[i, 3].set_title(f'Predicted Traps\n({sample_name})')
         axes[i, 3].axis('off')
 
-        # 5. Error Map
-        im_error = axes[i, 4].imshow(error_map, cmap='RdYlBu_r', vmin=0, vmax=1)
-        axes[i, 4].set_title(f'Error Map (|GT - Pred)|\n({sample_name})')
+        # 5. Prediction Overlay
+        axes[i, 4].imshow(pred_overlay)
+        axes[i, 4].set_title(f'Prediction Overlay\n({sample_name})')
         axes[i, 4].axis('off')
-        plt.colorbar(im_error, ax=axes[i, 4], fraction=0.046, pad=0.04)
+
+        # 6. Error Map
+        im_error = axes[i, 5].imshow(error_map, cmap='RdYlBu_r', vmin=0, vmax=1)
+        axes[i, 5].set_title(f'Error Map (|GT - Pred)|\n({sample_name})')
+        axes[i, 5].axis('off')
+        plt.colorbar(im_error, ax=axes[i, 5], fraction=0.046, pad=0.04)
 
     plt.tight_layout()
 
@@ -195,14 +205,16 @@ def visualize_test_results(
     alpha: float = 0.4,
     metrics_by_sample: Dict = None
 ) -> None:
-    """
-    Визуализирует результаты на тестовых данных.
-    Колонки: RGB+Isolines, GT, Pred, Overlay, Error Map
-    """
     os.makedirs(save_path, exist_ok=True)
 
     x_rgb = batch['x'][:, :3, :, :]
-    x_isolines = batch['x'][:, 4:5, :, :] if batch['x'].shape[1] >= 5 else None
+    x_depth = batch['x'][:, 3:4, :, :]
+    
+    if batch['x'].shape[1] == 7:  # use_faults = True
+        x_isolines = batch['x'][:, 4:5, :, :]
+    else:  # use_faults = False
+        x_isolines = batch['x'][:, 4:5, :, :]
+
     y_traps = batch['y']
     mask_map = batch.get('mask_map', None)
     preds_prob = torch.sigmoid(predictions)
@@ -224,6 +236,7 @@ def visualize_test_results(
         rgb_img = x_rgb[batch_idx].cpu().permute(1, 2, 0).numpy()
         rgb_img = np.clip(rgb_img, 0, 1)
 
+        depth_img = x_depth[batch_idx, 0, :, :].cpu().numpy()
         isolines_img = x_isolines[batch_idx, 0, :, :].cpu().numpy() if x_isolines is not None else None
         
         gt_traps = y_traps[batch_idx, 0, :, :].cpu().numpy() if y_traps.dim() == 4 else y_traps[batch_idx].cpu().numpy()
@@ -243,12 +256,13 @@ def visualize_test_results(
         pred_overlay = create_prediction_overlay(rgb_img, pred_traps_masked, alpha=0.4)
         error_map = create_error_map(gt_traps, pred_traps_masked, map_mask=map_mask_np)
 
-        fig, axes = plt.subplots(1, 5, figsize=(20, 5))
+        fig, axes = plt.subplots(1, 6, figsize=(24, 5))
 
         if metrics is not None:
             metrics_str = f"Dice={metrics['dice']:.3f}, IoU={metrics['iou']:.3f}"
             titles = [
                 f"RGB + Isolines\n{sample_name}\n{metrics_str}",
+                f"Depth Norm\n{metrics_str}",
                 f"Ground Truth Traps\n{metrics_str}",
                 f"Predicted Traps\n{metrics_str}",
                 f"Prediction Overlay\n{metrics_str}",
@@ -257,6 +271,7 @@ def visualize_test_results(
         else:
             titles = [
                 f'RGB + Isolines\n{sample_name}',
+                f'Depth Norm\n{sample_name}',
                 f'Ground Truth Traps\n({sample_name})',
                 f'Predicted Traps\n({sample_name})',
                 f'Prediction Overlay\n({sample_name})',
@@ -267,22 +282,26 @@ def visualize_test_results(
         axes[0].set_title(titles[0])
         axes[0].axis('off')
 
-        axes[1].imshow(gt_traps, cmap='gray')
+        axes[1].imshow(depth_img, cmap='gray', vmin=0.0, vmax=1.0)
         axes[1].set_title(titles[1])
         axes[1].axis('off')
 
-        axes[2].imshow(pred_traps_masked, cmap='gray')
+        axes[2].imshow(gt_traps, cmap='gray')
         axes[2].set_title(titles[2])
         axes[2].axis('off')
 
-        axes[3].imshow(pred_overlay)
+        axes[3].imshow(pred_traps_masked, cmap='gray')
         axes[3].set_title(titles[3])
         axes[3].axis('off')
 
-        im_error = axes[4].imshow(error_map, cmap='RdYlBu_r', vmin=0, vmax=1)
+        axes[4].imshow(pred_overlay)
         axes[4].set_title(titles[4])
         axes[4].axis('off')
-        plt.colorbar(im_error, ax=axes[4], fraction=0.046, pad=0.04)
+
+        im_error = axes[5].imshow(error_map, cmap='RdYlBu_r', vmin=0, vmax=1)
+        axes[5].set_title(titles[5])
+        axes[5].axis('off')
+        plt.colorbar(im_error, ax=axes[5], fraction=0.046, pad=0.04)
 
         plt.tight_layout()
 
@@ -307,12 +326,6 @@ def visualize_full_cps_analysis(
     isoline_step: float = 5.0,
     overlay_alpha: float = 0.4
 ) -> None:
-    """
-    Визуализирует данные из CPS грида в два ряда (2x4):
-    1 ряд: RGB - Depth_norm - Isolines - Faults Mask (если use_faults)
-    2 ряд: RGB+Iso+Faults (если use_faults) - Map_mask - y_traps - (пусто)
-    """
-    # Проверка существования файлов
     for path in [rgb_cps_path, traps_cps_path]:
         if not Path(path).exists():
             print(f"Ошибка: Файл не найден - {path}")
@@ -324,20 +337,18 @@ def visualize_full_cps_analysis(
             return
 
     print("Загрузка и обработка CPS грида...")
-    # 1. Структурная карта
     structural_grid, _ = read_cps_grid(rgb_cps_path)
     
     rgb_img = cps_to_rgb(structural_grid)
-    depth_img = cps_to_grayscale(structural_grid, invert=False)
+
+    depth_img = cps_to_depth_norm_float(structural_grid)
     isolines_img = cps_to_isolines(structural_grid, step=isoline_step)
 
-    # 2. Карта разломов и очистка изолиний/интерполяции
     faults_mask = None
     if use_faults and faults_cps_path:
         faults_grid, _ = read_cps_grid(faults_cps_path)
         faults_mask = cps_to_binary_mask(faults_grid)
         
-        # Ресайз маски разломов, если разрешения гридов отличаются
         if faults_mask.shape != isolines_img.shape:
             print(f"  Resizing faults mask from {faults_mask.shape} to match isolines {isolines_img.shape}")
             faults_mask = cv2.resize(
@@ -348,44 +359,35 @@ def visualize_full_cps_analysis(
         
         fault_pixels = faults_mask > 0.5
         
-        # Вырезаем из изолиний
         isolines_img[fault_pixels] = 0
         print("  Applied faults mask to isolines")
 
-    # 3. Карта ловушек
     traps_grid, _ = read_cps_grid(traps_cps_path)
     traps_mask = cps_to_binary_mask(traps_grid)
 
-    # 4. Map mask
     map_mask = create_map_mask(rgb_img)
 
-    # 5. Нормализация для визуализации
     rgb_float = rgb_img.astype(np.float32) / 255.0
-    depth_norm = depth_img.astype(np.float32) / 255.0
+
+    depth_norm = depth_img 
     isolines_norm = isolines_img.astype(np.float32) / 255.0
 
-    # Применяем вырезание интерполяции к RGB и Depth (после нормализации к 0-1)
     if use_faults and faults_mask is not None:
-        rgb_float[fault_pixels] = 0.0       # Черный цвет (0.0, 0.0, 0.0)
-        depth_norm[fault_pixels] = 0.0      # Черный цвет (0.0)
+        rgb_float[fault_pixels] = 0.0       
+        depth_norm[fault_pixels] = 0.0      
         print("  Cut interpolated data from RGB and Depth at faults")
 
-    # 6. Создание оверлея RGB + Изолинии
     rgb_isolines_overlay = rgb_float.copy()
     line_mask = isolines_norm > 0.5
     rgb_isolines_overlay[line_mask] = rgb_isolines_overlay[line_mask] * (1.0 - 0.6)
 
-    # 7. Создание оверлея RGB + Изолинии + Разломы
     rgb_iso_faults_overlay = None
     if use_faults and faults_mask is not None:
         rgb_iso_faults_overlay = rgb_isolines_overlay.copy()
-        # Накладываем разломы сплошным черным цветом
         rgb_iso_faults_overlay[fault_pixels] = [0.0, 0.0, 0.0]
 
-    # 8. Отрисовка 2x4
     fig, axes = plt.subplots(2, 4, figsize=(24, 12))
     
-    # === РЯД 1 ===
     axes[0, 0].imshow(rgb_float)
     axes[0, 0].set_title("RGB Map (Faults Cut)" if use_faults else "RGB Map", fontsize=14)
     axes[0, 0].axis('off')
@@ -405,10 +407,9 @@ def visualize_full_cps_analysis(
     else:
         axes[0, 3].axis('off')
 
-    # === РЯД 2 ===
     if use_faults and rgb_iso_faults_overlay is not None:
         axes[1, 0].imshow(rgb_iso_faults_overlay)
-        axes[1, 0].set_title("RGB + Iso + Faults", fontsize=14) # Убрали (Black)
+        axes[1, 0].set_title("RGB + Iso + Faults", fontsize=14) 
         axes[1, 0].axis('off')
     else:
         axes[1, 0].imshow(rgb_isolines_overlay)
@@ -435,7 +436,6 @@ def check_faults_resize_and_cut(
     faults_cps_path: str, 
     horizon_name: str
 ):
-    # Проверка путей
     for path in [rgb_cps_path, faults_cps_path]:
         if not Path(path).exists():
             print(f"Ошибка: Файл не найден - {path}")
@@ -472,26 +472,20 @@ def check_faults_resize_and_cut(
     rgb_cut = rgb_img.astype(np.float32) / 255.0
     rgb_cut[fault_pixels] = 0.0
     
-    # 5. Визуализация 1x4
     fig, axes = plt.subplots(1, 4, figsize=(24, 6))
     
-    # 1. Original RGB
     axes[0].imshow(rgb_img)
     axes[0].set_title(f"Original RGB\nSize: {target_shape}", fontsize=12)
     axes[0].axis('off')
     
-    # 2. Original Faults Mask
-    # aspect='auto' чтобы высокая исходная маска не сжималась в полоску
     axes[1].imshow(faults_mask_orig, cmap='gray', vmin=0.0, vmax=1.0, aspect='auto')
     axes[1].set_title(f"Original Fault Mask\nSize: {faults_mask_orig.shape[:2]}", fontsize=12)
     axes[1].axis('off')
     
-    # 3. Resized Faults Mask
     axes[2].imshow(faults_mask_resized, cmap='gray', vmin=0.0, vmax=1.0)
     axes[2].set_title(f"Resized Fault Mask\nSize: {faults_mask_resized.shape[:2]}", fontsize=12)
     axes[2].axis('off')
     
-    # 4. Processed RGB (Interpolation cut)
     axes[3].imshow(rgb_cut)
     axes[3].set_title("Processed RGB\n(Interpolation Cut)", fontsize=12)
     axes[3].axis('off')
@@ -499,4 +493,3 @@ def check_faults_resize_and_cut(
     plt.suptitle(f"Faults Resize & Interpolation Cut Check: {horizon_name}", fontsize=16, fontweight='bold')
     plt.tight_layout()
     plt.show()
-    

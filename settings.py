@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     @computed_field
     @property
     def IN_CHANNELS(self) -> int:
-        channels = 5  # RGB (3) + Depth (1) + Isolines (1)
+        channels = 6  # RGB (3) + Depth (1) + Isolines (1) + MapMask (1)
         if self.USE_FAULTS:
             channels += 1  # + Faults (1)
         return channels
@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     # Размеры изображений
     TARGET_HEIGHT: int = 640
     TARGET_WIDTH: int = 448
+
+    # Фильтрация тайлов
+    # Если доля невалидных пикселей (края карты + разломы) в тайле больше этого значения, тайл исключается из обучения. 0.4 = 40%.
+    MAX_NODATA_RATIO: float = 0.4  
     
     # Порог бинаризации масок
     BINARY_THRESHOLD: int = 128

@@ -5,7 +5,7 @@ from torch.utils.data import Dataset
 from typing import List, Dict
 
 from settings import settings
-from utils.images_utils import create_map_mask, pad_image
+from utils.images_utils import create_map_mask, pad_image, load_grayscale_image
 from utils.augmentations import get_train_transforms, get_val_transforms
 from utils.dataset_utils import load_maps_into_ndarray, collect_samples, resolve_path
 
@@ -32,6 +32,7 @@ class GeologyTrapsDataset(Dataset):
         print(f"Len transforms: {len(self.transforms)}")
         
         self.samples = self._parse_files(file_list)
+        self.samples = self._filter_nodata_samples(self.samples, settings.MAX_NODATA_RATIO)
         
         n_faults = sum(1 for s in self.samples if 'faults' in s)
         print(f"Dataset initialized with {len(self.samples)} samples")
@@ -43,6 +44,37 @@ class GeologyTrapsDataset(Dataset):
         
         n_files = 6 if self.use_faults else 5
         print(f"Required files per sample: {n_files} (rgb, depth_norm, isolines, [faults], traps)")
+
+    def _filter_nodata_samples(self, samples: List[Dict[str, str]], max_ratio: float) -> List[Dict[str, str]]:
+        """
+        Фильтрует семплы, в которых процент невалидных пикселей (края карты, разломы)
+        превышает заданный порог. Это защищает BatchNorm от схлопывания статистик.
+        """
+        if max_ratio >= 1.0:
+            return samples
+            
+        filtered_samples = []
+        removed_count = 0
+        
+        for sample in samples:
+            # Быстро загружаем RGB как grayscale для оценки фона
+            rgb_path = sample['rgb']
+            img = load_grayscale_image(rgb_path)
+            
+            # Фон - это пиксели < 10
+            total_pixels = img.shape[0] * img.shape[1]
+            nodata_pixels = np.sum(img < 10)
+            nodata_ratio = nodata_pixels / total_pixels
+            
+            if nodata_ratio <= max_ratio:
+                filtered_samples.append(sample)
+            else:
+                removed_count += 1
+                
+        print(f"Filtered out {removed_count} tiles with NoData ratio > {max_ratio*100:.1f}%")
+        print(f"Remaining samples: {len(filtered_samples)}")
+        
+        return filtered_samples
 
     def _parse_files(self, file_list: List[str]) -> List[Dict[str, str]]:
         samples = collect_samples(file_list)
@@ -59,7 +91,6 @@ class GeologyTrapsDataset(Dataset):
                 for k in required_keys
             }
             
-            # Добавляем faults только если он есть
             if self.use_faults and 'faults' in paths:
                 clean_paths['faults'] = resolve_path(paths['faults'], self.data_dir)
 
@@ -82,12 +113,23 @@ class GeologyTrapsDataset(Dataset):
         sample_key = sample_paths.get('_sample_key', f"sample_{idx}")
         metadata = {'sample_key': sample_key}
         
-        # Создаем маску карты
+        # Создаем маску карты по RGB (1 - карта, 0 - край)
         map_mask = create_map_mask(rgb_img)
         
-        # Нормализация
+        # Добавляем разломы в map_mask (0 = невалидно)
+        if self.use_faults and fault_mask is not None:
+            map_mask[fault_mask > 0.5] = 0.0
+        
+        # Нормировка [0, 1]
         rgb_norm = rgb_img.astype(np.float32) / 255.0
-        depth_norm = depth_img.astype(np.float32) / 255.0
+        
+        # Depth загружается из .npy уже как float32 [0, 1]
+        # Оставляем проверку на uint8 для обратной совместимости, если попался старый png
+        if depth_img.dtype == np.uint8:
+            depth_norm = depth_img.astype(np.float32) / 255.0
+        else:
+            depth_norm = depth_img
+            
         isolines_norm = isolines_img.astype(np.float32) / 255.0
         
         # Паддинг
@@ -131,9 +173,9 @@ class GeologyTrapsDataset(Dataset):
 
         # Объединяем входы
         if self.use_faults:
-            x_in = torch.cat([x_rgb, x_depth, x_isolines, x_faults], dim=0)
+            x_in = torch.cat([x_rgb, x_depth, x_isolines, x_faults, mask_map], dim=0)
         else:
-            x_in = torch.cat([x_rgb, x_depth, x_isolines], dim=0)
+            x_in = torch.cat([x_rgb, x_depth, x_isolines, mask_map], dim=0)
         
         return {
             'x': x_in,

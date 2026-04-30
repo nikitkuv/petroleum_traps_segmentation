@@ -12,7 +12,7 @@ import matplotlib.gridspec as gridspec
 
 from settings import settings
 from data.dataset import GeologyTrapsDataset
-from utils.images_utils import load_grayscale_image, load_image
+from utils.images_utils import load_grayscale_image, load_image, load_numpy_array
 
 
 NUM_SAMPLES = 3
@@ -27,11 +27,18 @@ def visualize_sample(
     sample_paths = dataset.samples[idx]
 
     orig_rgb = load_image(sample_paths['rgb'])
-    orig_depth = load_grayscale_image(sample_paths['depth_norm'])
+    
+    # ИЗМЕНЕНО: проверяем расширение depth
+    depth_path = sample_paths['depth_norm']
+    if depth_path.endswith('.npy'):
+        orig_depth = load_numpy_array(depth_path)
+    else:
+        orig_depth = load_grayscale_image(depth_path)
+
     orig_traps = load_grayscale_image(sample_paths['traps'])
     orig_isolines = load_grayscale_image(sample_paths['isolines'])
 
-    # Извлекаем тензоры
+    # Тензор x теперь имеет формат: [RGB(3), Depth(1), Iso(1), Faults(1 опционально), MapMask(1)]
     x_rgb = sample_data['x'][:3].permute(1, 2, 0).numpy()      # (H, W, 3)
     x_depth = sample_data['x'][3].numpy()                       # (H, W)
     x_isolines = sample_data['x'][4].numpy()                    # (H, W)
@@ -45,7 +52,6 @@ def visualize_sample(
     sample_name = Path(sample_paths['rgb']).stem.split('_')[-1]
     sample_id = f"{sample_number}_{sample_name}"
 
-    # Раскладка 3 ряда x 4 колонки
     fig = plt.figure(figsize=(22, 16))
     gs = gridspec.GridSpec(3, 4, figure=fig,
                            height_ratios=[1, 1, 1],
@@ -65,12 +71,14 @@ def visualize_sample(
     ax2.axis('off')
 
     ax3 = fig.add_subplot(gs[0, 2])
-    ax3.imshow(orig_depth, cmap='gray')
+    # Если orig_depth загружен из .npy, он float32 [0, 1], если png - uint8
+    cmap = 'gray' if orig_depth.dtype == np.uint8 else 'gray'
+    ax3.imshow(orig_depth, cmap=cmap, vmin=0 if orig_depth.dtype != np.uint8 else 0, vmax=1 if orig_depth.dtype != np.uint8 else 255)
     ax3.set_title(f'Original Depth', fontsize=12, pad=4)
     ax3.axis('off')
 
     ax4 = fig.add_subplot(gs[0, 3])
-    ax4.imshow(x_depth, cmap='gray')
+    ax4.imshow(x_depth, cmap='gray', vmin=0.0, vmax=1.0)
     ax4.set_title('Processed Depth', fontsize=12, pad=4)
     ax4.axis('off')
 
@@ -98,7 +106,7 @@ def visualize_sample(
     # === РЯД 3: Map Mask и Stats ===
     ax9 = fig.add_subplot(gs[2, 0])
     ax9.imshow(mask_map, cmap='gray', vmin=0.0, vmax=1.0)
-    ax9.set_title('Map Mask\n(1=Valid, 0=Pad)', fontsize=12, pad=4)
+    ax9.set_title('Map Mask\n(1=Valid, 0=Pad/Fault)', fontsize=12, pad=4)
     ax9.axis('off')
 
     ax12 = fig.add_subplot(gs[2, 1:3])
@@ -143,7 +151,8 @@ def get_all_files() -> List[str]:
     if not data_path.exists():
         raise FileNotFoundError(f"Data directory not found: {data_dir}")
 
-    all_files = [f.name for f in data_path.glob('*.png')]
+    # ИЗМЕНЕНО: поиск и png, и npy
+    all_files = [f.name for f in data_path.iterdir() if f.suffix in ['.png', '.npy']]
     relevant_files = []
     for f in all_files:
         stem = Path(f).stem
