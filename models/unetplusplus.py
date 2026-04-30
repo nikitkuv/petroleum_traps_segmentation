@@ -41,7 +41,7 @@ def load_unetplusplus(
         classes=classes,
         activation=activation,
         decoder_channels=(256, 128, 64, 32, 16),
-        decoder_attention_type=None,
+        decoder_attention_type='scse',
         decoder_dropout=settings.DECODER_DROPOUT
     )
     

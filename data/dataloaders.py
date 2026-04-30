@@ -35,16 +35,16 @@ def get_file_list(data_dir: str) -> List[str]:
     Returns:
         Список путей к файлам
     """
-    png_files = []
+    valid_files = []
     for root, _, files in os.walk(data_dir):
         for file in files:
-            if file.endswith('.png'):
+            if file.endswith('.png') or file.endswith('.npy'):
                 parsed = parse_filename(file)
                 if parsed:
-                    png_files.append(os.path.join(root, file))
+                    valid_files.append(os.path.join(root, file))
     
-    print(f"Found {len(png_files)} PNG files matching format {{number}}_{{x|y}}_{{type}}_{{name}}.png")
-    return png_files
+    print(f"Found {len(valid_files)} files matching format")
+    return valid_files
 
 
 def split_data_by_groups(
@@ -81,9 +81,9 @@ def split_data_by_groups(
             "Examples:\n"
             "  001_x_structuralNOisoline_H150.png\n"
             "  001_y_traps_H150.png\n"
-            "  001_x_structuralBlackWhite_H150.png\n"
+            "  001_x_structuralBlackWhite_H150.npy\n"
             "  001_x_isolines_H150.png\n"
-            "  001_x_closedIsolines_H150.png\n"
+            "  001_x_faults_H150.png\n"
             f"\nChecked {len(file_list)} files."
         )
 
@@ -174,7 +174,6 @@ def create_dataloaders(
     num_workers = num_workers or settings.NUM_WORKERS
     data_dir = data_dir or settings.CPS_TILES_DIR
     
-    # Создаем датасеты
     train_dataset = GeologyTrapsDataset(
         file_list=train_files,
         data_dir=data_dir,
@@ -198,7 +197,6 @@ def create_dataloaders(
 
     pin_memory_flag = torch.cuda.is_available()
     
-    # Создаем dataloaders
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,

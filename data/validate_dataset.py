@@ -23,7 +23,8 @@ class DatasetValidator:
         
     def scan_directory(self) -> List[str]:
         data_path = Path(self.data_dir)
-        files = sorted([f.name for f in data_path.glob("*.png")])
+        # ИЗМЕНЕНО: поиск и png, и npy
+        files = sorted([f.name for f in data_path.iterdir() if f.suffix in ['.png', '.npy']])
         
         print(f"Found {len(files)} files in {self.data_dir}")
         self.file_list = files
@@ -42,7 +43,7 @@ class DatasetValidator:
         for f in file_list:
             parts = f.split('_')
             if len(parts) >= 4:
-                card_id = f"{parts[0]}_{'_'.join(parts[3:]).replace('.png', '').replace('.cps', '')}"
+                card_id = f"{parts[0]}_{'_'.join(parts[3:]).replace('.png', '').replace('.npy', '').replace('.cps', '')}"
                 analysis['unique_cards'].add(card_id)
                 
                 subtype = parts[2]
@@ -145,8 +146,7 @@ class DatasetValidator:
         print("\n VALIDATING EACH SAMPLE:")
         print("-" * 70)
         
-        # RGB(3) + Depth(1) + Isolines(1) + Faults(1 если use_faults) = 5 или 6
-        expected_channels = 6 if use_faults else 5
+        expected_channels = settings.IN_CHANNELS
 
         successful_samples = 0
         failed_samples = 0
@@ -172,7 +172,7 @@ class DatasetValidator:
             try:
                 sample = dataset[idx]
                 
-                required_keys = ['x', 'y', 'mask_depth', 'mask_map', 'sample_idx', 'use_faults']
+                required_keys = ['x', 'y', 'mask_map', 'sample_idx', 'use_faults']
                 for key in required_keys:
                     if key not in sample:
                         self.errors.append(f"Sample {idx}: Missing key '{key}'")
@@ -192,8 +192,6 @@ class DatasetValidator:
                 shape_stats['x_shapes'].add(tuple(sample['x'].shape))
                 shape_stats['y_shapes'].add(tuple(sample['y'].shape))
                 shape_stats['mask_map_shapes'].add(tuple(sample['mask_map'].shape))
-                if sample['mask_depth'] is not None:
-                    shape_stats['mask_depth_shapes'].add(tuple(sample['mask_depth'].shape))
                 
                 value_stats['x_min'] = min(value_stats['x_min'], sample['x'].min().item())
                 value_stats['x_max'] = max(value_stats['x_max'], sample['x'].max().item())
@@ -317,7 +315,7 @@ def main():
     all_files = validator.scan_directory()
     
     if len(all_files) == 0:
-        print("No PNG files found in data directory!")
+        print("No PNG/NPY files found in data directory!")
         return
     
     validator.file_list = all_files

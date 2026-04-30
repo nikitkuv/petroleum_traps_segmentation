@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from pathlib import Path
 
 from settings import settings
 
@@ -18,6 +19,13 @@ def load_grayscale_image(path: str) -> np.ndarray:
     if img is None:
         raise FileNotFoundError(f"Image not found: {path}")
     return img
+
+
+def load_numpy_array(path: str) -> np.ndarray:
+    """Загружает массив numpy (.npy)."""
+    if not Path(path).exists():
+        raise FileNotFoundError(f"Numpy file not found: {path}")
+    return np.load(path)
 
 
 def create_binary_mask(img: np.ndarray, invert: bool = False) -> np.ndarray:

@@ -4,7 +4,12 @@ import re
 from pathlib import Path
 import os
 
-from utils.images_utils import load_image, load_grayscale_image, create_binary_mask
+from utils.images_utils import (
+    load_image, 
+    load_grayscale_image, 
+    create_binary_mask, 
+    load_numpy_array
+)
 
 
 def parse_filename(filename: str) -> Optional[Dict[str, str]]:
@@ -69,7 +74,14 @@ def load_maps_into_ndarray(
     use_faults: bool
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     rgb_img = load_image(sample_paths['rgb'])
-    depth_img = load_grayscale_image(sample_paths['depth_norm'])
+    
+    # Проверяем расширение файла глубины (поддержка старых PNG и новых NPY)
+    depth_path = sample_paths['depth_norm']
+    if depth_path.endswith('.npy'):
+        depth_img = load_numpy_array(depth_path)
+    else:
+        depth_img = load_grayscale_image(depth_path)
+
     isolines_img = load_grayscale_image(sample_paths['isolines'])
     traps_img = load_grayscale_image(sample_paths['traps'])
     
