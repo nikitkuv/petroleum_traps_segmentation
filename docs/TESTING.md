@@ -7,19 +7,32 @@
 
 1. **Валидация входных данных** (PNG и CPS форматы)
 2. **Загрузка данных в GeologyTrapsDataset**
-3. **Проверка готовности к обучению**
-4. **Процесс обучения**
+3. **Аугментации данных**
+4. **Функции потерь (Losses)**
+5. **Метрики качества (Metrics)**
+6. **Оптимизаторы и планировщики**
+7. **Трекинг градиентов**
+8. **Модели (U-Net++)**
+9. **Процесс обучения и evaluation**
+10. **Интеграционные тесты полного пайплайна**
 
 ## Структура тестов
 
 ```
 tests/
-├── __init__.py              # Инициализация пакета тестов
-├── conftest.py              # Общие фикстуры и конфигурация pytest
-├── test_data_validation.py  # Тесты утилит загрузки и обработки данных
-├── test_dataset.py          # Тесты GeologyTrapsDataset и DataLoader
-├── test_training.py         # Тесты модели, лоссов, оптимизаторов
-└── test_pipeline.py         # Интеграционные тесты полного пайплайна
+├── __init__.py                    # Инициализация пакета тестов
+├── conftest.py                    # Общие фикстуры и конфигурация pytest
+├── test_dataset_utils.py          # Юнит тесты утилит загрузки данных
+├── test_dataset_dataloader.py     # Юнит тесты Dataset и DataLoader
+├── test_data_integration.py       # Интеграционные тесты пайплайна данных
+├── test_augmentations.py          # Тесты аугментаций данных
+├── test_losses.py                 # Тесты функций потерь
+├── test_metrics.py                # Тесты калькулятора метрик
+├── test_optimizers.py             # Тесты оптимизаторов и scheduler'ов
+├── test_gradient_tracker.py       # Тесты трекинга градиентов
+├── test_models.py                 # Тесты архитектуры модели
+├── test_training_fixtures.py      # Фикстуры для тестов обучения
+└── test_training_integration.py   # Интеграционные тесты обучения
 ```
 
 ## Установка зависимостей
@@ -62,23 +75,41 @@ pytest tests/ --cov=. --cov-report=html
 ### Отдельные категории тестов
 
 ```bash
-# Валидация данных
-pytest tests/test_data_validation.py -v
+# Валидация данных и утилиты
+pytest tests/test_dataset_utils.py -v
 
 # Dataset и DataLoader
-pytest tests/test_dataset.py -v
+pytest tests/test_dataset_dataloader.py -v
 
-# Обучение и модель
-pytest tests/test_training.py -v
+# Интеграционные тесты данных
+pytest tests/test_data_integration.py -v
 
-# Полный пайплайн (медленные тесты)
-pytest tests/test_pipeline.py -v -m "not slow"
+# Аугментации
+pytest tests/test_augmentations.py -v
+
+# Функции потерь
+pytest tests/test_losses.py -v
+
+# Метрики
+pytest tests/test_metrics.py -v
+
+# Оптимизаторы и scheduler'ы
+pytest tests/test_optimizers.py -v
+
+# Трекинг градиентов
+pytest tests/test_gradient_tracker.py -v
+
+# Модели
+pytest tests/test_models.py -v
+
+# Интеграционные тесты обучения
+pytest tests/test_training_integration.py -v
 ```
 
 ### Один конкретный тест
 
 ```bash
-pytest tests/test_dataset.py::TestDatasetGetItem::test_getitem_returns_required_keys -v
+pytest tests/test_dataset_dataloader.py::TestGeologyTrapsDataset::test_dataset_getitem_with_faults -v
 ```
 
 ## Маркеры тестов
@@ -99,69 +130,133 @@ pytest tests/ -v -m "not slow"
 
 ## Категории тестов
 
-### 1. Валидация данных (`test_data_validation.py`)
+### 1. Утилиты данных (`test_dataset_utils.py`)
 
-Проверяет корректность обработки входных данных:
+Юнит тесты вспомогательных функций обработки данных:
 
-- **ImageLoading**: Загрузка RGB и grayscale изображений
-- **MaskCreation**: Создание бинарных масок
-- **Padding**: Паддинг изображений до целевого размера
-- **CPSUtils**: Чтение и конвертация CPS файлов
-- **FileNamingValidation**: Валидация имен файлов
-
-Пример теста:
-```python
-def test_load_image_returns_rgb(self, sample_rgb_image):
-    img = load_image(str(sample_rgb_image))
-    assert img.shape == (100, 100, 3)
-    assert img.dtype == np.uint8
-```
-
-### 2. Dataset (`test_dataset.py`)
-
-Проверяет загрузку данных в GeologyTrapsDataset:
-
-- **FileListCollection**: Сбор и группировка файлов
-- **DatasetInitialization**: Инициализация датасета
-- **DatasetGetItem**: Извлечение семплов
-- **DataLoaderCreation**: Создание DataLoader
+- **TestParseFilename**: Парсинг имен файлов различных типов (structuralNOisoline, structuralBlackWhite, isolines, faults, traps)
+- **TestGetSampleKey**: Генерация ключей семплов из имени файла
+- **TestCollectSamples**: Сбор семплов из списка файлов, группировка по типам карт
+- **TestResolvePath**: Разрешение путей (относительные/абсолютные)
+- **TestLoadMapsIntoNdarray**: Загрузка карт в ndarray с/без разломов
+- **TestImageUtils**: Создание бинарных масок, map_mask, паддинг, загрузка numpy массивов
 
 Пример теста:
 ```python
-def test_getitem_input_channels_with_faults(self, complete_sample):
-    dataset = GeologyTrapsDataset(..., use_faults=True)
-    sample = dataset[0]
-    assert sample['x'].shape[0] == 5  # RGB(3) + depth(1) + faults(1)
+def test_parse_filename_isolines(self):
+    filename = "well_123_Bobrikovsky_structuralNOisoline.png"
+    result = parse_filename(filename)
+    assert result["type"] == "iso"
+    assert result["well"] == "123"
+    assert result["horizon"] == "Bobrikovsky"
 ```
 
-### 3. Training readiness (`test_training.py`)
+### 2. Dataset и DataLoader (`test_dataset_dataloader.py`)
 
-Проверяет готовность к обучению:
+Юнит тесты основных классов загрузки данных:
 
-- **ModelLoading**: Загрузка и архитектура модели
-- **LossFunctions**: Функции потерь
-- **MetricsCalculator**: Расчет метрик
-- **OptimizerAndScheduler**: Оптимизаторы и планировщики
-- **TrainingReadiness**: Базовые проверки training loop
-- **CheckpointSaving**: Сохранение/загрузка чекпоинтов
+- **TestGetFileList**: Получение списка файлов из директории, фильтрация невалидных имен
+- **TestSplitDataByGroups**: Разделение данных с группировкой по горизонтам, проверка отсутствия утечек
+- **TestGeologyTrapsDataset**: Инициализация, getitem с/без разломов, метаданные, фильтрация NoData, аугментации
+- **TestCreateDataloaders**: Создание DataLoader'ов, проверка батчей
 
 Пример теста:
 ```python
-def test_complete_training_iteration(self):
-    output = model(x)
-    loss, metrics = criterion(output, y, mask_map=mask_map)
-    loss.backward()
-    optimizer.step()
-    # Проверка градиентов и обновления весов
+def test_split_data_no_leakage(self, multiple_samples_data):
+    """Тест что данные одного горизонта не попадают в разные выборки."""
+    files = get_file_list(...)
+    samples = collect_samples(files)
+    train_files, val_files, test_files = split_data_by_groups(samples)
+    
+    # Проверка что горизонты не пересекаются
+    train_horizons = {f.split('_')[2] for f in train_files}
+    val_horizons = {f.split('_')[2] for f in val_files}
+    assert train_horizons.isdisjoint(val_horizons)
 ```
 
-### 4. Pipeline (`test_pipeline.py`)
+### 3. Интеграционные тесты данных (`test_data_integration.py`)
 
-Интеграционные тесты полного пайплайна:
+Тесты полного пайплайна от файлов до DataLoader:
 
-- **PipelineIntegration**: Полный цикл обучения
-- **OverfitCheck**: Режим проверки overfit
-- **Evaluation**: Оценка на тестовых данных
+- **TestDataPipelineIntegration**: Полный пайплайн без/с разломами
+- **Группировка по горизонтам**: Предотвращение утечки данных между выборками
+- **Консистентность батчей**: Проверка размеров и типов данных в батчах
+- **Сохранение метаданных**: Проверка что метаданные проходят через весь пайплайн
+- **Корректность паддинга**: Проверка применения паддинга к изображениям
+- **Диапазоны значений масок**: Валидация значений выходных масок
+- **Объединение каналов**: Проверка количества входных каналов (6 без faults, 7 с faults)
+- **TestEdgeCases**: Граничные случаи (один семпл, отсутствие опциональных файлов, большой batch_size)
+
+### 4. Аугментации (`test_augmentations.py`)
+
+Тесты функций аугментации данных:
+
+- Создание train/val трансформов
+- Применение трансформов к данным
+- Проверка что val трансформы не применяют рандомизацию
+- Консистентность масок после трансформов
+- Разные random seed дают разные результаты
+
+### 5. Функции потерь (`test_losses.py`)
+
+Тесты функций потерь:
+
+- **MaskedBCELoss**: Бинарная кросс-энтропия с маской
+- **MaskedDiceLoss**: Dice loss с маской
+- **CombinedLoss**: Комбинация BCE + Dice
+- Проверка работы с различными типами масок
+- Тесты граничных случаев (пустая маска, вся маска)
+
+### 6. Метрики (`test_metrics.py`)
+
+Тесты калькулятора метрик:
+
+- **IoU (Intersection over Union)**: С маской и без
+- **Dice Coefficient**: Коэффициент схожести
+- **Recall/Precision**: Полнота и точность
+- **F1 Score**: Гармоническое среднее
+- **FP/FN Area**: Площадь ложных срабатываний/пропусков
+- Проверка работы с edge cases (пустые предсказания, идеальное совпадение)
+
+### 7. Оптимизаторы (`test_optimizers.py`)
+
+Тесты создания оптимизаторов и scheduler'ов:
+
+- **create_optimizer_and_scheduler**: Создание Adam/SGD оптимизаторов
+- Типы scheduler'ов (CosineAnnealingLR, ReduceLROnPlateau, OneCycleLR)
+- **get_gradient_stats**: Статистики градиентов (norm, min, max)
+- Проверка параметров оптимизации (lr, weight_decay)
+
+### 8. Трекинг градиентов (`test_gradient_tracker.py`)
+
+Тесты системы отслеживания аномалий градиентов:
+
+- **GradientNormTracker**: Трекер норм градиентов
+- **compute_per_sample_grad_norms**: Вычисление норм градиентов на семпл
+- Обнаружение exploding/vanishing градиентов
+- Статистики по эпохам
+- Логирование и визуализация
+
+### 9. Модели (`test_models.py`)
+
+Тесты архитектуры модели:
+
+- **U-Net++**: Инициализация модели
+- Forward pass с различными размерами входов
+- Проверка количества каналов входа/выхода
+- Работа с/без deep supervision
+- Сохранение/загрузка весов модели
+
+### 10. Интеграционные тесты обучения (`test_training_integration.py`)
+
+Тесты полного цикла обучения:
+
+- **TrainingStepIntegration**: Один шаг обучения
+- **EvaluationPipeline**: Полный цикл evaluation
+- **CheckpointSaving**: Сохранение и загрузка чекпоинтов
+- **MetricsCalculation**: Расчет метрик на валидации
+- **GradClipIntegration**: Интеграция gradient clipping
+- **MultiEpochSimulation**: Симуляция нескольких эпох
 
 ## Как понять, что тесты прошли успешно
 
@@ -170,44 +265,54 @@ def test_complete_training_iteration(self):
 ```
 ============================= test session starts ==============================
 platform linux -- Python 3.x.x, pytest-x.x.x
-collected 50 items
+collected 162 items
 
-tests/test_data_validation.py ............                               [ 24%]
-tests/test_dataset.py ................                                   [ 56%]
-tests/test_training.py ...............                                   [ 86%]
-tests/test_pipeline.py .......                                           [100%]
+tests/test_dataset_utils.py ....................                         [ 12%]
+tests/test_dataset_dataloader.py ..................                      [ 23%]
+tests/test_data_integration.py .........                                 [ 29%]
+tests/test_augmentations.py ........                                     [ 34%]
+tests/test_losses.py ......................                              [ 47%]
+tests/test_metrics.py ..........................                         [ 63%]
+tests/test_optimizers.py .................                               [ 74%]
+tests/test_gradient_tracker.py ....................                      [ 86%]
+tests/test_models.py ......                                              [ 90%]
+tests/test_training_integration.py ...............                       [100%]
 
-======================== 50 passed in 15.23s =============================
+======================== 162 passed in 45.23s =============================
 ```
 
- Все тесты прошли: `XX passed`
+✅ Все тесты прошли: `XX passed`
 
 ### Проваленные тесты
 
 ```
 ============================= test session starts ==============================
-collected 50 items
+collected 162 items
 
-tests/test_dataset.py ....F.....                                         [ 20%]
+tests/test_losses.py ....F.....                                         [ 20%]
 
 =================================== FAILURES ===================================
-_________________ TestDatasetGetItem.test_getitem_channels ____________________
+_________________ TestMaskedBCELoss.test_loss_computation ____________________
 
-self = <tests.test_dataset.TestDatasetGetItem object at 0x...>
+self = <tests.test_losses.TestMaskedBCELoss object at 0x...>
 
-    def test_getitem_channels(self, complete_sample):
-        sample = dataset[0]
->       assert sample['x'].shape[0] == 5
-E       AssertionError: assert 4 == 5
-E        +  where 4 = torch.Size([4, 128, 128]).shape[0]
+    def test_loss_computation(self):
+        output = torch.randn(4, 1, 128, 128)
+        target = torch.randint(0, 2, (4, 1, 128, 128)).float()
+        mask_map = torch.ones_like(target)
+        
+        loss_fn = MaskedBCELoss()
+        loss = loss_fn(output, target, mask_map)
+>       assert loss > 0
+E       AssertionError: assert tensor(0.) > 0
 
-tests/test_dataset.py:XX: AssertionError
+tests/test_losses.py:XX: AssertionError
 =========================== short test summary info ============================
-FAILED tests/test_dataset.py::TestDatasetGetItem::test_getitem_channels
-========================= 1 failed, 49 passed in 12.34s ========================
+FAILED tests/test_losses.py::TestMaskedBCELoss::test_loss_computation
+========================= 1 failed, 161 passed in 42.34s ========================
 ```
 
- Тесты провалены: смотрите `FAILURES` и `AssertionError`
+❌ Тесты провалены: смотрите `FAILURES` и `AssertionError`
 
 ### Ошибки
 
@@ -216,17 +321,17 @@ FAILED tests/test_dataset.py::TestDatasetGetItem::test_getitem_channels
 _______________ ERROR at setup of test_something _______________
 
     @pytest.fixture
-    def sample_data():
+    def sample_batch():
 >       return load_data("/nonexistent")
 E       FileNotFoundError: [Errno 2] No such file or directory
 
-tests/test_file.py:XX: FileNotFoundError
+tests/test_training_fixtures.py:XX: FileNotFoundError
 =========================== short test summary info ============================
-ERROR tests/test_file.py::test_something - FileNotFoundError
+ERROR tests/test_training_fixtures.py::test_something - FileNotFoundError
 ========================== 1 error in 0.5s ====================================
 ```
 
- Ошибки (ERROR): проблемы в фикстурах или настройке, не в самих тестах
+⚠️ Ошибки (ERROR): проблемы в фикстурах или настройке, не в самих тестах
 
 ## Интерпретация результатов
 
@@ -239,10 +344,15 @@ Name                                Stmts   Miss  Cover
 -------------------------------------------------------
 data/dataset.py                       150     20    87%
 data/dataloaders.py                   100      5    95%
-models/unetplusplus.py                 80     10    88%
+data/utils.py                         120     15    88%
+utils/augmentations.py                 80      8    90%
 losses/losses.py                       60      2    97%
+metrics/metrics.py                    100      5    95%
+optimizers/optimizers.py               70      3    96%
+training/gradient_tracker.py           90      7    92%
+models/unetplusplus.py                 80     10    88%
 -------------------------------------------------------
-TOTAL                                 390     37    91%
+TOTAL                                 850     75    91%
 ```
 
 Цель: >85% покрытия для критических модулей.
@@ -250,8 +360,9 @@ TOTAL                                 390     37    91%
 ### Длительность тестов
 
 - **Smoke тесты**: < 10 секунд
-- **Обычные тесты**: < 1 минута
-- **Slow тесты**: 1-5 минут
+- **Юнит тесты**: < 1 минута
+- **Интеграционные тесты**: 1-3 минуты
+- **Slow тесты**: 3-10 минут
 
 ## CI/CD интеграция
 
@@ -294,6 +405,7 @@ jobs:
 
 ```python
 import pytest
+import torch
 from your_module import your_function
 
 class TestYourFeature:
@@ -313,24 +425,28 @@ class TestYourFeature:
     def test_quick_check(self):
         """Quick smoke test."""
         assert your_function(simple_input) is not None
+    
+    @pytest.mark.parametrize("input_size,expected_channels", [
+        ((128, 128), 6),
+        ((256, 256), 6),
+        ((512, 512), 6),
+    ])
+    def test_different_sizes(self, input_size, expected_channels):
+        """Parameterized test for different input sizes."""
+        x = torch.randn(1, 3, *input_size)
+        output = your_model(x)
+        assert output.shape[1] == expected_channels
 ```
 
 ### Best practices
 
-1. **Используйте фикстуры** для общих данных
-2. **Маркируйте тесты** appropriately (`smoke`, `slow`)
+1. **Используйте фикстуры** для общих данных (см. `conftest.py`)
+2. **Маркируйте тесты** appropriately (`smoke`, `slow`, `integration`)
 3. **Тестируйте один аспект** за раз
-4. **Используйте параметризацию** для похожих тестов:
-
-```python
-@pytest.mark.parametrize("input,expected", [
-    (1, 2),
-    (2, 4),
-    (3, 6),
-])
-def test_double(input, expected):
-    assert double(input) == expected
-```
+4. **Используйте параметризацию** для похожих тестов
+5. **Изолируйте тесты** - каждый тест должен работать независимо
+6. **Используйте temp_dir** для временных файлов
+7. **Мокайте внешние зависимости** (wandb, filesystem)
 
 ## Отладка упавших тестов
 
@@ -356,6 +472,14 @@ pytest tests/test_file.py --pdb
 pytest tests/ --log-cli-level=INFO
 ```
 
+### Запуск конкретного теста несколько раз
+
+```bash
+pytest tests/test_augmentations.py::test_different_seeds_produce_different_results --count=5
+```
+
+Требует `pytest-repeat`: `pip install pytest-repeat`
+
 ## Ответ на вопрос про validate_dataset.py
 
 **Нужен ли `validate_dataset/validate_dataset.py` если есть тесты?**
@@ -380,7 +504,7 @@ pytest tests/ --log-cli-level=INFO
 
 ```bash
 # Убедитесь, что вы в корне проекта
-cd /path/to/project
+cd /workspace
 
 # Запускайте pytest из корня
 pytest tests/
@@ -404,6 +528,40 @@ def device():
 pytest tests/ -v --maxfail=1  # Остановиться после первой ошибки
 ```
 
+### Случайные failures из-за random seed
+
+Если тесты иногда падают из-за рандомизации:
+
+```bash
+# Запустить с фиксированным seed
+pytest tests/ --randomly-seed=42
+```
+
+## Текущая статистика тестов
+
+На момент последнего обновления:
+
+- **Всего тестов**: 162
+- **Юнит тесты**: ~120
+- **Интеграционные тесты**: ~42
+- **Покрытие кода**: ~90% (для основных модулей)
+- **Время выполнения**: ~45 секунд
+
+### Распределение по модулям:
+
+| Модуль | Количество тестов | Файл |
+|--------|------------------|------|
+| Утилиты данных | 32 | test_dataset_utils.py |
+| Dataset/DataLoader | 18 | test_dataset_dataloader.py |
+| Интеграция данных | 10 | test_data_integration.py |
+| Аугментации | 8 | test_augmentations.py |
+| Функции потерь | 22 | test_losses.py |
+| Метрики | 26 | test_metrics.py |
+| Оптимизаторы | 17 | test_optimizers.py |
+| Трекинг градиентов | 20 | test_gradient_tracker.py |
+| Модели | ~6 | test_models.py |
+| Интеграция обучения | 10 | test_training_integration.py |
+
 ## Контакты и поддержка
 
 При возникновении проблем:
@@ -411,3 +569,4 @@ pytest tests/ -v --maxfail=1  # Остановиться после первой
 2. Запустите с `-v -s` флагами
 3. Проверьте версию зависимостей
 4. Убедитесь, что все данные на месте
+5. Посмотрите примеры работающих тестов в `tests/`

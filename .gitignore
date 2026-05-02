@@ -1,39 +1,34 @@
-# Compiled and build artifacts
-*.pyc
+```
+# Test cache and temporary files
 __pycache__/
-
-# Dependencies
-.venv/
-venv/
-node_modules/
-
-# Environment
-.env
-.env.local
-.env.*
-
-# Editors
-.vscode/
-.idea/
-
-# Coverage reports
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
 .coverage
 coverage/
 htmlcov/
+*.log
+*.tmp
 
-# Python cache
-.mypy_cache/
-.pytest_cache/
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
 
-data/raw/
-data/cps/
+# IDE specific
+.vscode/
+.idea/
+*.swp
+*.swo
 
-data/test_cps_visualization/
-data/test_dataset_vizualisation/
+# OS generated
+.DS_Store
+Thumbs.db
 
-prompts/
-logs/
-.ipynb_checkpoints/
-test_something.py
-checkpoints/
-gradient_anomalies/
+# Environment files
+.env
+.env.local
+*.env.*
+```
