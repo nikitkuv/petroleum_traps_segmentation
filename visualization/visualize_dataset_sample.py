@@ -199,6 +199,8 @@ def main():
     sample_indices = random.sample(range(len(dataset)), num_samples)
     print(f"Visualizing samples: {sample_indices}")
 
+    idx = [1000, 1200, 1500]
+
     for idx in sample_indices:
         visualize_sample(dataset, idx)
 
