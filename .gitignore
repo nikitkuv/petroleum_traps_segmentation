@@ -1,0 +1,39 @@
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+
+# Dependencies
+.venv/
+venv/
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.*
+
+# Editors
+.vscode/
+.idea/
+
+# Coverage reports
+.coverage
+coverage/
+htmlcov/
+
+# Python cache
+.mypy_cache/
+.pytest_cache/
+
+prompts/
+logs/
+.ipynb_checkpoints/
+
+data/cps/
+data/raw/
+data/images_orig/
+test_something.py
+checkpoints/
+gradient_anomalies/
+data/test_dataset_vizualisation/
+data/test_cps_visualization/
