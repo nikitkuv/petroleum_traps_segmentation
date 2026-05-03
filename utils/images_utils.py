@@ -53,7 +53,9 @@ def create_binary_mask(img: np.ndarray, invert: bool = False) -> np.ndarray:
 def create_map_mask(structural_img: np.ndarray) -> np.ndarray:
     """Создает маску карты (1 внутри карты, 0 снаружи).
 
-    Фон черный (~0), карта имеет значения > 0.
+    Фон черный (~0), карта имеет значения > 10.
+
+    Примечание: разломы добавляются в map_mask как невалидные области (0) в dataset.py после создания базовой маски.
 
     Args:
         structural_img: Входное изображение (RGB или grayscale)
