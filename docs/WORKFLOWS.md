@@ -2,15 +2,7 @@
 
 ## Добавление новых CPS гридов
 
-### Шаг 1: Очистка имен файлов от мусорных суффиксов
-
-```bash
-python data/remove_extra_symbols_from_filename.py
-```
-
-Удаляет суффиксы `.cps3`, `-UNIQ1` и другие из имен CPS файлов.
-
-### Шаг 2: Визуализация CPS гридов
+### Шаг 1: Визуализация CPS гридов
 
 Проверка качества конвертации в RGB и изолинии:
 
@@ -23,7 +15,7 @@ python visualization/visualize_cps_rgb_vs_isolines.py
 - Изолинии с шагом 5м
 - Сравнение для проверки корректности
 
-### Шаг 3: Визуализация замкнутых изолиний
+### Шаг 2: Визуализация замкнутых изолиний
 
 Проверка генерации маски замкнутых контуров:
 
@@ -35,7 +27,7 @@ python visualization/visualize_closed_isolines.py
 - Оригинальные изолинии
 - Замкнутые контуры (после фильтрации по площади)
 
-### Шаг 4: Конвертация CPS в PNG тайлы
+### Шаг 3: Конвертация CPS в PNG тайлы
 
 Полная конвертация всех CPS гридов в PNG:
 
@@ -56,7 +48,7 @@ python data/convert_cps_to_tiles.py
 - `x_structuralNOisoline_{horizon}.png` — RGB карта (purple_jet)
 - `x_structuralBlackWhite_{horizon}.png` — Grayscale depth
 - `x_isolines_{horizon}.png` — Карта изолиний
-- `x_closedIsolines_{horizon}.png` — Маска замкнутых контуров
+- `x_faults_{horizon}.png` — Маска замкнутых контуров
 - `y_traps_{horizon}.png` — Карта ловушек (таргет)
 
 ---
@@ -71,15 +63,7 @@ python data/check_image_sizes.py
 
 Проверяет размеры всех PNG файлов в директории, выявляет аномалии.
 
-### Шаг 2: Очистка файлов
-
-```bash
-python data/cleanup_files.py
-```
-
-Удаляет файлы с некорректными размерами или поврежденные.
-
-### Шаг 3: Валидация датасета
+### Шаг 2: Валидация датасета
 
 ```bash
 python data/validate_dataset.py
@@ -91,7 +75,7 @@ python data/validate_dataset.py
 - Соответствие формату данных
 - Отсутствие leakage между train/val/test
 
-### Шаг 4: Визуализация примера датасета
+### Шаг 3: Визуализация примера датасета
 
 ```bash
 python visualization/visualize_dataset_sample.py
@@ -101,7 +85,6 @@ python visualization/visualize_dataset_sample.py
 - RGB карта
 - Depth нормализованный
 - Изолинии
-- Замкнутые изолинии
 - Разломы (если есть)
 - Ловушки (таргет)
 
@@ -153,7 +136,7 @@ pytest tests/test_pipeline.py -v -m "not slow"
 
 ### Шаг 1: Отключение аугментаций
 
-Выставить `AUGMENT_TRAIN = False` в `settings.py` или через `.env`:
+Выставить `AUGMENT_TRAIN = False` в `settings.py`:
 
 ```bash
 AUGMENT_TRAIN=False
