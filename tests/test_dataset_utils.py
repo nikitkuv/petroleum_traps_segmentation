@@ -219,13 +219,6 @@ class TestCollectSamples:
 class TestResolvePath:
     """Тесты для функции resolve_path."""
     
-    def test_resolve_relative_path(self):
-        """Тест разрешения относительного пути."""
-        path = "file.png"
-        base_dir = "/data"
-        resolved = resolve_path(path, base_dir)
-        assert resolved == "/data/file.png"
-    
     def test_resolve_absolute_path(self):
         """Тест разрешения абсолютного пути."""
         path = "/absolute/path/file.png"

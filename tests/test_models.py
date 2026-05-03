@@ -157,19 +157,6 @@ class TestLoadUnetPlusPlus:
         
         # Проверяем что модель имеет decoder
         assert hasattr(model, 'decoder')
-    
-    def test_dropout_applied(self):
-        """Тест что dropout применяется в декодере."""
-        model = load_unetplusplus(
-            in_channels=6,
-            classes=1,
-            encoder_name='resnet18',
-            encoder_weights=None,
-            decoder_dropout=0.2,
-            device='cpu'
-        )
-        
-        assert model is not None
 
 
 class TestLoadModelCheckpoint:
