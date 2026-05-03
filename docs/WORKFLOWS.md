@@ -7,27 +7,18 @@
 Проверка качества конвертации в RGB и изолинии:
 
 ```bash
-python visualization/visualize_cps_rgb_vs_isolines.py
+python visualization/visualize_full_sample.py
 ```
 
 Визуализирует:
-- RGB карту с colormap purple_jet
-- Изолинии с шагом 5м
-- Сравнение для проверки корректности
+- RGB карта
+- Depth нормализованный
+- Изолинии
+- Разломы (если есть)
+- Ловушки (таргет)
+- Маску валидной области
 
-### Шаг 2: Визуализация замкнутых изолиний
-
-Проверка генерации маски замкнутых контуров:
-
-```bash
-python visualization/visualize_closed_isolines.py
-```
-
-Визуализирует:
-- Оригинальные изолинии
-- Замкнутые контуры (после фильтрации по площади)
-
-### Шаг 3: Конвертация CPS в PNG тайлы
+### Шаг 2: Конвертация CPS в PNG тайлы
 
 Полная конвертация всех CPS гридов в PNG:
 
@@ -48,7 +39,7 @@ python data/convert_cps_to_tiles.py
 - `x_structuralNOisoline_{horizon}.png` — RGB карта (purple_jet)
 - `x_structuralBlackWhite_{horizon}.png` — Grayscale depth
 - `x_isolines_{horizon}.png` — Карта изолиний
-- `x_faults_{horizon}.png` — Маска замкнутых контуров
+- `x_faults_{horizon}.png` — Маска разломов
 - `y_traps_{horizon}.png` — Карта ловушек (таргет)
 
 ---
@@ -87,6 +78,7 @@ python visualization/visualize_dataset_sample.py
 - Изолинии
 - Разломы (если есть)
 - Ловушки (таргет)
+- Маску валидной области
 
 ---
 
