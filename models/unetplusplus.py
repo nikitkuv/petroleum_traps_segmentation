@@ -13,27 +13,31 @@ def load_unetplusplus(
     encoder_name: str = settings.ENCODER_NAME,
     encoder_weights: str = 'imagenet',
     activation: str = None,
-    device: str = None
+    device: str = None,
+    use_rgb: bool = None
 ) -> nn.Module:
     """
     Загружает предобученную модель U-Net++.
-    
+
     Args:
         in_channels: Количество входных каналов:
-            - 5 (RGB+depth+isolines)
-            - 6 (+faults)
+            - 3 (depth+isolines+map_mask) без RGB
+            - 6 (RGB+depth+isolines+map_mask) с RGB
+            - +1 если есть faults
         classes: Количество классов сегментации
         encoder_name: Название энкодера
         encoder_weights: Веса энкодера
         activation: Функция активации
         device: Устройство
-    
+        use_rgb: Использовать ли RGB каналы (для корректной инициализации весов)
+
     Returns:
         Модель U-Net++
     """
     in_channels = in_channels or settings.IN_CHANNELS
     device = device or settings.DEVICE
-    
+    use_rgb = use_rgb if use_rgb is not None else settings.USE_RGB
+
     model = smp.UnetPlusPlus(
         encoder_name=encoder_name,
         encoder_weights=encoder_weights,
@@ -44,7 +48,7 @@ def load_unetplusplus(
         decoder_attention_type='scse',
         decoder_dropout=settings.DECODER_DROPOUT
     )
-    
+
     # Модифицируем первый слой энкодера если количество каналов не стандартное
     if in_channels != 3 and encoder_weights is not None:
         # Создаем новый первый слой с нужным количеством каналов
@@ -57,14 +61,21 @@ def load_unetplusplus(
             padding=old_conv1.padding,
             bias=old_conv1.bias is not None
         )
-        
+
         # Копируем веса для первых 3 каналов (RGB), остальные инициализируем случайно
         with torch.no_grad():
-            # Копируем первые 3 канала из предобученной модели
-            new_conv1.weight[:, :3, :, :] = old_conv1.weight
-            # Остальные каналы инициализируем как среднее от RGB
-            for i in range(3, in_channels):
-                new_conv1.weight[:, i:i+1, :, :] = old_conv1.weight.mean(dim=1, keepdim=True)
+            if use_rgb:
+                # Копируем первые 3 канала из предобученной модели (RGB)
+                new_conv1.weight[:, :3, :, :] = old_conv1.weight
+                # Остальные каналы (depth, isolines, map_mask, faults) инициализируем как среднее от RGB
+                for i in range(3, in_channels):
+                    new_conv1.weight[:, i:i+1, :, :] = old_conv1.weight.mean(dim=1, keepdim=True)
+            else:
+                # Нет RGB каналов - все каналы инициализируем средним от ImageNet весов
+                # Это более стабильный подход чем копирование в первые каналы
+                rgb_mean_weights = old_conv1.weight.mean(dim=1, keepdim=True)
+                for i in range(in_channels):
+                    new_conv1.weight[:, i:i+1, :, :] = rgb_mean_weights
 
         model.encoder.conv1 = new_conv1
     elif in_channels != 3 and encoder_weights is None:

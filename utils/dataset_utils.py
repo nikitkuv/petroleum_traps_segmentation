@@ -3,6 +3,7 @@ from typing import Dict, Tuple, Optional, List
 import re
 from pathlib import Path
 import os
+import cv2
 
 from utils.images_utils import (
     load_image, 
@@ -71,9 +72,20 @@ def resolve_path(path: str, base_dir: str) -> str:
 
 def load_maps_into_ndarray(
     sample_paths: Dict, 
-    use_faults: bool
+    use_faults: bool,
+    use_rgb: bool = True
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    rgb_img = load_image(sample_paths['rgb'])
+    if use_rgb:
+        rgb_img = load_image(sample_paths['rgb'])
+    else:
+        # Загружаем dummy RGB для create_map_mask (используем depth как grayscale основу)
+        depth_path = sample_paths['depth_norm']
+        if depth_path.endswith('.npy'):
+            depth_for_mask = load_numpy_array(depth_path)
+        else:
+            depth_for_mask = load_grayscale_image(depth_path)
+        # Конвертируем в псевдо-RGB для совместимости с create_map_mask
+        rgb_img = cv2.cvtColor(depth_for_mask, cv2.COLOR_GRAY2RGB)
     
     # Проверяем расширение файла глубины (поддержка старых PNG и новых NPY)
     depth_path = sample_paths['depth_norm']

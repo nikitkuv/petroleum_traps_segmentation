@@ -14,10 +14,15 @@ class Settings(BaseSettings):
     # Работаем с разломами или нет
     USE_FAULTS: bool = False
 
+    # Используем RGB каналы или нет
+    USE_RGB: bool = True
+
     @computed_field
     @property
     def IN_CHANNELS(self) -> int:
-        channels = 6  # RGB (3) + Depth (1) + Isolines (1) + MapMask (1)
+        channels = 3  # Depth (1) + Isolines (1) + MapMask (1)
+        if self.USE_RGB:
+            channels += 3  # + RGB (3)
         if self.USE_FAULTS:
             channels += 1  # + Faults (1)
         return channels

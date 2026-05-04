@@ -153,7 +153,8 @@ def create_dataloaders(
     data_dir: str = None,
     batch_size: int = None,
     num_workers: int = None,
-    use_faults: bool = False
+    use_faults: bool = False,
+    use_rgb: bool = True
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
     Создает DataLoader для train/val/test выборок.
@@ -166,6 +167,7 @@ def create_dataloaders(
         batch_size: Размер батча
         num_workers: Количество рабочих процессов
         use_faults: Использовать ли разломы
+        use_rgb: Использовать ли RGB каналы
     
     Returns:
         Кортеж (train_loader, val_loader, test_loader)
@@ -179,6 +181,7 @@ def create_dataloaders(
         data_dir=data_dir,
         augment=settings.AUGMENT_TRAIN,
         use_faults=use_faults,
+        use_rgb=use_rgb,
     )
     
     val_dataset = GeologyTrapsDataset(
@@ -186,6 +189,7 @@ def create_dataloaders(
         data_dir=data_dir,
         augment=False,
         use_faults=use_faults,
+        use_rgb=use_rgb,
     )
     
     test_dataset = GeologyTrapsDataset(
@@ -193,6 +197,7 @@ def create_dataloaders(
         data_dir=data_dir,
         augment=False,
         use_faults=use_faults,
+        use_rgb=use_rgb,
     )
 
     pin_memory_flag = torch.cuda.is_available()
