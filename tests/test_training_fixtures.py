@@ -1,13 +1,8 @@
-"""
-Фикстуры и утилиты для тестов моделей, обучения и оценки.
-"""
 import pytest
 import torch
-import torch.nn as nn
 import os
 import tempfile
 import shutil
-from pathlib import Path
 
 
 @pytest.fixture

@@ -1,11 +1,6 @@
-"""
-Юнит тесты для утилит обработки данных (utils/dataset_utils.py, utils/images_utils.py).
-"""
 import pytest
 import numpy as np
-import cv2
 import os
-from pathlib import Path
 
 from utils.dataset_utils import (
     parse_filename,

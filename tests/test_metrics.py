@@ -1,13 +1,5 @@
-"""
-Юнит тесты для метрик (metrics).
-"""
 import pytest
 import torch
-import sys
-import os
-
-# Добавляем корень проекта в path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from metrics.metrics import MetricsCalculator
 
@@ -290,7 +282,3 @@ class TestMetricsEdgeCases:
         # (но не гарантировано из-за рандомности данных)
         assert isinstance(metrics_low['iou'], float)
         assert isinstance(metrics_high['iou'], float)
-
-
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])

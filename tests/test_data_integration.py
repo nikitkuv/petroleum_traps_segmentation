@@ -1,8 +1,3 @@
-"""
-Интеграционные тесты для пайплайна загрузки и обработки данных.
-Тестируют полный цикл от файлов до DataLoader.
-"""
-import pytest
 import numpy as np
 import torch
 import os

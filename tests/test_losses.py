@@ -1,13 +1,4 @@
-"""
-Юнит тесты для функций потерь (losses).
-"""
-import pytest
 import torch
-import sys
-import os
-
-# Добавляем корень проекта в path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from losses.losses import MaskedBCELoss, MaskedDiceLoss, CombinedLoss
 
@@ -263,7 +254,3 @@ class TestCombinedLoss:
         
         expected_total = 0.5 * metrics['bce_loss'] + 0.5 * metrics['dice_loss']
         assert abs(total_loss.item() - expected_total) < 1e-5
-
-
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])

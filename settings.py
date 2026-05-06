@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings
 from pydantic import computed_field
 from pathlib import Path
 import torch
@@ -6,13 +6,8 @@ import torch
 
 class Settings(BaseSettings):
 
-    model_config = SettingsConfigDict(
-        env_file='.env',
-        env_file_encoding='utf-8'
-    )
-
     # Работаем с разломами или нет
-    USE_FAULTS: bool = False
+    USE_FAULTS: bool = True
 
     # Используем RGB каналы или нет
     USE_RGB: bool = True

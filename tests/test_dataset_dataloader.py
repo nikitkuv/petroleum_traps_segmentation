@@ -1,6 +1,3 @@
-"""
-Юнит тесты для Dataset и DataLoader (data/dataset.py, data/dataloaders.py).
-"""
 import pytest
 import numpy as np
 import torch

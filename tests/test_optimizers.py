@@ -1,14 +1,5 @@
-"""
-Юнит тесты для оптимизаторов и планировщиков.
-"""
-import pytest
 import torch
 import torch.nn as nn
-import sys
-import os
-
-# Добавляем корень проекта в path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from optimizers.optimizers import create_optimizer_and_scheduler, get_gradient_stats
 
@@ -264,7 +255,3 @@ class TestGetGradientStats:
         assert stats['grad_norm_total'] == 0.0
         assert stats['grad_min'] == 0.0
         assert stats['grad_max'] == 0.0
-
-
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])

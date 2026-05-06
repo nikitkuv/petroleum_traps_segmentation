@@ -1,8 +1,3 @@
-"""
-Тесты для аугментаций данных (utils/augmentations.py).
-"""
-import pytest
-import numpy as np
 import torch
 
 from utils.augmentations import get_train_transforms, get_val_transforms

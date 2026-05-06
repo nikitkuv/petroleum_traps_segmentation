@@ -1,6 +1,3 @@
-"""
-Юнит тесты для GradientNormTracker и градиентного трекинга.
-"""
 import pytest
 import torch
 import torch.nn as nn
@@ -9,9 +6,6 @@ import os
 import tempfile
 import shutil
 import json
-
-# Добавляем корень проекта в path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from training.gradient_tracker import GradientNormTracker, compute_per_sample_grad_norms
 
@@ -439,7 +433,3 @@ class TestComputePerSampleGradNorms:
         
         assert norms.shape == (1,)
         assert norms[0] >= 0
-
-
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])

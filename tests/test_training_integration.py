@@ -1,17 +1,8 @@
-"""
-Интеграционные тесты для training и evaluation pipeline.
-"""
-import pytest
 import torch
 import torch.nn as nn
-import sys
 import os
 import tempfile
 import shutil
-import json
-
-# Добавляем корень проекта в path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from losses.losses import CombinedLoss
 from metrics.metrics import MetricsCalculator
@@ -322,7 +313,3 @@ class TestGradientStatsIntegration:
         # После zero_grad все должно быть 0
         stats_after = get_gradient_stats(model)
         assert stats_after['grad_norm_total'] == 0.0
-
-
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])

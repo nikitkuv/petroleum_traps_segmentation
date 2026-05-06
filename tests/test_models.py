@@ -1,16 +1,9 @@
-"""
-Юнит тесты для модели U-Net++ и функций загрузки/сохранения.
-"""
 import pytest
 import torch
 import torch.nn as nn
-import sys
 import os
 import tempfile
 import shutil
-
-# Добавляем корень проекта в path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from models.unetplusplus import load_unetplusplus, load_model_checkpoint, save_model_checkpoint
 
@@ -362,7 +355,3 @@ class TestSaveModelCheckpoint:
         
         assert os.path.exists(new_dir)
         assert os.path.exists(filepath)
-
-
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
