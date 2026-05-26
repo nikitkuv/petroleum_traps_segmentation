@@ -2,7 +2,7 @@ from training.pipeline import run_full_pipeline
 from settings import settings
 
 
-model_name = 'v2_' \
+model_name = 'v5_' \
 f'cps_tiles_' \
 f'{settings.TARGET_HEIGHT}x{settings.TARGET_WIDTH}_' \
 f'{"faults" if settings.USE_FAULTS else "no_faults"}_' \
@@ -10,7 +10,8 @@ f'e-{settings.NUM_EPOCHS}_' \
 f'bs-{settings.BATCH_SIZE}_' \
 f'lr-{settings.LEARNING_RATE}({settings.ENCODER_LR_MULTIPLIER})_' \
 f'wd-{settings.WEIGHT_DECAY}_' \
-f'{"cos" if settings.SCHEDULER_NAME == "cosine_annealing" else "rlp"}'
+f'{"cos" if settings.SCHEDULER_NAME == "cosine_annealing" else "rlp"}' \
+f'{"_aug" if settings.AUGMENT_TRAIN else ""}'
 
 test_metrics = run_full_pipeline(
     data_dir=settings.CPS_TILES_DIR,
