@@ -312,7 +312,7 @@ def train_with_wandb(
                 }
                 
             }
-            best_model_path = os.path.join(checkpoint_path, wandb_run_name)
+            best_model_path = os.path.join(checkpoint_path, wandb_run_name+".pth")
             torch.save(checkpoint, best_model_path)
             print(f"Saved best model with Dice={best_val_dice:.4f}")
             
