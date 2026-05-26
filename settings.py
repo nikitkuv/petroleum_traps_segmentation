@@ -63,7 +63,7 @@ class Settings(BaseSettings):
     
     # Обучение
     OVERFIT_SIZE: int = 2
-    AUGMENT_TRAIN: bool = False
+    AUGMENT_TRAIN: bool = True
     ENCODER_NAME: str = "resnet34"
     SCHEDULER_NAME: str = "reduce_lr_plateau"
     BATCH_SIZE: int = 4
