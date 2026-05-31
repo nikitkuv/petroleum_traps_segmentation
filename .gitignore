@@ -39,3 +39,5 @@ data/test_dataset_vizualisation/
 data/test_cps_visualization/
 
 data/cps_full/
+
+.claude/

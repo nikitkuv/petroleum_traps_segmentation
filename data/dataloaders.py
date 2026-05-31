@@ -12,10 +12,10 @@ from settings import settings
 
 def save_list(paths, filepath=settings.CUSTOM_TEST_FILES_DIR):
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    png_files = [os.path.basename(p) for p in paths if p.endswith('.png')]
+    files = [os.path.basename(p) for p in paths if p.endswith('.png') or p.endswith('.npy')]
 
     with open(filepath, 'w', encoding='utf-8') as f:
-        json.dump(png_files, f, indent=2, ensure_ascii=False)
+        json.dump(files, f, indent=2, ensure_ascii=False)
 
 
 def load_list(filepath=settings.CUSTOM_TEST_FILES_DIR):
