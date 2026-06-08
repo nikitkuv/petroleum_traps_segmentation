@@ -42,7 +42,7 @@ class Settings(BaseSettings):
 
     # Фильтрация тайлов
     # Если доля невалидных пикселей (края карты + разломы) в тайле больше этого значения, тайл исключается из обучения. 0.4 = 40%.
-    MAX_NODATA_RATIO: float = 0.4  
+    MAX_NODATA_RATIO: float = 0.25  
     
     # Порог бинаризации масок
     BINARY_THRESHOLD: int = 128
@@ -56,10 +56,16 @@ class Settings(BaseSettings):
     CPS_NULL_VALUE: float = -999.0
     CPS_VERTICAL_FLIP: bool = False
 
+    # Замкнутые изолинии
+    CLOSED_ISO_MIN_AREA: int = 25
+
     # Разделение данных
     SEED: int = 24
     TRAIN_RATIO: float = 0.7
-    VAL_RATIO: float = 0.15    
+    VAL_RATIO: float = 0.15
+    TRAIN_HORIZONS: list = ["SG7", "SG8", "H150", "Yellow", "Ach", "U"]
+    VAL_HORIZONS: list = ["CS1", "B_I_1", "OL30", "OL100"]
+    TEST_HORIZONS: list = ["D_70", "TOP_C", "TOP_D", "BSMNT"]
     
     # Обучение
     OVERFIT_SIZE: int = 2

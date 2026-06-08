@@ -5,6 +5,7 @@ import os
 import re
 from pathlib import Path
 import cv2
+import scipy.ndimage as ndimage
 
 from settings import settings
 from utils.images_utils import pad_image
@@ -561,3 +562,69 @@ def clean_cps_filenames(cps_dir: str, suffixes_to_remove: list = None):
             renamed_count += 1
 
     print(f"Filename cleaning done. Renamed {renamed_count} files.\n")
+
+
+def cps_to_closed_mask(grid: np.ndarray, step: float = 5.0, min_area: int = settings.CLOSED_ISO_MIN_AREA) -> np.ndarray:
+    """
+    Генерирует маску замкнутых контуров (ловушек) напрямую из CPS грида.
+    
+    В отличие от поиска по картинке изолиний, этот метод математически точен:
+    он не страдает от артефактов пикселизации (толстых линий на крутых склонах) 
+    и сразу выдает сплошные белые пятна без внутренних "царапин" изолиний.
+    
+    Args:
+        grid: 2D numpy array (с NaN в качестве пустот)
+        step: Шаг изолиний в метрах (по умолчанию 5, должен совпадать с шагом генерации изолиний)
+        min_area: Минимальная площадь замкнутого контура в пикселях (меньше считаются шумом)
+    
+    Returns:
+        mask: (H, W) float32 array (1.0 - замкнутая область/ловушка, 0.0 - остальное)
+    """
+    valid_mask = ~np.isnan(grid)
+    if valid_mask.sum() == 0:
+        return np.zeros(grid.shape, dtype=np.float32)
+    
+    # Находим границу валидной области (1 пиксель по краю карты)
+    eroded_mask = ndimage.binary_erosion(valid_mask)
+    boundary_mask = valid_mask & ~eroded_mask
+    
+    vmin, vmax = np.nanmin(grid), np.nanmax(grid)
+    
+    # Вычисляем уровни изолиний (точно так же, как в cps_to_isolines)
+    start_bound = np.floor(vmin / step) * step
+    end_bound = np.ceil(vmax / step) * step
+    levels = np.arange(start_bound, end_bound + step, step)
+    
+    # Итоговая маска замкнутых областей
+    closed_mask = np.zeros(grid.shape, dtype=bool)
+    
+    # Временно заменяем NaN для корректной работы условия >= level
+    grid_filled = np.copy(grid)
+    grid_filled[~valid_mask] = vmin - 1000 
+    
+    for level in levels:
+        # Бинарная маска: 1 там, где поверхность выше или равна уровню
+        binary_mask = (grid_filled >= level) & valid_mask
+        
+        # Находим связные компоненты (4-связность, чтобы диагонали не считались за проход)
+        labeled_array, num_features = ndimage.label(binary_mask)
+        
+        # Проверяем каждый компонент
+        for i in range(1, num_features + 1):
+            component_mask = (labeled_array == i)
+            
+            # Если компонент слишком мелкий (точечный шум), пропускаем его
+            if component_mask.sum() < min_area:
+                continue
+            
+            # Если компонент касается границы карты -> он разомкнут, пропускаем
+            if np.any(component_mask & boundary_mask):
+                continue
+            
+            # Если не касается -> замкнут, добавляем к итоговой маске
+            closed_mask |= component_mask
+
+    # Убираем черные точки (микро-впадины или NaN) внутри замкнутых белых областей
+    closed_mask = ndimage.binary_fill_holes(closed_mask)
+
+    return closed_mask.astype(np.float32)

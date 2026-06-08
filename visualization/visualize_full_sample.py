@@ -7,8 +7,8 @@ from visualization.visualize import visualize_full_cps_analysis
 
 
 DATA_FOLDER = "raw"
-SUBDATA_FOLDER = "CPS3_faults"
-HORIZON_NAME = "H150_TWT"
+SUBDATA_FOLDER = "test_cps"
+HORIZON_NAME = "Top_D_50"
 
 USE_FAULTS = True
 
