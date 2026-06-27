@@ -15,16 +15,16 @@ class TestDataPipelineIntegration:
         """Тест полного пайплайна без разломов."""
         # 1. Получаем список файлов
         files = get_file_list(multiple_samples_data['temp_dir'])
-        
+
         # Проверяем что файлы найдены
         assert len(files) > 0
-        
+
         # 2. Разделяем на выборки
         train_files, val_files, test_files = split_data_by_groups(
             files,
-            train_ratio=0.7,
-            val_ratio=0.15,
-            seed=42
+            train_horizons=["H150"],
+            val_horizons=["H200"],
+            test_horizons=["H250"],
         )
         
         # Проверяем что нет утечек
@@ -178,9 +178,9 @@ class TestDataPipelineIntegration:
         # Разделяем
         train_files, val_files, test_files = split_data_by_groups(
             all_files,
-            train_ratio=0.7,
-            val_ratio=0.15,
-            seed=42
+            train_horizons=["H150"],
+            val_horizons=["H200"],
+            test_horizons=["H250"],
         )
         
         # Проверяем что все файлы H150 в одной выборке
@@ -195,9 +195,9 @@ class TestDataPipelineIntegration:
         """Тест консистентности батчей в DataLoader."""
         train_files, val_files, test_files = split_data_by_groups(
             multiple_samples_data['all_files'],
-            train_ratio=0.7,
-            val_ratio=0.15,
-            seed=42
+            train_horizons=["H150"],
+            val_horizons=["H200"],
+            test_horizons=["H250"],
         )
         
         train_loader, _, _ = create_dataloaders(
@@ -395,9 +395,9 @@ class TestEdgeCases:
         """Тест работы с большим размером батча."""
         train_files, val_files, test_files = split_data_by_groups(
             multiple_samples_data['all_files'],
-            train_ratio=0.7,
-            val_ratio=0.15,
-            seed=42
+            train_horizons=["H150"],
+            val_horizons=["H200"],
+            test_horizons=["H250"],
         )
         
         # Устанавливаем batch_size больше чем количество семплов

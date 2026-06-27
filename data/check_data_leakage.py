@@ -7,6 +7,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from data.dataloaders import get_file_list, split_data_by_groups
 from utils.dataset_utils import parse_filename, get_sample_key
+from settings import settings
 
 
 def extract_horizon_name(parsed: dict) -> str:
@@ -82,6 +83,27 @@ def check_horizon_leakage(
         'total_val_horizons': len(val_horizons),
         'total_test_horizons': len(test_horizons)
     }
+
+
+def check_horizon_lists_overlap(
+    train_horizons: List[str],
+    val_horizons: List[str],
+    test_horizons: List[str]
+) -> Dict[str, any]:
+    """
+    Проверяет, что списки горизонтов из settings не пересекаются.
+    Одна подстрока может совпасть с другой (например, 'H' и 'H150').
+    """
+    train_set = set(train_horizons)
+    val_set = set(val_horizons)
+    test_set = set(test_horizons)
+
+    results = {
+        'train_val_overlap': train_set.intersection(val_set),
+        'train_test_overlap': train_set.intersection(test_set),
+        'val_test_overlap': val_set.intersection(test_set),
+    }
+    return results
 
 
 def analyze_sample_distribution(
@@ -256,6 +278,23 @@ def check_leakage_with_split_function(data_dir: str):
     print(f"Loading files from: {data_dir}")
     print("-" * 80)
 
+    # Проверяем пересечение списков горизонтов в settings
+    lists_overlap = check_horizon_lists_overlap(
+        settings.TRAIN_HORIZONS, settings.VAL_HORIZONS, settings.TEST_HORIZONS
+    )
+    has_list_overlap = any(lists_overlap.values())
+    if has_list_overlap:
+        print("WARNING: Horizon lists in settings have overlaps:")
+        for pair, overlap in lists_overlap.items():
+            if overlap:
+                print(f"  {pair}: {overlap}")
+        print()
+
+    print(f"TRAIN_HORIZONS: {settings.TRAIN_HORIZONS}")
+    print(f"VAL_HORIZONS:   {settings.VAL_HORIZONS}")
+    print(f"TEST_HORIZONS:  {settings.TEST_HORIZONS}")
+    print("-" * 80)
+
     all_files = get_file_list(data_dir)
 
     if len(all_files) == 0:
@@ -293,4 +332,3 @@ if __name__ == "__main__":
         sys.exit(1)
     else:
         sys.exit(0)
-        

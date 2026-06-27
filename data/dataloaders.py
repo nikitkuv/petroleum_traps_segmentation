@@ -1,7 +1,6 @@
 import os
 from typing import List, Tuple
 from torch.utils.data import DataLoader
-import random
 import torch
 import json
 
@@ -48,32 +47,32 @@ def get_file_list(data_dir: str) -> List[str]:
 
 
 def split_data_by_groups(
-    file_list: List[str], 
-    train_ratio: float = None, 
-    val_ratio: float = None,
-    seed: int = None
+    file_list: List[str],
+    train_horizons: List[str] = None,
+    val_horizons: List[str] = None,
+    test_horizons: List[str] = None,
 ) -> Tuple[List[str], List[str], List[str]]:
     """
-    Разделяет данные на train/val/test с учетом группировки по горизонтам.
-    Все семплы из одного горизонта (name) попадают в одну выборку.
-    
+    Разделяет данные на train/val/test по спискам горизонтов.
+
+    Каждая строка из train_horizons/val_horizons/test_horizons проверяется на вхождение
+    в name файла. Файл попадает в соответствующую выборку при совпадении.
+
     Args:
         file_list: Список всех файлов
-        train_ratio: Доля обучающей выборки
-        val_ratio: Доля валидационной выборки
-        seed: Random seed
-    
+        train_horizons: Список подстрок горизонтов для train
+        val_horizons: Список подстрок горизонтов для val
+        test_horizons: Список подстрок горизонтов для test
+
     Returns:
         Кортеж (train_files, val_files, test_files)
     """
-    train_ratio = train_ratio or settings.TRAIN_RATIO
-    val_ratio = val_ratio or settings.VAL_RATIO
-    seed = seed or settings.SEED
+    train_horizons = train_horizons or settings.TRAIN_HORIZONS
+    val_horizons = val_horizons or settings.VAL_HORIZONS
+    test_horizons = test_horizons or settings.TEST_HORIZONS
 
-    random.seed(seed)
-    
     samples = collect_samples(file_list)
-    
+
     if len(samples) == 0:
         raise ValueError(
             "No valid samples found! Files do not match the expected format:\n"
@@ -87,8 +86,31 @@ def split_data_by_groups(
             f"\nChecked {len(file_list)} files."
         )
 
-    # Группируем семплы по горизонтам (name)
-    groups = {}  # name -> list of sample_keys
+    def get_split_for_name(name: str) -> str:
+        """Определяет, в какую выборку попадает горизонт по вхождению подстроки."""
+        matches = []
+        if any(h in name for h in train_horizons):
+            matches.append('train')
+        if any(h in name for h in val_horizons):
+            matches.append('val')
+        if any(h in name for h in test_horizons):
+            matches.append('test')
+
+        if len(matches) == 0:
+            raise ValueError(
+                f"Горизонт '{name}' не попал ни в одну выборку. "
+                f"Проверьте TRAIN_HORIZONS, VAL_HORIZONS, TEST_HORIZONS в settings."
+            )
+        if len(matches) > 1:
+            raise ValueError(
+                f"Горизонт '{name}' попал в несколько выборок: {matches}. "
+                f"Исправьте пересечения в TRAIN_HORIZONS, VAL_HORIZONS, TEST_HORIZONS."
+            )
+        return matches[0]
+
+    split_files = {'train': [], 'val': [], 'test': []}
+    split_names = {'train': set(), 'val': set(), 'test': set()}
+
     for key, files in samples.items():
         if not files:
             continue
@@ -96,54 +118,22 @@ def split_data_by_groups(
         parsed = parse_filename(first_file)
         if not parsed:
             continue
-        
+
         name = parsed['name']
-        if name not in groups:
-            groups[name] = []
-        groups[name].append(key)
-    
-    print(f"Found {len(groups)} unique map groups (by name)")
+        split = get_split_for_name(name)
+        split_names[split].add(name)
+
+        for file_path in files.values():
+            split_files[split].append(file_path)
+
+    n_groups = len(split_names['train']) + len(split_names['val']) + len(split_names['test'])
+    print(f"Found {n_groups} unique map groups (by name)")
     print(f"Total samples: {len(samples)}")
-    
-    # Разделяем группы горизонтов
-    unique_names = list(groups.keys())
-    random.shuffle(unique_names)
-    
-    n_total = len(unique_names)
-    n_train = max(1, int(n_total * train_ratio))
-    n_val = max(1, int(n_total * val_ratio))
+    print(f"Split: train={len(split_files['train'])} files (horizons: {sorted(split_names['train'])}), "
+          f"val={len(split_files['val'])} files (horizons: {sorted(split_names['val'])}), "
+          f"test={len(split_files['test'])} files (horizons: {sorted(split_names['test'])})")
 
-    # Гарантируем что останется хотя бы 1 группа для test
-    if n_train + n_val >= n_total:
-        n_train = max(1, n_total - 2)
-        n_val = max(1, n_total - n_train - 1)
-    
-    train_names = unique_names[:n_train]
-    val_names = unique_names[n_train : n_train + n_val]
-    test_names = unique_names[n_train + n_val:]
-
-    assert set(train_names).isdisjoint(val_names), "Leakage: train and val share groups"
-    assert set(train_names).isdisjoint(test_names), "Leakage: train and test share groups"
-    assert set(val_names).isdisjoint(test_names), "Leakage: val and test share groups"
-    
-    # Собираем файлы по группам
-    def build_split(names_list):
-        split_files = []
-        for name in names_list:
-            for sample_key in groups[name]:
-                for file_path in samples[sample_key].values():
-                    split_files.append(file_path)
-        return split_files
-    
-    train_files = build_split(train_names)
-    val_files = build_split(val_names)
-    test_files = build_split(test_names)
-    
-    print(f"Split: train={len(train_files)} files ({len(train_names)} maps), "
-          f"val={len(val_files)} files ({len(val_names)} maps), "
-          f"test={len(test_files)} files ({len(test_names)} maps)")
-    
-    return train_files, val_files, test_files
+    return split_files['train'], split_files['val'], split_files['test']
 
 
 def create_dataloaders(

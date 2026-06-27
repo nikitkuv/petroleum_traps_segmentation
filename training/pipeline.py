@@ -57,8 +57,6 @@ def run_full_pipeline(
     print("\n[STEP 2] Splitting data into train/val/test...")
     train_files, val_files, test_files = split_data_by_groups(
         file_list=all_files,
-        train_ratio=0.8,
-        val_ratio=0.1,
     )
 
     if not overfit_check_mode:

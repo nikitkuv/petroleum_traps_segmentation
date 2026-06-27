@@ -63,9 +63,6 @@ def evaluate_all_test_samples(
         print("Using data split")
         _, _, test_files = split_data_by_groups(
             file_list=all_files,
-            train_ratio=0.8,
-            val_ratio=0.1,
-            seed=seed
         )
     else:
         print("Using custom test_files")

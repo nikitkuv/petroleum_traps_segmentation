@@ -61,9 +61,6 @@ def main():
         
     train_files, val_files, test_files = split_data_by_groups(
         file_list=all_files,
-        train_ratio=settings.TRAIN_RATIO,
-        val_ratio=settings.VAL_RATIO,
-        seed=settings.SEED
     )
     
     # 2. Считаем статистику

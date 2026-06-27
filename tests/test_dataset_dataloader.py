@@ -72,9 +72,9 @@ class TestSplitDataByGroups:
         """Тест отсутствия утечки данных между выборками."""
         train_files, val_files, test_files = split_data_by_groups(
             multiple_samples_data['all_files'],
-            train_ratio=0.7,
-            val_ratio=0.15,
-            seed=42
+            train_horizons=["H150"],
+            val_horizons=["H200"],
+            test_horizons=["H250"],
         )
         
         # Проверяем что выборки не пересекаются
@@ -92,31 +92,31 @@ class TestSplitDataByGroups:
         sample_dir = os.path.join(multiple_samples_data['temp_dir'], "sample1_dup")
         os.makedirs(sample_dir, exist_ok=True)
         height, width = 100, 80
-        
+
         rgb_img = np.random.randint(50, 200, (height, width, 3), dtype=np.uint8)
         rgb_path = os.path.join(sample_dir, "005_x_structuralNOisoline_H150.png")
         import cv2
         cv2.imwrite(rgb_path, cv2.cvtColor(rgb_img, cv2.COLOR_RGB2BGR))
-        
+
         depth_img = np.random.randint(0, 255, (height, width), dtype=np.uint8)
         depth_path = os.path.join(sample_dir, "005_x_structuralBlackWhite_H150.png")
         cv2.imwrite(depth_path, depth_img)
-        
+
         isolines_img = np.zeros((height, width), dtype=np.uint8)
         isolines_path = os.path.join(sample_dir, "005_x_isolines_H150.png")
         cv2.imwrite(isolines_path, isolines_img)
-        
+
         traps_img = np.zeros((height, width), dtype=np.uint8)
         traps_path = os.path.join(sample_dir, "005_y_traps_H150.png")
         cv2.imwrite(traps_path, traps_img)
-        
+
         all_files = multiple_samples_data['all_files'] + [rgb_path, depth_path, isolines_path, traps_path]
-        
+
         train_files, val_files, test_files = split_data_by_groups(
             all_files,
-            train_ratio=0.7,
-            val_ratio=0.15,
-            seed=42
+            train_horizons=["H150"],
+            val_horizons=["H200"],
+            test_horizons=["H250"],
         )
         
         # Проверяем что оба семпла H150 попали в одну выборку
@@ -128,29 +128,29 @@ class TestSplitDataByGroups:
         nonzero_counts = sum(1 for x in [h150_in_train, h150_in_val, h150_in_test] if x > 0)
         assert nonzero_counts == 1, "Files from same horizon split across different sets"
     
-    def test_split_data_ratios(self, multiple_samples_data):
-        """Тест соблюдения пропорций разделения."""
+    def test_split_data_all_files_assigned(self, multiple_samples_data):
+        """Тест что все файлы распределены по выборкам."""
         train_files, val_files, test_files = split_data_by_groups(
             multiple_samples_data['all_files'],
-            train_ratio=0.7,
-            val_ratio=0.15,
-            seed=42
+            train_horizons=["H150"],
+            val_horizons=["H200"],
+            test_horizons=["H250"],
         )
-        
+
         total = len(train_files) + len(val_files) + len(test_files)
-        
-        # Проверяем что пропорции примерно соблюдаются (с учетом малого размера выборки)
+
+        # Каждая выборка должна быть непустой
         assert len(train_files) > 0
         assert len(val_files) > 0
         assert len(test_files) > 0
-        
+
         # Сумма должна равняться общему количеству
         assert total == len(multiple_samples_data['all_files'])
     
     def test_split_data_empty_input(self):
         """Тест обработки пустого списка файлов."""
         with pytest.raises(ValueError, match="No valid samples found"):
-            split_data_by_groups([], train_ratio=0.7, val_ratio=0.15)
+            split_data_by_groups([])
 
 
 class TestGeologyTrapsDataset:
@@ -339,9 +339,9 @@ class TestCreateDataloaders:
         """Тест создания DataLoader'ов."""
         train_files, val_files, test_files = split_data_by_groups(
             multiple_samples_data['all_files'],
-            train_ratio=0.7,
-            val_ratio=0.15,
-            seed=42
+            train_horizons=["H150"],
+            val_horizons=["H200"],
+            test_horizons=["H250"],
         )
         
         train_loader, val_loader, test_loader = create_dataloaders(
@@ -396,9 +396,9 @@ class TestCreateDataloaders:
         """Тест перемешивания в train loader."""
         train_files, val_files, test_files = split_data_by_groups(
             multiple_samples_data['all_files'],
-            train_ratio=0.7,
-            val_ratio=0.15,
-            seed=42
+            train_horizons=["H150"],
+            val_horizons=["H200"],
+            test_horizons=["H250"],
         )
         
         train_loader, val_loader, test_loader = create_dataloaders(
