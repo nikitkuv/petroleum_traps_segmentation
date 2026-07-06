@@ -20,10 +20,15 @@
 │   ├── dataset.py           # GeologyTrapsDataset: загрузка и аугментация данных
 │   ├── dataloaders.py       # Утилиты: get_file_list, split_data_by_groups, create_dataloaders
 │   ├── convert_cps_to_tiles.py  # Скрипт конвертации CPS гридов в PNG тайлы
+│   └── remove_extra_symbols_from_filename.py # Очистка имен CPS файлов
+│
+├── data_validation/         # Скрипты валидации данных
+│   ├── __init__.py
+│   ├── analyze_horizon_distribution.py # Распределение горизонтов по train/val/test
 │   ├── check_data_leakage.py # Проверка leakage между train/val/test
 │   ├── check_image_sizes.py # Скрипт проверки размеров изображений
 │   ├── validate_dataset.py  # Валидация датасета перед обучением
-│   └── remove_extra_symbols_from_filename.py # Очистка имен CPS файлов
+│   └── validate_tiling.py   # Проверка корректности split_into_tiles
 │
 ├── models/                  # Модуль моделей
 │   ├── __init__.py

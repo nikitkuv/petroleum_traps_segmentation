@@ -6,13 +6,13 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent))
 
 from data.dataloaders import get_file_list, split_data_by_groups
-from utils.dataset_utils import parse_filename, get_sample_key
+from utils.dataset_utils import parse_filename, get_sample_key, extract_base_horizon
 from settings import settings
 
 
 def extract_horizon_name(parsed: dict) -> str:
-    """Извлекает название горизонта (name)"""
-    return parsed['name']
+    """Извлекает базовое название горизонта (без тайл-суффикса)."""
+    return extract_base_horizon(parsed['name'])
 
 
 def check_file_leakage(

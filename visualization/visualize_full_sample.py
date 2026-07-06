@@ -16,6 +16,10 @@ STRUCTURAL_CPS_PATH = f"./data/{DATA_FOLDER}/{SUBDATA_FOLDER}/x_structuralNOisol
 TRAPS_CPS_PATH = f"./data/{DATA_FOLDER}/{SUBDATA_FOLDER}/y_traps_{HORIZON_NAME}"
 FAULTS_CPS_PATH = f"./data/{DATA_FOLDER}/{SUBDATA_FOLDER}/x_faults_{HORIZON_NAME}"
 
+# STRUCTURAL_CPS_PATH = f"./data/cps/x_structuralNOisoline_H150_toptop1"
+# TRAPS_CPS_PATH = f"./data/cps/y_traps_H150_toptop1"
+# FAULTS_CPS_PATH = f"./data/cps//x_faults_H150_toptop1"
+
 
 visualize_full_cps_analysis(
     rgb_cps_path=STRUCTURAL_CPS_PATH, 

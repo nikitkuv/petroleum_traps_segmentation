@@ -49,7 +49,7 @@ python data/convert_cps_to_tiles.py
 ### Шаг 1: Проверка размеров изображений
 
 ```bash
-python data/check_image_sizes.py
+python data_validation/check_image_sizes.py
 ```
 
 Проверяет размеры всех PNG файлов в директории, выявляет аномалии.
@@ -57,7 +57,7 @@ python data/check_image_sizes.py
 ### Шаг 2: Валидация датасета
 
 ```bash
-python data/validate_dataset.py
+python data_validation/validate_dataset.py
 ```
 
 Проверяет:

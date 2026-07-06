@@ -42,3 +42,6 @@ data/cps_full/
 
 .claude/
 cps_v1/
+
+# Презентации (не коммитим — генерируются локально)
+presentations/

@@ -74,8 +74,60 @@ def read_cps_grid(file_path: str, vertical_flip: bool = False) -> Tuple[np.ndarr
         'null_value': null_value,
         'file_path': file_path
     }
-    
+
     return grid, metadata
+
+
+def resample_grid_to_reference(src_grid: np.ndarray, src_meta: dict, ref_meta: dict) -> np.ndarray:
+    """
+    Переносит исходный грид на геометрию референсного грида (структурной карты)
+    по мировым координатам.
+
+    Главная цель: привести faults/traps к той же пиксельной сетке, что и structural,
+    чтобы все карты одного горизонта (rgb/depth/isolines/faults/traps/mask) легли
+    пиксель-в-пиксель и корректно накладывались друг на друга перед обучением.
+
+    Гриды CPS node-centered:
+        col j -> X = xmin + j * (xmax - xmin) / (nx - 1)
+        row i -> Y = ymax - i * (ymax - ymin) / (ny - 1)   (row 0 = верх = ymax)
+
+    Args:
+        src_grid: 2D массив исходного грида (с NaN для невалидных ячеек)
+        src_meta: метаданные исходного грида (nx, ny, xmin, xmax, ymin, ymax)
+        ref_meta: метаданные референсного грида (структурная карта)
+
+    Returns:
+        2D массив формы (ref_meta['ny'], ref_meta['nx']), выровненный по координатам.
+        Точки за пределами охвата src_grid помечаются NaN.
+
+    Примечание: используется INTER_NEAREST. При даунсэмплинге бинарной маски
+    (например, traps 25м -> 50м) тонкие элементы могут прореживаться; это компромисс
+    в пользу точного геометрического выравнивания узел-в-узел.
+    """
+    ny_r, nx_r = ref_meta['ny'], ref_meta['nx']
+
+    # Мировые координаты узлов референса
+    X = ref_meta['xmin'] + np.arange(nx_r) * (ref_meta['xmax'] - ref_meta['xmin']) / (nx_r - 1)
+    Y = ref_meta['ymax'] - np.arange(ny_r) * (ref_meta['ymax'] - ref_meta['ymin']) / (ny_r - 1)
+    YY, XX = np.meshgrid(Y, X, indexing='ij')
+
+    # Те же точки в индексах исходного грида
+    fj = ((XX - src_meta['xmin']) / (src_meta['xmax'] - src_meta['xmin']) * (src_meta['nx'] - 1)).astype(np.float32)
+    fi = ((src_meta['ymax'] - YY) / (src_meta['ymax'] - src_meta['ymin']) * (src_meta['ny'] - 1)).astype(np.float32)
+
+    # Ремапим и сами значения, и маску валидности (чтобы корректно отметить NaN)
+    valid = (~np.isnan(src_grid)).astype(np.float32)
+    g = np.nan_to_num(src_grid, nan=0.0).astype(np.float32)
+
+    resampled = cv2.remap(g, fj, fi, cv2.INTER_NEAREST,
+                          borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+    valid_resampled = cv2.remap(valid, fj, fi, cv2.INTER_NEAREST,
+                                borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+
+    # Всё, что вышло за охват src (в т.ч. out-of-bounds референса) -> NaN
+    resampled[valid_resampled < 0.5] = np.nan
+
+    return resampled
 
 
 def cps_to_rgb(grid: np.ndarray, cmap_name: str = 'purple_jet') -> np.ndarray:
@@ -191,44 +243,55 @@ def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str, isol
     for horizon_name, files in horizons.items():
         print(f"\nProcessing horizon: {horizon_name}")
         images_data[horizon_name] = {}
-        
-        reference_shape = None  
-        faults_img_original = None
-        
-        if 'faults' in files:
-            print(f"  Loading faults: {files['faults']}")
-            faults_grid, _ = read_cps_grid(files['faults'])
-            faults_img_original = (cps_to_binary_mask(faults_grid) * 255).astype(np.uint8)
 
+        reference_shape = None
+        meta = None  # метаданные структурной карты — референс геометрии для faults/traps
+
+        # 1. Структурная карта — референс: её cell size + bbox наследуют faults и traps,
+        #    чтобы все типы карт горизонта легли на одну пиксельную сетку.
+        structural_grid = None
         if 'structural' in files:
             print(f"  Loading structural: {files['structural']}")
             structural_grid, meta = read_cps_grid(files['structural'])
 
+        # 2. Разломы: перегоняем на сетку структурной карты по мировым координатам
+        faults_img_original = None
+        if 'faults' in files:
+            print(f"  Loading faults: {files['faults']}")
+            faults_grid, faults_meta = read_cps_grid(files['faults'])
+            if structural_grid is not None:
+                faults_grid = resample_grid_to_reference(faults_grid, faults_meta, meta)
+                print(f"  Resampled faults to structural grid geometry")
+            faults_img_original = (cps_to_binary_mask(faults_grid) * 255).astype(np.uint8)
+
+        # 3. Из структурной карты строим rgb/depth/isolines и вырезаем разломы
+        if structural_grid is not None:
             rgb_img = cps_to_rgb(structural_grid, cmap_name='purple_jet')
             depth_float_img = cps_to_depth_norm_float(structural_grid)
             isolines_img = cps_to_isolines(structural_grid, step=isoline_step)
-            
-            reference_shape = rgb_img.shape[:2]  
+
+            reference_shape = rgb_img.shape[:2]
             print(f"  Reference shape set to: {reference_shape}")
 
             if faults_img_original is not None:
+                # faults уже на сетке structural, resize остаётся как страховочный no-op
                 if faults_img_original.shape != reference_shape:
                     faults_resized_for_cut = cv2.resize(
-                        faults_img_original, 
-                        (reference_shape[1], reference_shape[0]), 
+                        faults_img_original,
+                        (reference_shape[1], reference_shape[0]),
                         interpolation=cv2.INTER_NEAREST
                     )
                 else:
                     faults_resized_for_cut = faults_img_original
-                
+
                 fault_pixels = faults_resized_for_cut > 128
-                
+
                 rgb_img[fault_pixels] = 0
                 print(f"  Cut interpolated data from RGB at faults")
-                
+
                 depth_float_img[fault_pixels] = 0.0
                 print(f"  Cut interpolated data from Depth at faults")
-                
+
                 isolines_img[fault_pixels] = 0
                 print(f"  Cut isolines at faults")
 
@@ -244,34 +307,39 @@ def save_large_images(horizons: Dict[str, Dict[str, str]], output_dir: str, isol
             save_png(isolines_img, isolines_path)
             images_data[horizon_name]['isolines'] = isolines_img
 
+        # 4. Сохраняем маску разломов (уже выровнена на сетку structural)
         if faults_img_original is not None:
             faults_img_final = faults_img_original
             if reference_shape is not None and faults_img_original.shape != reference_shape:
                 print(f"  Resizing faults image from {faults_img_original.shape} to {reference_shape} for final save")
                 faults_img_final = cv2.resize(
-                    faults_img_original, 
-                    (reference_shape[1], reference_shape[0]), 
+                    faults_img_original,
+                    (reference_shape[1], reference_shape[0]),
                     interpolation=cv2.INTER_NEAREST
                 )
-            
+
             faults_path = os.path.join(output_dir, f'x_faults_{horizon_name}.png')
             save_png(faults_img_final, faults_path)
             print(f"  Saved Faults: {faults_path} (shape={faults_img_final.shape})")
             images_data[horizon_name]['faults'] = faults_img_final
 
+        # 5. Ловушки: перегоняем на сетку структурной карты по мировым координатам
         if 'traps' in files:
             print(f"  Loading traps: {files['traps']}")
-            traps_grid, _ = read_cps_grid(files['traps'])
+            traps_grid, traps_meta = read_cps_grid(files['traps'])
+            if structural_grid is not None:
+                traps_grid = resample_grid_to_reference(traps_grid, traps_meta, meta)
+                print(f"  Resampled traps to structural grid geometry")
             traps_img = (cps_to_binary_mask(traps_grid) * 255).astype(np.uint8)
-            
+
             if reference_shape is not None and traps_img.shape != reference_shape:
                 print(f"  Resizing traps image from {traps_img.shape} to {reference_shape} for final save")
                 traps_img = cv2.resize(
-                    traps_img, 
-                    (reference_shape[1], reference_shape[0]), 
+                    traps_img,
+                    (reference_shape[1], reference_shape[0]),
                     interpolation=cv2.INTER_NEAREST
                 )
-                
+
             traps_path = os.path.join(output_dir, f'y_traps_{horizon_name}.png')
             save_png(traps_img, traps_path)
             print(f"  Saved Traps: {traps_path} (shape={traps_img.shape})")

@@ -11,7 +11,7 @@ from optimizers.optimizers import create_optimizer_and_scheduler
 from training.overfit_check import overfit_check
 from training.train import train_with_wandb
 from evaluation.evaluate import evaluate_on_test, visualize_test_predictions
-from data.check_data_leakage import check_leakage_from_dataloaders
+from data_validation.check_data_leakage import check_leakage_from_dataloaders
 from data.dataset import GeologyTrapsDataset
 
 

@@ -5,7 +5,7 @@ import torch
 import json
 
 from data.dataset import GeologyTrapsDataset
-from utils.dataset_utils import parse_filename, collect_samples
+from utils.dataset_utils import parse_filename, collect_samples, extract_base_horizon
 from settings import settings
 
 
@@ -55,14 +55,21 @@ def split_data_by_groups(
     """
     Разделяет данные на train/val/test по спискам горизонтов.
 
-    Каждая строка из train_horizons/val_horizons/test_horizons проверяется на вхождение
-    в name файла. Файл попадает в соответствующую выборку при совпадении.
+    Сначала из полного имени тайла извлекается базовый горизонт (тайл-суффикс
+    вида 'bottop1'/'toptop5' отбрасывается через extract_base_horizon). Затем
+    базовый горизонт сопоставляется со списками ПРЕФИКСОМ (startswith), а не
+    подстрокой — это исключает случайные совпадения в середине имени (например,
+    однобуквенный 'U' не цепляет горизонты, где 'U' встречается внутри).
+
+    Файл попадает в выборку, если его базовый горизонт начинается с одной из
+    строк соответствующего списка. Горизонт должен попасть ровно в одну
+    выборку — иначе поднимается ValueError (защита от утечки и опечаток).
 
     Args:
         file_list: Список всех файлов
-        train_horizons: Список подстрок горизонтов для train
-        val_horizons: Список подстрок горизонтов для val
-        test_horizons: Список подстрок горизонтов для test
+        train_horizons: Список префиксов горизонтов для train
+        val_horizons: Список префиксов горизонтов для val
+        test_horizons: Список префиксов горизонтов для test
 
     Returns:
         Кортеж (train_files, val_files, test_files)
@@ -87,23 +94,24 @@ def split_data_by_groups(
         )
 
     def get_split_for_name(name: str) -> str:
-        """Определяет, в какую выборку попадает горизонт по вхождению подстроки."""
+        """Определяет выборку по префиксу базового горизонта."""
+        base = extract_base_horizon(name)
         matches = []
-        if any(h in name for h in train_horizons):
+        if any(base.startswith(h) for h in train_horizons):
             matches.append('train')
-        if any(h in name for h in val_horizons):
+        if any(base.startswith(h) for h in val_horizons):
             matches.append('val')
-        if any(h in name for h in test_horizons):
+        if any(base.startswith(h) for h in test_horizons):
             matches.append('test')
 
         if len(matches) == 0:
             raise ValueError(
-                f"Горизонт '{name}' не попал ни в одну выборку. "
+                f"Горизонт '{name}' (base='{base}') не попал ни в одну выборку. "
                 f"Проверьте TRAIN_HORIZONS, VAL_HORIZONS, TEST_HORIZONS в settings."
             )
         if len(matches) > 1:
             raise ValueError(
-                f"Горизонт '{name}' попал в несколько выборок: {matches}. "
+                f"Горизонт '{name}' (base='{base}') попал в несколько выборок: {matches}. "
                 f"Исправьте пересечения в TRAIN_HORIZONS, VAL_HORIZONS, TEST_HORIZONS."
             )
         return matches[0]
@@ -121,7 +129,7 @@ def split_data_by_groups(
 
         name = parsed['name']
         split = get_split_for_name(name)
-        split_names[split].add(name)
+        split_names[split].add(extract_base_horizon(name))
 
         for file_path in files.values():
             split_files[split].append(file_path)

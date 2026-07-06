@@ -9,8 +9,9 @@ from pathlib import Path
 
 from settings import settings
 from utils.cps_utils import (
-    read_cps_grid, 
-    cps_to_rgb, 
+    read_cps_grid,
+    resample_grid_to_reference,
+    cps_to_rgb,
     cps_to_depth_norm_float,
     cps_to_isolines,
     cps_to_binary_mask
@@ -337,8 +338,8 @@ def visualize_full_cps_analysis(
             return
 
     print("Загрузка и обработка CPS грида...")
-    structural_grid, _ = read_cps_grid(rgb_cps_path)
-    
+    structural_grid, struct_meta = read_cps_grid(rgb_cps_path)
+
     rgb_img = cps_to_rgb(structural_grid)
 
     depth_img = cps_to_depth_norm_float(structural_grid)
@@ -346,23 +347,27 @@ def visualize_full_cps_analysis(
 
     faults_mask = None
     if use_faults and faults_cps_path:
-        faults_grid, _ = read_cps_grid(faults_cps_path)
+        faults_grid, faults_meta = read_cps_grid(faults_cps_path)
+        faults_grid = resample_grid_to_reference(faults_grid, faults_meta, struct_meta)
+        print("  Resampled faults to structural grid geometry")
         faults_mask = cps_to_binary_mask(faults_grid)
-        
+
         if faults_mask.shape != isolines_img.shape:
             print(f"  Resizing faults mask from {faults_mask.shape} to match isolines {isolines_img.shape}")
             faults_mask = cv2.resize(
-                faults_mask, 
-                (isolines_img.shape[1], isolines_img.shape[0]), 
+                faults_mask,
+                (isolines_img.shape[1], isolines_img.shape[0]),
                 interpolation=cv2.INTER_NEAREST
             )
-        
+
         fault_pixels = faults_mask > 0.5
-        
+
         isolines_img[fault_pixels] = 0
         print("  Applied faults mask to isolines")
 
-    traps_grid, _ = read_cps_grid(traps_cps_path)
+    traps_grid, traps_meta = read_cps_grid(traps_cps_path)
+    traps_grid = resample_grid_to_reference(traps_grid, traps_meta, struct_meta)
+    print("  Resampled traps to structural grid geometry")
     traps_mask = cps_to_binary_mask(traps_grid)
 
     map_mask = create_map_mask(rgb_img)
@@ -442,30 +447,23 @@ def check_faults_resize_and_cut(
             return
 
     print("Загрузка CPS гридов...")
-    
-    # 1. Загружаем структурную карту
-    structural_grid, _ = read_cps_grid(rgb_cps_path)
+
+    # 1. Структурная карта — референс геометрии
+    structural_grid, struct_meta = read_cps_grid(rgb_cps_path)
     rgb_img = cps_to_rgb(structural_grid)
-    target_shape = rgb_img.shape[:2] # (H, W)
-    
-    # 2. Загружаем оригинальную карту разломов
-    faults_grid, _ = read_cps_grid(faults_cps_path)
+    target_shape = rgb_img.shape[:2]  # (H, W)
+
+    # 2. Оригинальная карта разломов (в собственной геометрии)
+    faults_grid, faults_meta = read_cps_grid(faults_cps_path)
     faults_mask_orig = cps_to_binary_mask(faults_grid)
-    
+
     print(f"RGB Target Shape: {target_shape}")
     print(f"Faults Original Shape: {faults_mask_orig.shape}")
-    
-    # 3. Ресайз маски
-    if faults_mask_orig.shape == target_shape:
-        print("Размеры гридов изначально совпадают. Ресайз не требуется.")
-        faults_mask_resized = faults_mask_orig
-    else:
-        print(f"Выполняется ресайз: {faults_mask_orig.shape} -> {target_shape}")
-        faults_mask_resized = cv2.resize(
-            faults_mask_orig, 
-            (target_shape[1], target_shape[0]), 
-            interpolation=cv2.INTER_NEAREST
-        )
+
+    # 3. Приводим разломы к геометрии структурной карты по мировым координатам
+    faults_grid_aligned = resample_grid_to_reference(faults_grid, faults_meta, struct_meta)
+    faults_mask_resized = cps_to_binary_mask(faults_grid_aligned)
+    print(f"Resampled faults to structural grid -> shape {faults_mask_resized.shape}")
 
     # 4. Вырезание интерполяции из RGB
     fault_pixels = faults_mask_resized > 0.5
@@ -483,13 +481,13 @@ def check_faults_resize_and_cut(
     axes[1].axis('off')
     
     axes[2].imshow(faults_mask_resized, cmap='gray', vmin=0.0, vmax=1.0)
-    axes[2].set_title(f"Resized Fault Mask\nSize: {faults_mask_resized.shape[:2]}", fontsize=12)
+    axes[2].set_title(f"Resampled Fault Mask (aligned)\nSize: {faults_mask_resized.shape[:2]}", fontsize=12)
     axes[2].axis('off')
     
     axes[3].imshow(rgb_cut)
     axes[3].set_title("Processed RGB\n(Interpolation Cut)", fontsize=12)
     axes[3].axis('off')
     
-    plt.suptitle(f"Faults Resize & Interpolation Cut Check: {horizon_name}", fontsize=16, fontweight='bold')
+    plt.suptitle(f"Faults Resample & Interpolation Cut Check: {horizon_name}", fontsize=16, fontweight='bold')
     plt.tight_layout()
     plt.show()

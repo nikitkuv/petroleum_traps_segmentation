@@ -110,24 +110,3 @@
 * LR до 5е-5
 * Добавить в аугментации RandomResizedCrop(scale=(0.8, 1.0))
 * Multi-task learning: auxiliary head на contour/boundary, где наивысшая точка, distance-to-crest.
-
-
-petroleum_traps_segmentation/
-├── .env                          # Настройки
-├── settings.py                   # Конфигурация
-├── dataset.py                    # Dataset класс
-├── utils/           
-│   ├── utils_imgages.py          # Утилиты для PNG
-│   └── utils_cps.py              # Утилиты для CPS
-├── augmentations.py              # Аугментации
-├── validate_post_data/           
-│   ├── validate_dataset_visualization.py
-│   └── validate_dataset.py
-├── scripts/                      # Скрипты для различным операций
-│   ├── move_to_images_folder.py
-│   └── check_image_sizes.py
-├── data/
-│   ├── images/                   # PNG файлы
-│   └── cps/                      # CPS файлы
-├── checkpoints/                  # Сохранённые модели
-└── logs/                         # Логи и визуализации

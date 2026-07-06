@@ -59,7 +59,7 @@ With `USE_RGB=True` (default) and `USE_FAULTS=True` (default):
 - Channel 6: Map mask (1=valid, 0=off-map or fault)
 
 ### Data split strategy
-Data is split by horizon name (the `{name}` part of filenames) to prevent leakage — all tiles from the same structural horizon stay in the same split. Split ratios: 70/15/15 (configurable in settings).
+Data is split by horizon name (the `{name}` part of filenames) to prevent leakage — all tiles from the same structural horizon stay in the same split. The split is a prefix match of the base horizon (tile suffix stripped) against `TRAIN/VAL/TEST_HORIZONS` in settings; there are no fixed ratios — split sizes are determined by which horizons are listed.
 
 ## Testing
 

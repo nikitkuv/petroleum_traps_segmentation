@@ -111,7 +111,7 @@ python evaluate_model.py
 ### Утилиты
 - `utils/cps_utils.py` — чтение CPS гридов, генерация RGB, изолиний, замкнутых контуров
 - `utils/dataset_utils.py` — парсинг имен файлов, группировка семплов, загрузка данных
-- `data/check_data_leakage.py` — проверка на утечку данных между сплитами
+- `data_validation/check_data_leakage.py` — проверка на утечку данных между сплитами
 - `training/gradient_tracker.py` — мониторинг градиентов во время обучения
 - `training/analyze_anomalies.py` — детектирование аномалий в процессе обучения
 
