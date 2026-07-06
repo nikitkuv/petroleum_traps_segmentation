@@ -75,6 +75,10 @@ def evaluate_all_test_samples(
         data_dir=data_dir,
         augment=False,
         use_faults=use_faults,
+        # Оценка идёт в model.eval(): BatchNorm использует замороженные статистики,
+        # поэтому NoData-фильтр (защита для обучения) здесь не нужен — иначе
+        # тайлы с большим фоном отбрасываются и выборка необоснованно урезается.
+        max_nodata_ratio=1.0,
     )
 
     print(f"Test dataset initialized with {len(test_dataset)} samples")

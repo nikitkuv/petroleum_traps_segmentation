@@ -19,6 +19,7 @@ class GeologyTrapsDataset(Dataset):
         augment: bool = True,
         use_faults: bool = None,
         use_rgb: bool = None,
+        max_nodata_ratio: float = None,
     ):
         self.file_list = file_list
         self.data_dir = data_dir or str(settings.data_path)
@@ -27,13 +28,17 @@ class GeologyTrapsDataset(Dataset):
         self.augment = augment
         self.use_faults = use_faults if use_faults is not None else settings.USE_FAULTS
         self.use_rgb = use_rgb if use_rgb is not None else settings.USE_RGB
+        # По умолчанию берём порог из настроек. Для оценки (model.eval()) фильтр
+        # не нужен — он защищает BatchNorm только при обучении, а метрики и так
+        # считаются по mask_map. Передайте >= 1.0, чтобы отключить фильтрацию.
+        self.max_nodata_ratio = max_nodata_ratio if max_nodata_ratio is not None else settings.MAX_NODATA_RATIO
 
         self.transforms = get_train_transforms() if augment else get_val_transforms()
         print(f"Transforms: {self.transforms}")
         print(f"Len transforms: {len(self.transforms)}")
 
         self.samples = self._parse_files(file_list)
-        self.samples = self._filter_nodata_samples(self.samples, settings.MAX_NODATA_RATIO)
+        self.samples = self._filter_nodata_samples(self.samples, self.max_nodata_ratio)
 
         n_faults = sum(1 for s in self.samples if 'faults' in s)
         print(f"Dataset initialized with {len(self.samples)} samples")
