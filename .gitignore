@@ -40,6 +40,11 @@ data/test_cps_visualization/
 
 data/cps_full/
 
+# Сгенерированные тайлы — не хранятся в git (регенерируются через data/convert_cps_to_tiles.py).
+# В Colab доставляются архивом с Google Drive — см. scripts/pack_and_upload.py и ячейку в train.ipynb.
+data/images_cps/
+data/images_cps_full/
+
 .claude/
 cps_v1/
 

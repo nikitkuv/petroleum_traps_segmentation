@@ -181,6 +181,53 @@ python run_training.py \
 
 ---
 
+## Обучение в Google Colab (GPU)
+
+Обучение на GPU проходит в Google Colab через `train.ipynb`. Код берётся из git (`git clone`),
+а **тайлы в git не хранятся** — они регенерируются из CPS и превышают лимит размера пуша (~2 ГБ),
+поэтому доставляются в Colab архивом с личного Google Drive. Путь распаковки `data/images_cps/`
+совпадает с `settings.CPS_TILES_DIR`, поэтому код работает идентично локальной среде.
+
+### Шаг 1: Разовая настройка rclone (локально)
+
+Тайлы заливаются на Google Drive через rclone. **Креды не нужны** — никаких API-ключей или
+`credentials.json`, только одноразовый вход в свой Google-аккаунт через браузер (rclone сам
+сохраняет OAuth-токен локально):
+
+```bash
+winget install Rclone.Rclone            # Windows (или scoop install rclone)
+rclone config                           # n -> name: gdrive -> Storage: drive -> scope: 1
+                                        # Use auto config: y -> вход в аккаунт в браузере
+```
+
+### Шаг 2: Генерация и упаковка тайлов (локально)
+
+```bash
+python data/convert_cps_to_tiles.py     # сгенерировать финальные тайлы в data/images_cps/
+python scripts/pack_and_upload.py       # упаковать в dist/images_cps.tar + залить в gdrive:petroleum_data/
+```
+
+- В `gdrive:petroleum_data/` появляется архив `images_cps.tar`.
+- Имя remote и папку можно менять: `--remote gdrive --remote-path petroleum_data`.
+- При изменении тайлов — повторить оба шага.
+
+### Шаг 3: Загрузка данных и обучение в Colab
+
+В `train.ipynb` ячейки выполняются по порядку:
+
+1. `git clone` репозитория (только код).
+2. Установка зависимостей (`pip install -r requirements.txt`).
+3. Настройка путей Colab в `settings.py`.
+4. **Загрузка тайлов из Google Drive** — монтирует Drive и распаковывает `images_cps.tar`
+   в `data/images_cps/` на **локальный диск Colab** (не чтение из Drive-маунта — иначе
+   13k мелких файлов тормозят обучение).
+5. Запуск `run_full_pipeline` (обучение).
+
+> После распаковки пути совпадают с `settings.py`, поэтому обучение идёт как локально.
+> Локальный диск Colab эфемерный — шаг 4 повторяется в начале каждой сессии (~1-2 мин).
+
+---
+
 ## Оценка модели
 
 ### Тестирование на test выборке
