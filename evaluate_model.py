@@ -1,22 +1,28 @@
-from evaluation.evaluate_on_test_data import evaluate_all_test_samples
+from evaluation.evaluate_on_raw_cps import evaluate_on_raw_cps
 from settings import settings
 
 
-checkpoint_path = "checkpoints/v4_cps_tiles_640x448_faults_e-50_bs-4_lr-0.0003(0.1)_wd-0.005_rlp.pth"
+CHECKPOINT_PATH = "checkpoints/v4_cps_tiles_640x448_faults_e-50_bs-4_lr-0.0003(0.1)_wd-0.005_rlp.pth"
 
-# Воспроизводим детерминированный test-сплит по группам (горизонтам) из settings
-# (custom_test_files=None внутри evaluate_all_test_samples вызывает split_data_by_groups).
-# custom_test_files.json намеренно НЕ используем: он сохраняется во время обучения
-# (pipeline.py) и рассинхронизируется при любом изменении TEST_HORIZONS — в текущем
-# файле оказались train/val горизонты (Ach, H150, Yellow, CS1) и пропали 2 тестовых
-# (TOP_D, BSMNT).
-results = evaluate_all_test_samples(
-    checkpoint_path=checkpoint_path,
+# Оценка модели на тестовых горизонтах.
+#
+# CPS-гриды берутся напрямую из data/cps/ (settings.CPS_SOURCE_DIR) и фильтруются по
+# settings.TEST_HORIZONS — тем же детерминированным разбиением по горизонтам, что и при
+# обучении. Затем они режутся на тайлы (воспроизведение data/images_cps/), прогоняются
+# через модель. Метрики считаются по тайлам и микро-агрегируются по каждому горизонту.
+#
+# Визуализации предсказаний по тайлам и test_metrics.json сохраняются в папку
+# logs/test_visualizations/{дата_время_начала_теста}.
+#
+# CPS-гриды читаем из источника, а не из data/images_cps/: тайлы пересоздаются заново,
+# поэтому всегда синхронны с текущими settings (TEST_HORIZONS, размеры тайла и т.д.).
+results = evaluate_on_raw_cps(
+    checkpoint_path=CHECKPOINT_PATH,
+    cps_dir=settings.CPS_SOURCE_DIR,
+    horizon_prefixes=settings.TEST_HORIZONS,
     use_faults=settings.USE_FAULTS,
     batch_size=settings.BATCH_SIZE,
     threshold=settings.TEST_THRESHOLD,
-    save_viz_dir=settings.LOGS_TEST_VIZ_DIR,
-    save_metrics_path=settings.LOGS_TEST_VIZ_DIR,
-    seed=settings.SEED,
-    custom_test_files=None,
+    min_traps_pixels=None,   # None = settings.MIN_NUM_PIXS_OF_TRAPS_IN_TILES (воспроизводит data/images_cps/)
+    keep_temp=False,
 )

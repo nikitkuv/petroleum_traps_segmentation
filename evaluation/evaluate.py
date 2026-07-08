@@ -1,11 +1,10 @@
-from typing import Dict, List
+from typing import Dict
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from metrics.metrics import MetricsCalculator
-from visualization.visualize import visualize_test_results
 from settings import settings
 
 
@@ -128,54 +127,5 @@ def evaluate_on_test(
     print(f"FP Area: {avg_metrics['fp_area']:.4f}")
     print(f"FN Area: {avg_metrics['fn_area']:.4f}")
     print("=" * 60)
-    
+
     return avg_metrics
-
-
-def visualize_test_predictions(
-    model: nn.Module,
-    test_loader: DataLoader,
-    device: str = None,
-    sample_indices: List[int] = None,
-    save_path: str = settings.LOGS_TEST_VIZ_DIR,
-    alpha: float = 0.4
-) -> None:
-    """
-    Визуализация выборочных результатов тестовых данных:
-    наложение результата модели (карта ловушек) в прозрачности на RGB карту.
-    
-    Args:
-        model: Модель
-        test_loader: Тестовый DataLoader
-        device: Устройство
-        sample_indices: Индексы семплов для визуализации
-        save_path: Путь для сохранения
-        alpha: Прозрачность наложения
-    """
-    device = device or settings.DEVICE
-    model.eval()
-    
-    print("\nVisualizing test predictions...")
-    
-    with torch.no_grad():
-        # Берем несколько случайных батчей для визуализации
-        if sample_indices is None:
-            sample_indices = [0, 1, 2, 3]
-        
-        for batch_idx, batch in enumerate(test_loader):
-            if batch_idx >= 1:  # Достаточно одного батча
-                break
-            
-            x = batch['x'].to(device)
-            predictions = model(x)
-            
-            visualize_test_results(
-                batch=batch,
-                predictions=predictions,
-                sample_indices=sample_indices,
-                dataset=test_loader.dataset,
-                save_path=save_path,
-                alpha=alpha
-            )
-    
-    print(f"Test visualizations saved to {save_path}")

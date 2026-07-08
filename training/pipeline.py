@@ -10,7 +10,7 @@ from losses.losses import CombinedLoss
 from optimizers.optimizers import create_optimizer_and_scheduler
 from training.overfit_check import overfit_check
 from training.train import train_with_wandb
-from evaluation.evaluate import evaluate_on_test, visualize_test_predictions
+from evaluation.evaluate import evaluate_on_test
 from data_validation.check_data_leakage import check_leakage_from_dataloaders
 from data.dataset import GeologyTrapsDataset
 
@@ -197,25 +197,14 @@ def run_full_pipeline(
             device=device,
             threshold=settings.TEST_THRESHOLD
         )
-        
-        print("\n[STEP 10] Visualizing test results...")
-        visualize_test_predictions(
-            model=model,
-            test_loader=test_loader,
-            device=device,
-            sample_indices=[0, 1, 2, 3],
-            save_path=settings.LOGS_TEST_VIZ_DIR,
-            alpha=0.4
-        )
-        
+
         print("\n" + "=" * 80)
         print("PIPELINE COMPLETED SUCCESSFULLY")
         print("=" * 80)
         print(f"Best model saved to: {best_model_path}")
         print(f"Training history: {settings.CHECKPOINT_DIR}training_history.json")
-        print(f"Visualizations: ./logs/")
         print("=" * 80)
-        
+
         return test_metrics
     
     return {}
