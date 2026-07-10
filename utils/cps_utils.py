@@ -78,6 +78,77 @@ def read_cps_grid(file_path: str, vertical_flip: bool = False) -> Tuple[np.ndarr
     return grid, metadata
 
 
+def write_cps_grid(grid: np.ndarray, meta: dict, file_path: str,
+                   null_value: float = None, values_per_line: int = 5,
+                   value_format: str = '%.7g', label: str = 'Predicted traps mask') -> None:
+    """
+    Обратная операция к read_cps_grid: пишет 2D-массив (ny, nx) в CPS-3 ASCII-грид.
+
+    Геометрия (nx, ny, bbox, null) берётся из meta — поэтому выходной грид идеально
+    накладывается на исходный (структурный) грид. Данные пишутся в Fortran-порядке
+    (по столбцам), NaN помечается как null-значение — ровно так, как ожидает read_cps_grid.
+
+    Заголовок воспроизводит структуру реальных файлов: FSASCI (null), FSATTR,
+    FSLIMI (xmin xmax ymin ymax zmin zmax), FSNROW ny nx, FSXINC dx dy, ->маркер.
+
+    Args:
+        grid: 2D массив формы (ny, nx). NaN = «нет данных» (станет null в файле).
+        meta: метаданные референсного грида (как из read_cps_grid): nx, ny, xmin,
+            xmax, ymin, ymax, null_value.
+        file_path: куда сохранить CPS-файл.
+        null_value: null-значение (default: meta['null_value'], иначе settings.CPS_NULL_VALUE).
+        values_per_line: чисел в строке блока данных (как в исходных файлах — 5).
+        value_format: формат вещественных чисел (default '%.7g').
+        label: текст после маркера '->' (не влияет на чтение, только для человека).
+    """
+    grid = np.asarray(grid)
+    if grid.ndim != 2:
+        raise ValueError(f"write_cps_grid: ожидается 2D массив, получено shape={grid.shape}")
+
+    ny_meta, nx_meta = int(meta['ny']), int(meta['nx'])
+    ny, nx = grid.shape
+    if (ny, nx) != (ny_meta, nx_meta):
+        raise ValueError(
+            f"write_cps_grid: форма грида {(ny, nx)} не совпадает с meta {(ny_meta, nx_meta)}"
+        )
+
+    if null_value is None:
+        null_value = meta.get('null_value', settings.CPS_NULL_VALUE)
+
+    xmin, xmax = float(meta['xmin']), float(meta['xmax'])
+    ymin, ymax = float(meta['ymin']), float(meta['ymax'])
+
+    # z-диапазон — только для человекочитаемости (читалку интересуют первые 4 числа FSLIMI)
+    valid = ~np.isnan(grid)
+    if valid.any():
+        zmin, zmax = float(np.nanmin(grid)), float(np.nanmax(grid))
+    else:
+        zmin = zmax = 0.0
+
+    # Размер ячейки (node-centered): dx = (xmax - xmin) / (nx - 1)
+    xinc = (xmax - xmin) / (nx - 1) if nx > 1 else 0.0
+    yinc = (ymax - ymin) / (ny - 1) if ny > 1 else 0.0
+
+    lines = []
+    lines.append(f"FSASCI 0 1 COMPUTED 0 {null_value:.6E}")
+    lines.append("FSATTR 0 0")
+    lines.append(f"FSLIMI {xmin:.6f} {xmax:.6f} {ymin:.6f} {ymax:.6f} {zmin:.6f} {zmax:.6f}")
+    lines.append(f"FSNROW {ny} {nx}")
+    lines.append(f"FSXINC {xinc:.6f} {yinc:.6f}")
+    lines.append(f"->MSMODL: {label}")
+
+    # Данные в Fortran-порядке, NaN -> null
+    flat = grid.astype(np.float64).flatten(order='F')
+    flat = np.where(np.isnan(flat), null_value, flat)
+
+    for i in range(0, flat.size, values_per_line):
+        chunk = flat[i:i + values_per_line]
+        lines.append(" ".join(value_format % float(v) for v in chunk))
+
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write("\n".join(lines) + "\n")
+
+
 def resample_grid_to_reference(src_grid: np.ndarray, src_meta: dict, ref_meta: dict) -> np.ndarray:
     """
     Переносит исходный грид на геометрию референсного грида (структурной карты)

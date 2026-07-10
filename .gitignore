@@ -32,6 +32,9 @@ logs/
 data/cps/
 data/raw/
 data/images_orig/
+
+# Артефакты инференса: cps-гриды предсказанных масок ловушек (регенерируются через run_inference.py).
+data/inference/
 test_something.py
 checkpoints/
 gradient_anomalies/
@@ -50,3 +53,5 @@ cps_v1/
 
 # Презентации (не коммитим — генерируются локально)
 presentations/
+
+materials/

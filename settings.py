@@ -31,7 +31,12 @@ class Settings(BaseSettings):
     LOGS_TRAIN_VIZ_DIR: str = './logs/visualizations/'
     LOGS_VAL_VIZ_DIR: str = './logs/val_visualizations/'
     LOGS_TEST_VIZ_DIR: str = './logs/test_visualizations/'
+    LOGS_INFER_VIZ_DIR: str = './logs/inference/'
     LOGS_OVERFIT_CHECK_DIR: str = './logs/overfit_check/'
+
+    # Артефакты инференса: cps-гриды предсказаний (маски ловушек), накладывающиеся
+    # на исходные структурные карты. Не хранятся в git — см. .gitignore.
+    INFERENCE_OUTPUT_DIR: str = './data/inference/'
     GRAD_ANOMALIES_DIR: str = './gradient_anomalies/'
     CUSTOM_TEST_FILES_DIR: str = './logs/custom_test_files.json'
     CUSTOM_VAL_FILES_DIR: str = './logs/custom_val_files.json'
@@ -94,7 +99,21 @@ class Settings(BaseSettings):
 
     # Метрики
     TEST_THRESHOLD: float = 0.5
-    
+
+    # Инференс
+    # Порог бинаризации вероятностей ловушек в итоговую маску.
+    INFERENCE_THRESHOLD: float = 0.5
+    # Морфологическая очистка предсказаний: убрать связные компоненты меньше этой
+    # площади (в пикселях) — шум/спорадические мелкие блобы. 0 = отключено.
+    INFERENCE_MIN_TRAP_AREA_PX: int = 0
+    # Заполнять дыры внутри замкнутых областей ловушек (binary_fill_holes).
+    INFERENCE_FILL_HOLES: bool = False
+    # Test-time augmentation: усреднение предсказаний для исходного и
+    # горизонтально отражённого тайла (сглаживает швы, ~x2 к времени инференса).
+    INFERENCE_TTA: bool = False
+    # Сохранять дополнительно cps-грид непрерывных вероятностей [0, 1] рядом с бинарной маской.
+    INFERENCE_SAVE_PROBABILITY: bool = False
+
     # Устройство
     DEVICE: str = 'cuda' if torch.cuda.is_available() else 'cpu'
     
@@ -113,6 +132,8 @@ class Settings(BaseSettings):
     def create_dirs(self):
         self.checkpoint_path.mkdir(parents=True, exist_ok=True)
         self.logs_path.mkdir(parents=True, exist_ok=True)
+        Path(self.LOGS_INFER_VIZ_DIR).mkdir(parents=True, exist_ok=True)
+        Path(self.INFERENCE_OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
 
 
 # Глобальный экземпляр настроек
