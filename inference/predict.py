@@ -58,6 +58,8 @@ def run_inference(
     fill_holes: bool = None,
     tta: bool = None,
     save_probability: bool = None,
+    save_viz: bool = True,
+    compute_metrics: bool = True,
     viz_alpha: float = 0.4,
     keep_temp: bool = False,
 ) -> Dict:
@@ -77,6 +79,9 @@ def run_inference(
         fill_holes: заполнять дыры в ловушках (default settings).
         tta: test-time augmentation горизонтальным отражением (default settings).
         save_probability: дополнительно сохранить cps вероятностей (default settings).
+        save_viz: сохранять визуализации на полную карту (PNG). False — только CPS + метрики.
+        compute_metrics: считать метрики (требует y_traps GT). False — только инференс, метрики
+            пропускаются даже если GT есть. Для реального применения без GT — безопасно оставить True.
         viz_alpha: прозрачность наложения предсказания.
         keep_temp: сохранить промежуточные файлы (тайлы/полные карты).
 
@@ -116,9 +121,10 @@ def run_inference(
     print(f"  Порог:           {threshold}")
     print(f"  Постобработка:   min_area={min_trap_area_px}, fill_holes={fill_holes}")
     print(f"  TTA:             {tta}    Сохранять вероятности: {save_probability}")
+    print(f"  Визуализации:    {save_viz}       Метрики (GT): {compute_metrics}")
     print(f"  Каналы:          {settings.IN_CHANNELS}")
     print(f"  CPS-артефакты:   {cps_out_root}")
-    print(f"  Визуализации:    {viz_dir}")
+    print(f"  Логи/метрики:    {viz_dir}")
     print("=" * 90)
 
     # --- Модель ---
@@ -166,6 +172,8 @@ def run_inference(
                 fill_holes=fill_holes,
                 tta=tta,
                 save_probability=save_probability,
+                save_viz=save_viz,
+                compute_metrics=compute_metrics,
                 viz_alpha=viz_alpha,
                 viz_dir=viz_dir,
                 cps_out_root=cps_out_root,
@@ -211,10 +219,6 @@ def run_inference(
 
     return summary
 
-
-# --------------------------------------------------------------------------------------
-# Внутренние хелперы
-# --------------------------------------------------------------------------------------
 
 def _load_model(checkpoint_path: str, device: str):
     """Загружает модель из чекпоинта (та же схема, что в evaluate_on_raw_cps)."""
@@ -271,12 +275,14 @@ def _infer_horizon(
     fill_holes: bool,
     tta: bool,
     save_probability: bool,
+    save_viz: bool,
+    compute_metrics: bool,
     viz_alpha: float,
     viz_dir: str,
     cps_out_root: str,
 ) -> Dict:
     """Полная обработка одного горизонта: каналы -> тайлы -> модель -> склейка -> артефакты."""
-    has_gt = 'traps' in files
+    has_gt = 'traps' in files and compute_metrics
 
     # 1. Структурный грид — референс геометрии: meta для записи CPS + valid_mask карты
     struct_grid, struct_meta = read_cps_grid(files['structural'])
@@ -344,27 +350,29 @@ def _infer_horizon(
             label=f"Predicted traps probability ({horizon})",
         )
 
-    # 8. Визуализация на полную карту
+    # 8. Визуализация на полную карту (опционально)
     gt_traps = images.get('traps') if has_gt else None
-    viz_path = os.path.join(viz_dir, f"{horizon}.png")
+    viz_path = None
 
-    # 9. Метрики по карте (если есть GT)
+    # 9. Метрики по карте (если есть GT и compute_metrics=True)
     metrics = None
     if has_gt and gt_traps is not None:
         metrics = _compute_fullmap_metrics(binary_mask, gt_traps, valid_mask, threshold)
 
-    visualize_full_map(
-        rgb_img=images['rgb'],
-        depth_img=images['grayscale'],
-        isolines_img=images['isolines'],
-        pred_mask=binary_mask,
-        valid_mask=valid_mask,
-        horizon=horizon,
-        out_path=viz_path,
-        gt_traps=gt_traps,
-        metrics=metrics,
-        alpha=viz_alpha,
-    )
+    if save_viz:
+        viz_path = os.path.join(viz_dir, f"{horizon}.png")
+        visualize_full_map(
+            rgb_img=images['rgb'],
+            depth_img=images['grayscale'],
+            isolines_img=images['isolines'],
+            pred_mask=binary_mask,
+            valid_mask=valid_mask,
+            horizon=horizon,
+            out_path=viz_path,
+            gt_traps=gt_traps,
+            metrics=metrics,
+            alpha=viz_alpha,
+        )
 
     print(f"\n  [{horizon}] тайлов: {len(placements)} | GT: {has_gt} | "
           f"ловушек в маске: {int(binary_mask.sum())} пикс.")

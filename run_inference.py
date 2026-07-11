@@ -24,4 +24,6 @@ results = run_inference(
     fill_holes=settings.INFERENCE_FILL_HOLES,
     tta=settings.INFERENCE_TTA,
     save_probability=settings.INFERENCE_SAVE_PROBABILITY,
+    save_viz=True,                         # False = только CPS-гриды, без PNG визуализаций
+    compute_metrics=True,                  # False = не считать метрики (y_traps GT не нужен)
 )
